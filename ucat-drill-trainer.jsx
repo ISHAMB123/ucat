@@ -1221,7 +1221,10 @@ function Calculator() {
 
 /* ------------------------------ DRILL RUNNER ---------------------- */
 
-function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, onDone, onQuit }) {
+function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, reviewEnd, onDone, onQuit }) {
+  /* No per-question feedback when timed, or when the user chose to review
+     only at the end. Feedback after each answer is the tutor default. */
+  const noFeedback = exam || reviewEnd;
   const [confirmExit, setConfirmExit] = useState(false);
   const [i, setI] = useState(0);
   const [val, setVal] = useState("");
@@ -1312,8 +1315,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, onDo
     const list = [...log, entry];
     setLog(list);
     setLastEntry(entry);
-    if (exam) {
-      /* Timed: no feedback, like the real UCAT. Move straight on. */
+    if (noFeedback) {
+      /* Timed, or review-at-end: no feedback now, move straight on. */
       advance(list);
     } else if (correct) {
       setPhase("celebrate");
@@ -1321,7 +1324,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, onDo
     } else {
       setPhase("review");
     }
-  }, [q, log, advance, exam]);
+  }, [q, log, advance, noFeedback]);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -1375,7 +1378,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, onDo
     const onKey = (e) => {
       if (!e.altKey) return;
       const k = e.key.toLowerCase();
-      if (k === "n") { e.preventDefault(); if (phaseRef.current === "answer") { if (exam || hasAnswer) submitExam(); } else advance(log); }
+      if (k === "n") { e.preventDefault(); if (phaseRef.current === "answer") { if (noFeedback || hasAnswer) submitExam(); } else advance(log); }
       if (k === "p") { e.preventDefault(); if (!exam) goBack(); }
       if (k === "f") { e.preventDefault(); setFlagged((f) => f.includes(i) ? f.filter((x) => x !== i) : [...f, i]); }
       if (k === "c") { e.preventDefault(); setCalcOpen((o) => !o); }
@@ -1547,8 +1550,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, onDo
           <span className="vx-spacer" />
           <span className="vx-hint">Alt+N next · Alt+F flag · Alt+C calculator</span>
           {phase === "answer" ? (
-            <button className="vx-nav main" onClick={submitExam} disabled={!exam && !hasAnswer}>
-              {exam ? (i + 1 >= total ? "Finish ▶" : "Next ▶") : "Submit Answer"}
+            <button className="vx-nav main" onClick={submitExam} disabled={!noFeedback && !hasAnswer}>
+              {noFeedback ? (i + 1 >= total ? "Finish ▶" : "Next ▶") : "Submit Answer"}
             </button>
           ) : (
             <button className="vx-nav main" onClick={() => { setShowWhy(false); advance(log); }}>
@@ -2150,6 +2153,13 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
           <div className="row">
             <button className={!prefs.exam ? "on" : ""} onClick={() => setPrefs({ ...prefs, exam: false })}>Untimed</button>
             <button className={prefs.exam ? "on" : ""} onClick={() => setPrefs({ ...prefs, exam: true })}>Timed</button>
+          </div>
+        </div>
+        <div className="grp">
+          <label>Feedback</label>
+          <div className="row">
+            <button className={!prefs.reviewEnd ? "on" : ""} onClick={() => setPrefs({ ...prefs, reviewEnd: false })}>After each</button>
+            <button className={prefs.reviewEnd ? "on" : ""} onClick={() => setPrefs({ ...prefs, reviewEnd: true })}>At the end</button>
           </div>
         </div>
         <div className="grp">
@@ -5048,7 +5058,7 @@ export default function UcatDrillTrainer() {
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && !["speed", "blurt"].includes(drill.id) && (
         <DrillRunner drill={drill} questions={questions} exam={runExam} budget={runBudget}
-          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} onDone={done} onQuit={() => setView("drills")} />
+          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} onDone={done} onQuit={() => setView("drills")} />
       )}
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}

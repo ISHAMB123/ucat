@@ -1,0 +1,23 @@
+name: CI
+
+# Runs the quality gate on every push and pull request: install, lint
+# (catches undefined references / missing imports), production build, and
+# the full test suite. Keep this green before merging.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test

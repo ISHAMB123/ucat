@@ -2776,6 +2776,8 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
   const WRITE_SECS = 45;
 
   const doMark = () => {
+    const wc = text.trim().split(/\s+/).filter(Boolean).length;
+    if (wc < 15) { setResult({ tooShort: true }); setLines(null); return; }
     setResult(markAnswer(text));
     setLines(analyseAnswer(text));
     if (tPhase !== "off") setTPhase("done");
@@ -2847,13 +2849,18 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-        <button className="ud-btn" disabled={text.trim().split(/\s+/).filter(Boolean).length < 15} onClick={doMark}>Mark my answer</button>
+        <button className="ud-btn" onClick={doMark}>Mark my answer</button>
         <button className="ud-btn ghost" onClick={nextQ}>Next question</button>
         <button className="ud-btn ghost" onClick={() => setShowSamples((o) => !o)}>{showSamples ? "Hide" : "See"} a strong vs weak answer</button>
       </div>
       <MarkingNotice />
 
-      {result && (
+      {result && result.tooShort && (
+        <p className="wp-note" style={{ color: "var(--signal)", marginTop: 12 }}>
+          Write a little more first, at least a couple of sentences (around 15 words), then tap Mark my answer.
+        </p>
+      )}
+      {result && !result.tooShort && (
         <div className="wp-result">
           <p className="band">
             <b className={result.band.toLowerCase()}>{result.score}<em>/100</em></b>

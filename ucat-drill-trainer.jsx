@@ -2572,11 +2572,6 @@ const CSS = `
 .lk-pill { background:var(--slate); border:1px solid var(--signal); border-radius:3px; padding:9px 14px; display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--body); box-shadow:0 4px 14px #0e131955; }
 .lk-pill b { color:var(--signal); font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.1em; }
 .lk-pill button { background:var(--signal); color:#131A22; font-size:12px; font-weight:600; padding:6px 11px; border-radius:3px; }
-.charity { display:flex; gap:16px; align-items:flex-start; border:1px solid var(--go); border-radius:4px; background:var(--slate); padding:20px; margin-top:22px; animation:udrise .4s ease both; }
-.charity .ic { width:34px; height:34px; border-radius:50%; background:var(--go); color:#0E1319; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
-.charity h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:19px; margin:0 0 8px; letter-spacing:-0.02em; }
-.charity p { font-size:13px; color:var(--body); line-height:1.65; margin:0 0 9px; }
-.charity .small { font-size:11.5px; color:var(--mute); margin:0; }
 .qs-tab { margin:4px 0 16px; }
 .qs-tab .cap { font-size:12.5px; font-weight:600; margin:0 0 8px; color:#131A22; }
 .qs-tab table { border-collapse:collapse; width:100%; font-size:12.5px; }
@@ -5732,11 +5727,6 @@ function Locked({ children, onUnlock, label }) {
   );
 }
 
-const CHARITY = {
-  cause: "orphanages in Bangladesh",
-  share: "a fixed share of every sale",
-};
-
 /* ------------------------------ STATEMENT BUILDER ----------------- */
 /* Critiques and organises the student's own material. It never       */
 /* writes content: a statement drafted by software is misconduct      */
@@ -6609,15 +6599,6 @@ function BillingView({ unlocked, onUnlock, email }) {
           </div>
         </div>
       )}
-
-      <div className="charity">
-        <span className="ic" aria-hidden="true">♥</span>
-        <div>
-          <h3>Where the money goes</h3>
-          <p>{CHARITY.share.charAt(0).toUpperCase() + CHARITY.share.slice(1)} goes to {CHARITY.cause}. Not a marketing line: the percentage is fixed, the donations are made on a set schedule, and receipts are published so anyone can check.</p>
-          <p className="small">If you are reading this before the first receipts are posted, treat the commitment as stated but unproven, and hold us to it.</p>
-        </div>
-      </div>
 
       <div className="bill-faq">
         <div><b>Why one payment instead of a subscription?</b><p>Because you sit the UCAT once. Monthly billing quietly charges people who have already finished, and nobody should need to remember to cancel a study tool the week of their exam.</p></div>

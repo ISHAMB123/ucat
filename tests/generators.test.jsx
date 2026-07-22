@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan,
-  makeTfc, makeSjt, makeDm, makeVenn, buildVrMock, buildQrMock,
+  makeTfc, makeSjt, makeDm, makeVenn, buildVrMock, buildQrMock, buildDmMock,
 } from "../ucat-drill-trainer.jsx";
 
 /* Every generated question's stated answer must resolve to a real
@@ -106,5 +106,13 @@ describe("generators produce answers that exist in their options", () => {
   it("buildQrMock", () => {
     for (let week = 1; week < 30; week++) for (let slot = 0; slot < 3; slot++)
       buildQrMock(week, slot).flat.forEach((q) => checkQuestion(q, "buildQrMock"));
+  });
+
+  it("mini mocks (VR, QR, DM)", () => {
+    for (let week = 1; week < 30; week++) for (let slot = 0; slot < 5; slot++) {
+      buildVrMock(week, slot, true).flat.forEach((q) => checkQuestion(q, "vrMini"));
+      buildQrMock(week, slot, true).flat.forEach((q) => checkQuestion(q, "qrMini"));
+      buildDmMock(week, slot).flat.forEach((q) => checkQuestion(q, "dmMini"));
+    }
   });
 });

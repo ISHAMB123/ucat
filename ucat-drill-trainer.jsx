@@ -514,31 +514,49 @@ const VR_MOCK_SECONDS = VR_MOCK_QCOUNT * 30;   /* the real section's pace: 44 Qs
 const QR_MOCK_QCOUNT = 36;
 const QR_MOCK_SECONDS = 26 * 60;       /* full length: 36 Qs in 26:00, matching the exam */
 
-function buildVrMock(week, slot) {
+function buildVrMock(week, slot, mini) {
   /* The real section mixes true/false/can't tell sets with inference sets,
-     so two evidence sets plus one TFC set reproduces the same texture.     */
-  const sets = seeded(week * 97 + slot * 13 + 7, () => shuffle(MOCK_BANK)).slice(0, 2);
+     so evidence sets plus a TFC set reproduce the same texture. Mini uses
+     one evidence set plus one TFC set for a quick eight-question paper.     */
+  const nSets = mini ? 1 : 2;
+  const sets = seeded(week * 97 + slot * 13 + 7 + (mini ? 500 : 0), () => shuffle(MOCK_BANK)).slice(0, nSets);
   const flat = [];
   sets.forEach((set) => set.questions.forEach((q) => flat.push({ ...q, kindm: "vr", passage: mockPassage(set.pid) })));
-  const tfcId = seeded(week * 41 + slot * 7 + 5, () => pick(Object.keys(TFC_SETS)));
+  const tfcId = seeded(week * 41 + slot * 7 + 5 + (mini ? 500 : 0), () => pick(Object.keys(TFC_SETS)));
   const tp = PASSAGES.find((x) => x.id === tfcId);
   TFC_SETS[tfcId].forEach((item) => flat.push({
     kindm: "vr", stem: item.t, options: TFC, a: item.a, tfc: true,
     why: item.w, diagram: { type: "tfc" }, tag: "t" + tfcId,
     passage: { title: tp.title, text: tp.text },
   }));
-  return { title: `VR Mock ${"ABC"[slot]}`, flat, secs: VR_MOCK_SECONDS, perQ: 30 };
+  return { title: mini ? `VR Mini ${slot + 1}` : `VR Mock ${"ABC"[slot]}`, flat, secs: flat.length * 30, perQ: 30 };
 }
 
-function buildQrMock(week, slot) {
-  /* Real QR runs mostly as sets of four questions sharing one table, so the
-     mock is 28 set questions plus a short tail of standalone items.        */
-  const flat = seeded(week * 131 + slot * 17 + 3, () => {
-    const sets = makeQrSets(28, "medium");
-    const singles = makeEstimate(QR_MOCK_QCOUNT - 28, {}, "medium", null);
+function buildQrMock(week, slot, mini) {
+  /* Real QR runs mostly as sets of four questions sharing one table. Mini
+     is two tables' worth plus a couple of standalone items.                */
+  const setQ = mini ? 8 : 28;
+  const singleQ = mini ? 2 : QR_MOCK_QCOUNT - 28;
+  const flat = seeded(week * 131 + slot * 17 + 3 + (mini ? 500 : 0), () => {
+    const sets = makeQrSets(setQ, "medium");
+    const singles = makeEstimate(singleQ, {}, "medium", null);
     return [...sets, ...singles];
   }).map((q) => ({ ...q, kindm: "qr" }));
-  return { title: `QR Mock ${"ABC"[slot]}`, flat, secs: QR_MOCK_SECONDS, perQ: 43 };
+  return { title: mini ? `QR Mini ${slot + 1}` : `QR Mock ${"ABC"[slot]}`, flat, secs: flat.length * 43, perQ: 43 };
+}
+
+function buildDmMock(week, slot) {
+  /* DM mini paper: generated Venn questions plus the static logic,
+     probability and syllogism items, all multiple choice. */
+  const flat = seeded(week * 151 + slot * 19 + 11, () => {
+    const venns = makeVenn(5, "medium");
+    const statics = shuffle(DM_QUESTIONS).slice(0, 4).map((q) => ({
+      kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null,
+      tag: q.tag, why: q.why, improve: q.improve,
+    }));
+    return shuffle([...venns, ...statics]);
+  }).map((q) => ({ ...q, kindm: "dm" }));
+  return { title: `DM Mini ${slot + 1}`, flat, secs: flat.length * 60, perQ: 60 };
 }
 
 /* ------------------------------ DRILLS ---------------------------- */
@@ -4342,6 +4360,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   const week = weekNumber();
   const [type, setType] = useState("vr");
   const [slot, setSlot] = useState(0);
+  const [mini, setMini] = useState(false);
   const [phase, setPhase] = useState("idle");
   const [confirmExit, setConfirmExit] = useState(false);
   const [mock, setMock] = useState(null);
@@ -4357,7 +4376,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   /* True only when a real cross-device backend (Supabase) is live.
      Until then boards live on this device, so the copy must say so. */
   const boardGlobal = sharedIsGlobal();
-  const lbKey = `lb:${type}:w${week}:s${slot}`;
+  const lbKey = `lb:${mini ? "mini-" : ""}${type}:w${week}:s${slot}`;
 
   const finish = useCallback((ans, m) => {
     setAnswers(ans);
@@ -4383,9 +4402,11 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
     return () => clearInterval(t);
   }, [phase, mock, finish]);
 
-  const startMock = (t, sl) => {
-    const m = t === "vr" ? buildVrMock(week, sl) : buildQrMock(week, sl);
-    setType(t); setSlot(sl); setMock(m);
+  const startMock = (t, sl, isMini) => {
+    const m = isMini
+      ? (t === "vr" ? buildVrMock(week, sl, true) : t === "qr" ? buildQrMock(week, sl, true) : buildDmMock(week, sl))
+      : (t === "vr" ? buildVrMock(week, sl) : buildQrMock(week, sl));
+    setType(t); setSlot(sl); setMini(!!isMini); setMock(m);
     setPhase("run"); setI(0); setAnswers([]); setLeft(m.secs);
     setSubmitted(false); setBoard(null);
   };
@@ -4421,23 +4442,33 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
 
   /* ---------- idle: chooser ---------- */
   if (phase === "idle") {
-    const meta = type === "vr"
+    const slots = mini ? [0, 1, 2, 3, 4] : [0, 1, 2];
+    const full = type === "vr"
       ? { count: VR_MOCK_QCOUNT, mins: Math.round(VR_MOCK_SECONDS / 60), note: "Three passages at the exam's exact pace: 30 seconds a question, the same rate as 44 in 22:00. Fresh passage combinations every week." }
       : { count: QR_MOCK_QCOUNT, mins: 26, note: "Full length: 36 questions in 26 minutes, matching the real section. Freshly generated each week; everyone sits the identical paper." };
+    const note = mini
+      ? "Short papers for a spare ten minutes, at the exam's pace: five each for VR, QR and Decision Making, fresh every week."
+      : full.note;
     return (
       <div className="ud-wrap">
-        <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Weekly mocks</h2><i /><span>week {week % 1000} · three per section · boards reset weekly</span></div>
+        <div className="ud-sec" style={{ paddingTop: 32 }}><h2>{mini ? "Mini mocks" : "Weekly mocks"}</h2><i /><span>week {week % 1000} · boards reset weekly</span></div>
         <div className="ud-mode" style={{ paddingTop: 14 }}>
+          <span>Length</span>
+          <button className={!mini ? "on" : ""} onClick={() => { setMini(false); if (type === "dm") setType("vr"); }}>Full mock</button>
+          <button className={mini ? "on" : ""} onClick={() => setMini(true)}>Mini, five each</button>
+        </div>
+        <div className="ud-mode" style={{ paddingTop: 10 }}>
           <span>Section</span>
           <button className={type === "vr" ? "on" : ""} onClick={() => setType("vr")}>Verbal Reasoning</button>
           <button className={type === "qr" ? "on" : ""} onClick={() => setType("qr")}>Quantitative Reasoning</button>
+          {mini && <button className={type === "dm" ? "on" : ""} onClick={() => setType("dm")}>Decision Making</button>}
         </div>
-        <p className="ud-learn-intro">{meta.note} No feedback until the end, one clock, no pausing. Your score joins this week's board for that mock, {boardGlobal ? "shared with everyone sitting it" : "kept on this device"}.</p>
+        <p className="ud-learn-intro">{note} No feedback until the end, one clock, no pausing. Your score joins this week's board, {boardGlobal ? "shared with everyone sitting it" : "kept on this device"}.</p>
         <div className="ud-subs" style={{ paddingTop: 16 }}>
-          {[0, 1, 2].map((sl) => (
-            <button key={sl} className="ud-sub" disabled={!unlocked} onClick={() => startMock(type, sl)} style={{ padding: "16px 15px" }}>
-              <b>{type.toUpperCase()} Mock {"ABC"[sl]}</b>
-              <span>{meta.count} questions · {meta.mins}:00 · this week's paper{unlocked ? "" : " · locked"}</span>
+          {slots.map((sl) => (
+            <button key={sl} className="ud-sub" disabled={!unlocked} onClick={() => startMock(type, sl, mini)} style={{ padding: "16px 15px" }}>
+              <b>{type.toUpperCase()} {mini ? `Mini ${sl + 1}` : `Mock ${"ABC"[sl]}`}</b>
+              <span>{mini ? "quick timed paper" : `${full.count} questions · ${full.mins}:00`} · this week's paper{unlocked ? "" : " · locked"}</span>
             </button>
           ))}
         </div>
@@ -4492,6 +4523,38 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
                 </div>
                 <div className="ud-graph-x">{q.graph.labels.map((l) => <span key={l}>{l}</span>)}</div>
               </>
+            )}
+            {q.venn3 && (
+              <svg viewBox="0 0 300 178" style={{ width: "100%", maxWidth: 330, margin: "4px 0 12px" }} aria-label="Three-set Venn diagram">
+                <rect x="1" y="1" width="298" height="176" fill="#fff" stroke="#9DB2C8" rx="4" />
+                <circle cx="112" cy="66" r="47" fill="#2F71B81f" stroke="#2F71B8" strokeWidth="1.4" />
+                <circle cx="182" cy="66" r="47" fill="#F5A5241f" stroke="#B97A0E" strokeWidth="1.4" />
+                <circle cx="147" cy="118" r="47" fill="#3ECF8E1f" stroke="#1E8E5A" strokeWidth="1.4" />
+                <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.la}</text>
+                <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.lb}</text>
+                <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.lc}</text>
+                <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.a}</text>
+                <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.b}</text>
+                <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.c}</text>
+                <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.ab}</text>
+                <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.ac}</text>
+                <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.bc}</text>
+                <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.abc}</text>
+                <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="monospace">{q.venn3.none} neither</text>
+              </svg>
+            )}
+            {q.venn && (
+              <svg viewBox="0 0 300 140" style={{ width: "100%", maxWidth: 320, margin: "4px 0 12px" }} aria-label="Venn diagram">
+                <rect x="1" y="1" width="298" height="138" fill="#fff" stroke="#9DB2C8" rx="4" />
+                <circle cx="115" cy="70" r="48" fill="#2F71B822" stroke="#2F71B8" strokeWidth="1.5" />
+                <circle cx="185" cy="70" r="48" fill="#F5A52422" stroke="#B97A0E" strokeWidth="1.5" />
+                <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="monospace">{q.venn.la}</text>
+                <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="monospace">{q.venn.lb}</text>
+                <text x="95" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.onlyA}</text>
+                <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.both}</text>
+                <text x="205" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.onlyB}</text>
+                <text x="252" y="130" fontSize="11" fill="#5A6675" fontFamily="monospace">{q.venn.neither} neither</text>
+              </svg>
             )}
             <p className="ud-qs">{q.stem || q.prompt}</p>
             {(q.options).map((o, n) => (
@@ -4893,5 +4956,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  buildVrMock, buildQrMock, assessMed,
+  buildVrMock, buildQrMock, buildDmMock, assessMed,
 };

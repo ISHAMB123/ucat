@@ -11,6 +11,8 @@ import { PASSAGES, TFC, TFC_SETS } from "./data/vr.js";
 import { APPROP, IMPORT, SJT_THEMES, SJT_TYPES, SJT_SCENARIOS, SJT_LESSONS } from "./data/sjt.js";
 import { DM_QUESTIONS, DM_SUBS, VCTX, SYLL_SETS } from "./data/dm.js";
 import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UNIS } from "./data/universities.js";
+import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
+import { PS_TOTAL, PS_WORDS, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
 
 /* ================================================================== */
 /*  TEMPO, a UCAT trainer.                                             */
@@ -2556,84 +2558,6 @@ const IV_DELIVERY = [
   { h: "The basics carry marks", p: "Sit up, smile when you greet, look at the camera or the person, and thank them at the end. Stations are short; first impressions are a real fraction of the score whether anyone admits it or not." },
 ];
 
-const IV_THEMES = [
-  {
-    id: "motivation", name: "Motivation", tracks: ["dent", "med"],
-    what: "The single most predictable station. They are testing whether your reasons survive contact with reality, not whether they sound noble.",
-    qs: [
-      { q: "Why dentistry?", t: "dent", g: "Structure it as a journey: the spark, how you tested it (work experience, conversations, reading), and what confirmed it despite the downsides. Name something specific you saw. Mention what dentistry gives that medicine does not: ownership of treatment start to finish, manual craft, running a practice, work-life balance stated carefully. The trap is generic 'helping people', which fits forty careers." },
-      { q: "Why medicine?", t: "med", g: "Same journey shape: spark, testing, confirmation. Tie it to evidence from your own experience, then show realism: mention a difficulty you observed (pressure, rationing, emotional load) and why you still choose it. Wanting the science plus the human contact is fine if you can name a moment that proved both to you." },
-      { q: "Why not medicine instead?", t: "dent", g: "They want a positive case for dentistry, not a rejection of medicine. Talk about definitive treatment in one chair, the craft element, long-term patient relationships, and earlier clinical independence. Never say easier hours as your lead reason, even if it is a real one; frame it as sustainable career design if it comes up." },
-      { q: "What will you find hardest about this career?", g: "Pick something real: repetitive strain and precision work, anxious or angry patients, NHS system pressure, business responsibility. Then show a coping strategy you already use. Claiming nothing will be hard scores zero for self-insight." },
-      { q: "If you don't get an offer this cycle, what will you do?", g: "The panel wants commitment with a spine. Give a concrete plan: which parts of the application you would strengthen, how you would use the year (work in a dental setting, deepen experience, retake the UCAT with a target), and that you would reapply. Vague devastation scores nothing; a calm rebuild plan shows the resilience the whole career demands." },
-      { q: "What do you know about the course at this university?", g: "Have three concrete facts: teaching style, when clinical contact starts, and one thing genuinely distinctive. Then link one of them to how you learn. This question is a free gift to anyone who did twenty minutes of research and a trap for everyone else." },
-    ],
-  },
-  {
-    id: "workexp", name: "Work experience", tracks: ["dent", "med"],
-    what: "Not a test of what you got access to. A test of what you extracted from whatever you got.",
-    qs: [
-      { q: "Tell me about your work experience.", g: "Pick two moments, not the whole diary. For each: what happened, what you noticed about the professional's behaviour, and what it taught you about the career. If your access was limited, say so plainly and show how you compensated: online programmes, speaking to professionals, volunteering. Honesty about limited access plus deep reflection beats exaggeration every time." },
-      { q: "Describe something difficult you observed and what you learnt.", g: "Choose a human moment: a frightened child, a patient refusing treatment, bad news delivered. Describe the professional's technique specifically (kneeling to eye level, offering control back, chunking information). Then the lesson, then how you have used it since. STARR fits perfectly here." },
-      { q: "What did you learn about teamwork from your experience?", g: "Name the roles you saw and what each actually did: nurse, hygienist, therapist, receptionist, technician. The insight that scores: the clinician is one part of a system, and care fails when any link fails. If you saw a handover or a disagreement handled well, that is your story." },
-      { q: "Describe a team that failed at something. What was your part in the failure?", g: "The trap is blaming everyone else. Own a specific contribution: you stayed quiet when you disagreed, you took too much on instead of delegating, you assumed someone else had a task covered. Then the fix you applied in a later team. Interviewers rank the candidates who can locate themselves inside a failure far above those who narrate it from the outside." },
-      { q: "How has your experience changed your view of the career?", g: "The word they are listening for is realism. Something surprised you: the pace, the admin, how much talking there is, how physical the work is. Show your image updated and your commitment survived. A view that never changed suggests you were not paying attention." },
-    ],
-  },
-  {
-    id: "ethics", name: "Ethics", tracks: ["dent", "med"],
-    what: "Marked on process, not conclusion. They want to watch you weigh principles out loud: autonomy, doing good, avoiding harm, fairness, honesty.",
-    qs: [
-      { q: "A patient refuses treatment you believe they need. What do you do?", g: "Open with the principle: a competent adult can refuse anything, and your job becomes understanding why. Check capacity gently, explore the real barrier (fear, cost, a past experience), give clear information about consequences, and leave the door open. Never say you would persuade them until they agree; that is autonomy failure in one sentence." },
-      { q: "You smell alcohol on a colleague before they see patients. What do you do?", g: "Patient safety first and immediately: they must not see patients while you raise it with the supervising senior now, not after the list. Show compassion in the same breath, since this may be a health problem needing support, but be unambiguous that safety cannot wait on kindness. This is the most rehearsed scenario in interviews; the differentiator is balancing urgency with humanity." },
-      { q: "Should the NHS fund cosmetic treatment?", g: "Do not pick a side in the first sentence. Set up the tension: finite resources against real psychological benefit in some cases. Distinguish cosmetic from functional-with-cosmetic-benefit, mention fairness of consistent criteria, and land on a reasoned position while acknowledging the strongest opposing point. Balance then commitment is the full-marks shape." },
-      { q: "You make a clinical error that the patient has not noticed. What do you do?", g: "Duty of candour, stated as instinct: tell the patient, apologise, explain what it means and what happens next, document it, and report it so the system can learn. Mention that hiding it destroys the trust the entire profession runs on. Any hedging on whether to disclose is the wrong answer." },
-      { q: "A patient asks you a question you don't know the answer to. What do you say?", g: "The professional answer is comfortable honesty: say you don't know, say you will find out, and say when they will hear back. Never bluff, because confident wrongness in healthcare hurts people. If it helps, add how you would find out: a senior, guidelines, the notes. Interviewers ask this to see whether your ego can survive three small words." },
-      { q: "A 15-year-old asks for treatment and does not want their parents told.", g: "Show you know competence exists for under-16s: if they fully understand the treatment, they may consent, and confidentiality then generally applies. Encourage involving parents without requiring it, and know the safety exception: signs of harm or coercion change everything. Nuance here reads as genuine preparation." },
-    ],
-  },
-  {
-    id: "communication", name: "Communication and role play", tracks: ["dent", "med"],
-    what: "MMI role-play stations mark behaviour, not knowledge: whether you listen, check understanding, and respond to the person in front of you.",
-    qs: [
-      { q: "Explain a complicated process to someone with no background in it.", g: "Whatever the topic, the technique is: check what they already know, explain in three plain chunks with an everyday analogy, pause after each, then ask them to tell you what they took from it. Teach-back is the professional move almost no candidate uses; using it stands out instantly." },
-      { q: "Break unwelcome news to an actor (a cancelled procedure, a failed application).", g: "Warn, tell, pause. A short warning shot, the news itself in one clear sentence, then silence while they react. Acknowledge the emotion by name before any solutions. Candidates fail this station by talking through the silence; sitting with it calmly is the skill being marked." },
-      { q: "Calm an angry or upset person.", g: "Let them finish without interrupting, reflect back what you heard, apologise for the experience without inventing blame, then move to one concrete next step. The mark scheme is essentially: did you listen, did they feel heard, did you stay warm and steady. It is never about winning the argument." },
-      { q: "Talk to a nervous patient who fears the procedure.", g: "Especially live in dentistry, where fear is the biggest barrier to care. Name the fear as normal, offer control back (a raise-your-hand stop signal, explaining each step before doing it), and go at their pace. Showing you understand that trust is built in minutes and spent over years is the insight that scores." },
-    ],
-  },
-  {
-    id: "dexterity", name: "Manual dexterity", tracks: ["dent"],
-    what: "Dentistry-specific and beloved of Birmingham and Glasgow among others. They want evidence of fine motor skill and, more importantly, of practised patience.",
-    qs: [
-      { q: "What have you done that demonstrates manual dexterity?", g: "Concrete hobbies with progression beat one-off claims: instrument grades, sewing, model-making, art, calligraphy, coding-adjacent soldering, even consistent mirror-drawing practice. Describe a specific difficult piece and how many attempts it took. The reflection that lands: precision is mostly patience plus deliberate repetition, which is exactly what clinical skills training demands." },
-      { q: "Why does dexterity matter in dentistry?", g: "Work happens in a wet, moving, few-centimetre field, often in mirror image, for years without shortcuts. Connect it to patient outcomes: margins of error are fractions of a millimetre and mistakes are in someone's mouth. Then connect back to your evidence in one line." },
-    ],
-  },
-  {
-    id: "hot", name: "Hot topics", tracks: ["dent", "med"],
-    what: "They are not testing news recall. They are testing whether you can hold a balanced, structured position on the system you are joining.",
-    qs: [
-      { q: "What are the biggest challenges facing NHS dentistry?", t: "dent", g: "Know three: access (people struggling to find NHS dentists, rising DIY dentistry stories), the contract and units-of-dental-activity model discouraging NHS work, and workforce drift to private practice. For each, one sentence of cause and one of consequence. Finish with why you still want in: being part of fixing access is a legitimate, memorable answer." },
-      { q: "What pressures is the NHS under generally?", t: "med", g: "Pick three you can actually discuss: waiting lists and the elective backlog, workforce shortage and retention, and prevention versus treatment funding. Structure beats breadth. If asked for solutions, offer trade-offs rather than slogans; acknowledging that every fix costs something is what mature analysis sounds like." },
-      { q: "Should sugary drinks be taxed more heavily?", g: "A prevention classic that ties straight into dental caries. Weigh population health benefit and NHS savings against personal freedom and the regressive cost on poorer households, mention the reformulation effect the existing levy produced, then commit with reasoning. Bringing it back to what you would tell a patient shows applied thinking." },
-      { q: "Water fluoridation: for or against?", t: "dent", g: "The classic dental ethics-meets-policy question. Set the tension honestly: strong evidence it cuts decay across whole populations, particularly where brushing habits and dentist access are weakest, against the argument that mass medication removes individual choice. Mention that deprived areas gain most, which makes it partly a fairness question. Weigh both, then commit with your reasoning." },
-      { q: "How will AI change your profession?", g: "Sensible middle: strong at pattern tasks like radiograph screening and triage, nowhere near the hands, the judgement, or the trust relationship. The professional's job shifts toward verification and communication. Enthusiasm plus limits reads far better than either fear or hype." },
-    ],
-  },
-  {
-    id: "selfinsight", name: "Resilience and self-insight", tracks: ["dent", "med"],
-    what: "Courses are long and clinical life is heavy. They want evidence you know yourself, recover from failure, and have a life that sustains you.",
-    qs: [
-      { q: "Tell me about a time you failed.", g: "Pick a real failure with stakes, not a humblebrag. STARR it, spend most time on the reflection: what the failure exposed, what you changed, and a later moment proving the change stuck. Interviewers rate the candidates who own failure cleanly far above the ones who never seem to have any." },
-      { q: "What is your greatest weakness?", g: "A genuine one, currently managed: overcommitting, difficulty delegating, perfectionism only if you show its real cost and your specific countermeasure. Name the mechanism you use, not just intent. Fake weaknesses are marked as evasion." },
-      { q: "Tell me about a time you changed your mind about something that mattered.", g: "This tests intellectual honesty. Pick a genuine reversal: a person you misjudged, a belief about the career, a study method you defended too long. Name the evidence that turned you and how quickly you let it. The insight that lands: changing your mind on evidence is a clinical skill, not a weakness, because patients pay when professionals cannot update." },
-      { q: "Teach me something you know well in one minute.", g: "A live test of audience awareness. Pick something small and concrete, check what they already know in one sentence, teach it in three steps with an everyday comparison, then close with a one-line summary. What is marked is not the topic but whether you structured for the listener and finished inside the time." },
-      { q: "How do you manage stress?", g: "Name your actual system: sport, music, faith, friends, structured planning, sleep discipline. Then prove it with a specific pressured period you got through and what you noticed about your limits. The word burnout used accurately, as something you actively design against, lands well." },
-      { q: "What would you bring to this university?", g: "Two specifics beat five generics: a society you would join or start, a skill you would teach others, a community thing you already do that you would continue. Tie one to something the university actually has. This is also a research question in disguise." },
-    ],
-  },
-];
 
 /* ------------------------------ UNI DATA -------------------------- */
 /* Figures compiled from the applicant's 2025-cycle research notes.   */
@@ -2796,136 +2720,6 @@ function assessUni(u, f) {
    These are NOT real interview questions.                              ---- */
 
 
-const MED_IV = {
-  m_manchester: { style: "mmi", fmt: "MMI circuit of short stations, each with a fresh assessor, typically including role play and ethics.",
-    course: "5 years MBChB. Problem-based learning from year one with early clinical contact, and a wide intercalation offer.",
-    hosp: "Teaching across Manchester Royal Infirmary, Wythenshawe, Salford Royal and partner trusts.",
-    socs: ["MedSoc is one of the largest societies in the country", "Strong global health and widening participation groups", "Sport takes over Wednesday afternoons"],
-    scene: "Oxford Road campus corridor, Northern Quarter nightlife, Peak District thirty minutes away.",
-    focus: ["Ethics", "Communication", "Teamwork", "Motivation", "NHS values"],
-    qs: ["Why PBL rather than a traditional lecture-based course?", "Tell me about a time you were the least experienced person in a team.", "What is the biggest threat to the NHS in the next ten years?", "How do you know you can cope with five years of this?"],
-    curve: ["Persuade me not to study medicine.", "What would your GP say about you as a patient?", "Is empathy teachable?"] },
-  m_leeds: { style: "mmi", fmt: "MMI stations covering communication, ethics, motivation and data or problem tasks.",
-    course: "5 years MBChB, integrated with clinical exposure from year one and a strong emphasis on reflective practice.",
-    hosp: "Leeds Teaching Hospitals including the LGI and St James's, one of the largest trusts in Europe.",
-    socs: ["MedSoc and a large charity fundraising culture", "Hyde Park student area", "Excellent hiking and climbing clubs"],
-    scene: "Compact campus, Yorkshire Dales an hour north, cheap living for a big city.",
-    focus: ["Reflection", "Ethics", "Communication", "NHS values", "Teamwork"],
-    qs: ["What did you learn about yourself from your work experience?", "How would you break bad news to a relative?", "Which NHS value do you find hardest to live up to?", "Describe a time you received criticism well."],
-    curve: ["Should doctors ever go on strike?", "What is the most overrated quality in a doctor?", "Teach me something in sixty seconds."] },
-  m_birmingham: { style: "mmi", fmt: "MMI circuit with multiple short stations including role play and ethical scenarios.",
-    course: "5 years MBChB. Lectures and small-group work with clinical placements building through the course.",
-    hosp: "Queen Elizabeth Hospital Birmingham and partner trusts across the West Midlands.",
-    socs: ["MedSoc, surgical and specialty societies", "Guild of Students is the largest in the UK", "Big volunteering and outreach culture"],
-    scene: "Green Edgbaston campus, canalside city centre, Balti Triangle nearby.",
-    focus: ["Motivation", "Ethics", "Communication", "Self-insight", "Teamwork"],
-    qs: ["Why medicine rather than another healthcare career?", "A friend asks you to write their essay. What do you do?", "What did you notice about how doctors talk to each other?", "What is your biggest weakness as a future doctor?"],
-    curve: ["Should the NHS treat smokers differently?", "What would you do with an extra hour every day?", "Explain the internet to a Victorian."] },
-  m_kcl: { style: "mmi", fmt: "MMI stations with communication and ethics prominent, sometimes including a written task.",
-    course: "5 years MBBS. Integrated course with substantial clinical volume across major London trusts.",
-    hosp: "Guy's, St Thomas' and King's College Hospital, three major London teaching sites.",
-    socs: ["Huge society range including specialty and cultural groups", "Rugby and rowing have long history", "Everything London offers"],
-    scene: "Guy's campus at London Bridge, the South Bank, Borough Market downstairs.",
-    focus: ["Communication", "Ethics", "Motivation", "Teamwork", "Hot topics"],
-    qs: ["What would you contribute to this medical school?", "How would you handle a patient who does not trust you?", "Talk me through an ethical dilemma you find genuinely difficult.", "Why London for five years?"],
-    curve: ["Is healthcare a right or a privilege?", "What is the last thing that changed your mind?", "Sell me this pen as if it were a treatment."] },
-  m_imperial: { style: "mmi", fmt: "MMI circuit with a strong science and problem-solving element alongside ethics and communication.",
-    course: "6 years MBBS with a compulsory intercalated BSc, heavy on scientific research.",
-    hosp: "Imperial College Healthcare including Charing Cross, Hammersmith and St Mary's.",
-    socs: ["Research and academic societies dominate", "Strong sports culture at Harlington", "ICSM has its own union traditions"],
-    scene: "South Kensington campus beside the museums, Hyde Park across the road.",
-    focus: ["Scientific reasoning", "Ethics", "Communication", "Motivation", "Resilience"],
-    qs: ["Why a course with a compulsory research year?", "How would you design a study to test a new treatment?", "Explain a scientific paper you have read.", "What interests you about academic medicine?"],
-    curve: ["Should we fund rare disease research or public health?", "What scientific idea do you think is wrong?", "Convince me that medicine is a science, not an art."] },
-  m_ucl: { style: "panel", fmt: "Panel interview, typically with two or three interviewers covering motivation, ethics and insight.",
-    course: "6 years MBBS with an integrated BSc, plus a distinctive humanities and social science strand.",
-    hosp: "UCLH, the Royal Free, the Whittington and specialist central London hospitals.",
-    socs: ["RUMS has strong sporting and social identity", "Arts and humanities crossover societies", "Central London everything"],
-    scene: "Bloomsbury campus, garden squares, the British Museum around the corner.",
-    focus: ["Motivation", "Ethics", "Insight", "Communication", "Wider reading"],
-    qs: ["What have you read recently that changed how you see medicine?", "Why does UCL teach humanities alongside science?", "What does being a professional actually mean?", "Describe a doctor you admire and why."],
-    curve: ["Does medicine need more artists?", "What is the worst advice you have been given?", "Should doctors be allowed to refuse treatment on moral grounds?"] },
-  m_qmul: { style: "mmi", fmt: "MMI stations at Barts, often including role play and communication tasks.",
-    course: "5 years MBBS. Integrated with early clinical contact and one of the most diverse patient populations in the UK.",
-    hosp: "Royal London in Whitechapel, Barts, and Newham among Barts Health sites.",
-    socs: ["Barts and the London has its own strong traditions", "Very diverse student community", "East London arts scene"],
-    scene: "Whitechapel and Mile End, Brick Lane, Victoria Park, the City nearby.",
-    focus: ["Communication", "Teamwork", "Ethics", "Motivation", "Diversity"],
-    qs: ["How does treating a diverse population change your job?", "Tell me about a time you worked with someone very different from you.", "What would you do if a patient needed an interpreter and none was available?", "Why medicine in East London?"],
-    curve: ["What does culture have to do with health?", "Who has the hardest job in a hospital?", "Should medical school be free?"] },
-  m_bristol: { style: "mmi", fmt: "MMI circuit covering motivation, ethics, communication and data interpretation.",
-    course: "5 years MBChB. Case-based integrated teaching with early patient contact.",
-    hosp: "Bristol Royal Infirmary and hospitals across the South West including academies.",
-    socs: ["Galenicals is the historic medical society", "Big outdoor, surf and sailing scene", "Strong music culture"],
-    scene: "Clifton and the suspension bridge, harbourside, the Downs, Cornwall two hours away.",
-    focus: ["Motivation", "Ethics", "Communication", "Data interpretation", "Problem solving"],
-    qs: ["Interpret this: admissions rose but mortality fell. What might explain it?", "How would you support a struggling colleague?", "What has your work experience taught you about limits?", "Why case-based learning?"],
-    curve: ["Should we ration healthcare by age?", "What would you fix first in the NHS?", "Describe medicine without using the word help."] },
-  m_sheffield: { style: "mmi", fmt: "MMI stations covering values, communication, ethics and motivation.",
-    course: "5 years MBChB with early clinical contact and integrated teaching.",
-    hosp: "Northern General, Royal Hallamshire and regional South Yorkshire placements.",
-    socs: ["MedSoc runs strong peer mentoring", "Outdoor societies dominate given the Peaks", "Cheap and famously friendly city"],
-    scene: "Campus running up the hill, Peak District starting at the city edge.",
-    focus: ["Values", "Communication", "Ethics", "Motivation", "Teamwork"],
-    qs: ["What values matter most in a doctor and why those?", "How do you handle being wrong?", "Tell me about a time you put someone else first.", "Why Sheffield specifically?"],
-    curve: ["Is kindness a skill or a personality trait?", "What would make you leave medicine?", "Explain death to a child."] },
-  m_newcastle: { style: "mmi", fmt: "MMI circuit with structured stations scored individually.",
-    course: "5 years MBBS. Integrated teaching with early clinical exposure and regional placements.",
-    hosp: "Royal Victoria Infirmary and Northumbria and Tees placements.",
-    socs: ["MedSoc with strong social identity", "Famous nightlife", "Coast and countryside both close"],
-    scene: "City-centre campus, Quayside bridges, Tynemouth beach on the Metro.",
-    focus: ["Motivation", "Teamwork", "Resilience", "Communication", "Empathy"],
-    qs: ["What will you find hardest about clinical years?", "Describe your role in a team that struggled.", "How do you recover from a bad day?", "What does empathy look like when you are exhausted?"],
-    curve: ["Should doctors show emotion in front of patients?", "What is the most useful thing you own?", "Argue that nurses matter more than doctors."] },
-  m_glasgow: { style: "mmi", fmt: "MMI stations, Scottish schools often blending panel-style depth with circuit format.",
-    course: "5 years MBChB with early clinical contact and vocational studies running throughout.",
-    hosp: "Queen Elizabeth University Hospital and west of Scotland placements.",
-    socs: ["GUSA sport is enormous", "MedChir society has long history", "Best music scene in Scotland"],
-    scene: "Gothic main campus, Kelvingrove, the West End, lochs an hour north.",
-    focus: ["Ethics", "Communication", "Empathy", "Teamwork", "Motivation"],
-    qs: ["How would you respond to a colleague who is not coping?", "What does patient-centred care actually mean?", "Tell me about a time you listened rather than spoke.", "Why Scotland?"],
-    curve: ["Should healthcare be free at the point of use everywhere?", "What is the hardest thing about being honest?", "Describe a hospital to someone who has never seen one."] },
-  m_edinburgh: { style: "panel", fmt: "Edinburgh weights the written application heavily and interviews vary; prepare panel-style depth.",
-    course: "6 years MBChB including a compulsory intercalated honours year.",
-    hosp: "Royal Infirmary of Edinburgh and Lothian sites.",
-    socs: ["Royal Medical Society, the oldest student medical society", "Huge arts scene during the Festival", "Hillwalking and skiing clubs"],
-    scene: "Old Town and Arthur's Seat, the Festival every August, Highlands within reach.",
-    focus: ["Academic depth", "Motivation", "Ethics", "Reflection", "Research"],
-    qs: ["Why a compulsory intercalated year?", "What area of medicine would you research and why?", "How do you evaluate whether a study is trustworthy?", "What has your reading taught you that experience has not?"],
-    curve: ["Is medicine becoming too specialised?", "What question should I have asked you?", "Defend a medical opinion you know is unpopular."] },
-  m_cardiff: { style: "mmi", fmt: "MMI circuit covering communication, ethics, motivation and problem solving.",
-    course: "5 years MBBCh, case-based learning with early clinical contact across Wales.",
-    hosp: "University Hospital of Wales at Heath Park and placements across Wales.",
-    socs: ["MedSoc and specialty societies", "Welsh-language societies", "Rugby dominates the city"],
-    scene: "Heath Park campus, Bute Park, Cardiff Bay, Brecon Beacons an hour away.",
-    focus: ["Communication", "Ethics", "Work experience", "Problem solving", "Hot topics"],
-    qs: ["How does healthcare differ in Wales?", "What did work experience teach you that surprised you?", "How would you approach a problem with no clear answer?", "What is the biggest public health issue today?"],
-    curve: ["Should health be devolved or national?", "What is the point of a doctor if AI can diagnose?", "Argue for something you disagree with."] },
-  m_liverpool: { style: "mmi", fmt: "MMI stations covering ethics, communication and motivation.",
-    course: "5 years MBChB, integrated with clinical contact from early in the course.",
-    hosp: "Royal Liverpool University Hospital, Alder Hey and regional placements.",
-    socs: ["LMSS with strong social calendar", "Guild of Students society range", "Football culture everywhere"],
-    scene: "Two cathedrals, the Baltic Triangle, the cheapest big-city living on the list.",
-    focus: ["Ethics", "Communication", "Motivation", "Teamwork", "Hot topics"],
-    qs: ["How would you handle a disagreement with a senior?", "What draws you to a city with high health inequality?", "Describe a time you advocated for someone.", "What is health inequality actually caused by?"],
-    curve: ["Is poverty a medical problem?", "What would you tell a patient who has given up?", "Should doctors treat friends?"] },
-  m_nottingham: { style: "mmi", fmt: "MMI circuit with stations covering communication, ethics and motivation.",
-    course: "5 years BMBS with an integrated BMedSci, so you graduate with a research degree built in.",
-    hosp: "Queen's Medical Centre, one of the largest hospitals in Europe, and Nottingham City Hospital.",
-    socs: ["MedSoc with strong sporting identity", "Research societies given the BMedSci", "Big campus social scene"],
-    scene: "Green University Park campus, lakes and open space, city centre nearby.",
-    focus: ["Motivation", "Research", "Communication", "Ethics", "Teamwork"],
-    qs: ["Why a course with a built-in research degree?", "How do you decide what evidence to trust?", "Tell me about a time you had to learn something quickly.", "What makes a good scientist a good doctor?"],
-    curve: ["Should every doctor do research?", "What is the biggest myth about medicine?", "Explain a randomised trial to a sceptic."] },
-  m_soton: { style: "mmi", fmt: "MMI circuit with stations covering values, communication and ethics.",
-    course: "5 years BM with an integrated research project year, strong early patient contact.",
-    hosp: "Southampton General and Wessex regional placements.",
-    socs: ["MedSoc and a large sailing scene", "Strong volunteering culture", "Beach and New Forest close"],
-    scene: "Coastal city, New Forest twenty minutes away, Isle of Wight across the water.",
-    focus: ["Values", "Communication", "Research", "Ethics", "Motivation"],
-    qs: ["What does evidence-based medicine mean in practice?", "How would you comfort someone you cannot cure?", "Tell me about a time you changed how you did something.", "Why a research-focused course?"],
-    curve: ["Is it ethical to give a placebo?", "What is the last thing you failed at?", "Should patients see their own notes?"] },
-};
 
 /* ---- Sentence level analysis: green, amber, red on the user's own text ---- */
 
@@ -3000,99 +2794,6 @@ const MODEL_SKELETON = {
 /* research. These are NOT the questions asked; they are the themes    */
 /* each school is reported to weight, turned into practice prompts.    */
 
-const UNI_IV = {
-  generic: { style: "both", fmt: "Generic practice covering both formats. MMI circuits move fast with a fresh marker each station; panels go deeper on fewer themes with follow-up questions.",
-    course: "Most UK dental degrees run five years, either integrated (science and clinics side by side from early on) or traditional (pre-clinical years first). Know which yours is and why it suits you.",
-    socs: ["Dental societies run skills evenings, mentoring and the annual ball at every school", "Sports and volunteering carry real weight in answers about contribution", "Outreach and charity work is the most quotable kind"],
-    scene: "Campus versus city, cost of living, and distance from home all legitimately belong in your reasoning when asked why here.",
-    curve: ["Sell me something in this room.", "What question were you hoping I would not ask?", "If you were not accepted anywhere, what would you tell yourself in a year?"],
-    focus: ["Motivation", "Ethics", "Communication", "Teamwork", "Resilience"],
-    qs: ["Why dentistry, and what tested that choice?", "Tell me about a time you handled a difficult conversation.", "What is the biggest issue facing dentistry right now?", "What would you contribute beyond the course?"] },
-  belfast: { style: "panel", course: '5 years BDS. Traditional mix of lectures, e-learning, practicals and clinical teaching, with treatment building from mid-course.', socs: ['Dental Society runs clinical skills evenings and the annual ball', 'Strong GAA and rugby culture', "Students' Union at Elmwood is the centre of everything"], scene: "Leafy Queen's Quarter, Botanic Gardens on the doorstep, Titanic Quarter twenty minutes away, and the Antrim coast within an hour.", curve: ['If you had to remove one year from the course, which and why?', 'A patient tells you they trust a TikTok video over your advice. Go.', 'Teach me to tie a shoelace without using your hands.'], fmt: "In person, international candidates online. Interview performance carries the entire post-interview weighting.",
-    focus: ["Resilience", "Communication", "Empathy", "Ethics", "Understanding of dentistry"],
-    qs: ["Describe a time you kept going when something was not working. What kept you there?",
-         "How would you explain a difficult diagnosis to someone frightened of dentists?",
-         "What does empathy look like in a five-minute appointment?",
-         "What do you actually understand dentistry to involve day to day?"] },
-  birmingham: { style: "mmi", course: '5 years BDS. Small-group PBL with lectures and lab work. Observing treatments from first year, carrying them out from second.', socs: ['BDSA runs socials, sports and the dental ball', 'Guild of Students is the largest in the UK', 'Dental charity work through outreach societies'], scene: 'Green Edgbaston campus with the clock tower, canalside city centre, Balti Triangle nearby, and the Lickey Hills for escape.', curve: ['Sell me a toothbrush.', 'You have five minutes with the Health Secretary. What do you say?', 'Is it ever right to refuse to treat someone?'], fmt: "In person, four stations split into eight parts.",
-    focus: ["Motivation", "Manual dexterity", "Leadership", "Self-insight", "Ethical reasoning"],
-    qs: ["What have you done that proves fine motor skill, and how did you improve at it?",
-         "Tell me about a time you led without holding any authority.",
-         "What is the most useful piece of criticism you have received?",
-         "Walk me through how you would weigh up an ethical dilemma you have never met before."] },
-  bristol: { style: "mmi", course: '5 years BDS built around four development themes: practitioner, scholar and scientist, professional and agent of change, person and citizen.', socs: ['Galenicals and the dental society run mentoring', 'Big outdoor and surf societies given the coast', 'Students deliver thousands of free NHS appointments'], scene: "New city-centre dental school beside the BRI, harbourside and street art, the Downs for running, and Cornwall's beaches two hours west.", curve: ['What would you do if you found out dentistry was not for you in third year?', 'Interpret this: decay rates fell but extractions rose. Why might that be?', 'Convince me that dentistry is harder than medicine.'], fmt: "Virtual, six stations, five minutes each.",
-    focus: ["Motivation for dentistry", "Role play", "Communication", "Data interpretation", "Problem solving"],
-    qs: ["In one minute: why dentistry, and what tested that choice?",
-         "Role play: a patient is upset that their appointment was cancelled twice. Begin.",
-         "You are shown a chart of decay rates by region. What questions would you ask before drawing conclusions?",
-         "How do you approach a problem when you have no idea where to start?"] },
-  cardiff: { style: "mmi", course: '5 years BDS. Traditional integrated course blending pre-clinical science with patient exposure from early on.', socs: ['Cardiff Dental Society is famously active', 'Welsh-language societies and a huge sports scene', 'Rugby internationals shut down the city centre'], scene: "Heath Park campus, Bute Park's woodland walks, Cardiff Bay, and the Brecon Beacons within an hour.", curve: ['Should dentists be allowed to advertise?', 'Your patient is late every time and blames the bus. What now?', 'What is the most important invention in dentistry?'], fmt: "In person, with rest stations built into the circuit.",
-    focus: ["Communication", "Work experience", "Hot topics", "Problem solving", "Ethics"],
-    qs: ["What did your work experience teach you that reading could not?",
-         "What is the biggest issue facing NHS dentistry right now, and why that one?",
-         "Describe a problem you solved where your first approach failed.",
-         "When is it right to overrule what a patient wants?"] },
-  dundee: { style: "mmi", course: '5 years BDS on a 4-dimensional spiral curriculum: foundations laid early, then revisited and deepened each year.', socs: ['Dental society with strong year-group mixing', 'Cheap living funds an active social scene', 'Hillwalking and mountaineering clubs are big'], scene: 'Compact campus with the dental school right inside it, V&A Dundee on the waterfront, and the Highlands at weekend distance.', curve: ['Thiel cadavers are used here. How do you feel about that?', 'A colleague asks you to sign their attendance sheet. They are not here.', 'What does a good dentist do that a competent one does not?'], fmt: "In person, seven stations, rest stations present.",
-    focus: ["Role play", "Critical thinking", "Work experience", "Ethics", "Communication"],
-    qs: ["Role play: explain to a friend why they should not skip a dental appointment they are scared of.",
-         "Someone tells you a treatment is unnecessary because they read it online. What do you do?",
-         "What surprised you most about the profession when you saw it up close?",
-         "How do you decide what is true when experts disagree?"] },
-  glasgow: { style: "panel", course: '5 years BDS, traditionally structured: two pre-clinical years of clinical science, then three clinical years applying it.', socs: ['GUSA sports is enormous', 'Dental society runs skills sessions and charity work', 'One of the best student music scenes in the UK'], scene: "Gothic main campus, Kelvingrove museum and park, the West End's bars and cafes, and lochs an hour north.", curve: ['Why traditional teaching rather than integrated?', 'Rank these: honesty, competence, kindness. Defend your order.', 'Explain a filling to a frightened seven-year-old. I am the child.'], fmt: "In person, panel format, common in Scotland.",
-    focus: ["Ethics", "Empathy", "Communication", "Leadership", "Dexterity"],
-    qs: ["Tell me about a time you noticed someone struggling before they said anything.",
-         "How would you handle a patient who refuses treatment you believe they need?",
-         "What role do you take in a group that has no leader?",
-         "What have you practised until your hands got better at it?"] },
-  kcl: { style: "panel", course: "5 years BDS. Integrated course with haptic and augmented reality simulation, then high clinical volume through Guy's.", socs: ['KCLDS is one of the largest dental societies', 'Rugby and rowing have serious history here', 'Every London society you can imagine'], scene: "Guy's Tower at London Bridge, Borough Market beneath it, the South Bank walk, and all of London beyond.", curve: ['Is private dentistry ethical?', 'You are running forty minutes late and a patient is furious. Begin.', 'What would your worst enemy say about you?'], fmt: "Virtual panel interview with two interviewers.",
-    focus: ["Communication", "Ethics", "Contribution to university", "Work experience", "Hot topics"],
-    qs: ["What would you contribute to this university outside the course?",
-         "Talk me through an ethical issue in dentistry you find genuinely difficult.",
-         "What is the most important thing you learnt from any work experience?",
-         "Pick a health story from the last year and tell me why it matters to dentistry."] },
-  leeds: { style: "mmi", course: '5 years BDS, integrated with clinical exposure from year one. The only UK dental degree with an integrated masters.', socs: ['Leeds Dental Society and a big charity fundraising culture', 'Hyde Park student area is legendary', 'Excellent hiking and climbing clubs'], scene: 'Worsley Building in the university precinct, Hyde Park terraces, and the Yorkshire Dales an hour north.', curve: ['Which NHS value would you drop if forced?', 'A patient refuses treatment because of their beliefs. Talk me through it.', 'What is wrong with the way dentistry is taught?'], fmt: "Previously five-station online MMIs. Leeds publishes little in advance.",
-    focus: ["Ethics", "Hot topics", "NHS values", "Communication"],
-    qs: ["Which NHS value matters most in a dental practice, and why that one?",
-         "How would you respond to a colleague cutting corners on infection control?",
-         "What is your view on charging patients for missed appointments?",
-         "Explain something you know well to someone who knows nothing about it."] },
-  liverpool: { style: "mmi", course: '5 years BDS. Integrated teaching with patient contact from first year, one of the earliest starts in the UK.', socs: ['LUDSS runs the dental ball and sports teams', 'Guild of Students has huge society range', 'Football culture dominates the city'], scene: 'Pembroke Place dental hospital near central campus, two cathedrals, the Baltic Triangle, and the cheapest big-city living on this list.', curve: ['Your non-academic form is what got you here. Justify it.', 'Should missed appointments be charged for?', 'Describe your hands to me.'], fmt: "In person, eleven stations including two rest stations.",
-    focus: ["Ethics", "Communication", "Hot topics", "Motivation for dentistry"],
-    qs: ["Why dentistry rather than any other healthcare career?",
-         "A patient asks you to do something you think is wrong. Talk me through your thinking.",
-         "What would you change about how dental care is delivered?",
-         "Describe a conversation where you changed someone's mind."] },
-  manchester: { style: "mmi", course: '5 years BDS balancing traditional grounding, including dissection-based anatomy which is rare in dentistry, with early clinical exposure and PBL.', socs: ['MUDSS is very active socially', 'Interdisciplinary learning with dental nursing and therapy students', 'Music scene is the best in England'], scene: 'Oxford Road corridor campus, Northern Quarter for nights out, Peak District thirty minutes east.', curve: ['You learn alongside therapists here. Is that a good thing?', 'What is the strongest argument against water fluoridation?', 'Tell me about a time you were unfair to someone.'], fmt: "In person, five stations, seven minutes each with two-minute gaps.",
-    focus: ["Ethics", "Communication", "Hot topics", "Motivation", "Work experience"],
-    qs: ["What did you notice about how the dental team worked together?",
-         "Should the NHS fund treatment for preventable conditions differently? Argue both sides.",
-         "Tell me about a time you were wrong and someone else was right.",
-         "How do you keep going through a five-year course when motivation dips?"] },
-  newcastle: { style: "panel", course: '5 years BDS. Lectures, seminars and lab demonstrations, with first years shadowing seniors on clinics.', socs: ['Newcastle Dental Society is tight-knit', 'Famous nightlife and student culture', 'Coast and countryside both close'], scene: 'Richardson Road dental hospital on the medical campus, Quayside bridges, Tynemouth beach on the Metro.', curve: ['You are scored out of 30 today. Which category do you expect to lose marks in?', 'What have you failed at recently?', 'Should a dentist ever treat a family member?'], fmt: "In person panel, roughly twenty minutes, two interviewers, scored out of 30.",
-    focus: ["Motivation", "Effective learning skills", "Teamwork", "Resilience", "Empathy and professionalism"],
-    qs: ["How do you learn best, and what evidence do you have for that?",
-         "Describe your part in a team that achieved something difficult.",
-         "What is the hardest setback you have handled, and what did it change?",
-         "What does professionalism mean to a student, not a qualified dentist?"] },
-  plymouth: { style: "mmi", course: '5 years BDS beginning in PBL groups from day one, mirroring how dental teams actually work, with study guides and wrap-up sessions.', socs: ['Peninsula Dental Social Enterprise volunteering', 'Surf society is genuinely serious here', 'Small cohort means everyone knows everyone'], scene: 'Derriford and city education facilities, the Hoe overlooking Plymouth Sound, Dartmoor twenty minutes away.', curve: ["How does poor oral health wreck someone's life?", 'Your PBL group has one person doing nothing. Fix it.', 'What does inclusive care actually mean?'], fmt: "In person, five stations, four interviewers, around 55 minutes, each station scored numerically.",
-    focus: ["Communication", "Impact of illness", "Reflection and self-insight", "Resilience and adaptability", "Integrity and inclusivity"],
-    qs: ["How does poor oral health affect the rest of someone's life?",
-         "Tell me about a time you adapted when plans changed suddenly.",
-         "What does inclusive care mean in practice, not in theory?",
-         "What is something about yourself you are actively working on?"] },
-  qmul: { style: "panel", course: '5 years BDS. Integrated with clinics from first year, drawing on one of the most diverse patient populations in Europe.', socs: ['QMBL dental society and Barts history', 'Huge international student community', 'East London arts and music on the doorstep'], scene: 'Institute of Dentistry at the Royal London in Whitechapel, Brick Lane, Victoria Park, and the City ten minutes west.', curve: ['A member of the public is on this panel. Explain dentistry to them.', 'What does diversity change about how you treat patients?', 'Why should we pick you over someone with a higher UCAT?'], fmt: "Virtual panel including clinical staff, a dental student and a member of the public.",
-    focus: ["Motivation for dentistry", "Teamwork", "Communication", "Contribution to university life", "Ethics"],
-    qs: ["A member of the public is on your panel. Explain why you want to be a dentist in plain language.",
-         "What would you bring to student life here beyond your studies?",
-         "Describe a time teamwork failed and what you took from it.",
-         "How would you treat a patient whose beliefs conflict with your advice?"] },
-  sheffield: { style: "panel", course: '5 years BDS teaching theory alongside clinical practice, training dentists beside hygiene and therapy students.', socs: ['Sheffield Dental Society runs strong mentoring', 'Outdoor societies dominate given the Peaks', 'Famously friendly, low-cost student city'], scene: 'Charles Clifford dental hospital by the Royal Hallamshire, and the Peak District literally starts at the city edge.', curve: ['Why dentistry, without saying you want to help people?', 'Take something from A-level biology and apply it to gum disease.', 'What would make you quit this career?'], fmt: "In person panel, around fifteen minutes, two staff and one senior student.",
-    focus: ["Why dentistry", "Hot topics", "Applying knowledge", "Work experience", "Personal qualities and values"],
-    qs: ["Why dentistry, in under a minute, without saying you want to help people?",
-         "Take something you learnt in science and apply it to a dental problem.",
-         "What personal quality of yours will matter most in clinic?",
-         "What is a current issue in oral health you would want to work on?"] },
-};
 
 /* ------------------------------ ANSWER MARKER --------------------- */
 /* Rule-based marking against a published scheme: structure,          */
@@ -3152,11 +2853,6 @@ function markAnswer(text) {
   return { crits, total: raw, score, band };
 }
 
-const IV_SAMPLES = {
-  strong: "During my Year 12 first aid course, our group of five had to run a mock emergency and we froze because two people both tried to lead. I suggested we each take one role and asked the quietest member to be the caller, since she had the checklist memorised. I took the recovery position because I had practised it most. We finished inside the time and the assessor credited the role split. Looking back, the real lesson was that teams fail from unclaimed roles more than from weak members, and since then I start every group task by agreeing who owns what, which is exactly how I saw the dental nurse and dentist divide an emergency when I was on work experience.",
-  weak: "I am a really good team player and I always help everyone in my team. In school we do lots of group work and it always goes well because everyone works together and communicates. Teamwork is very important in dentistry because dentists work with nurses and hygienists every day and communication is the key to success. I believe my teamwork skills would make me a great dentist because I am hardworking, motivated and passionate about helping people in my community.",
-  why: "The strong answer is one specific scene with first-person actions, a result, and a reflection that connects forward to dentistry. The weak answer is all claims and no evidence: no moment, no action verbs, no lesson, and it would sound identical from a thousand candidates. Notice spelling and polish had nothing to do with the gap.",
-};
 
 /* ------------------------------ INTERVIEW VIEW -------------------- */
 
@@ -3918,76 +3614,6 @@ function Locked({ children, onUnlock, label }) {
 /* writes content: a statement drafted by software is misconduct      */
 /* territory and universities screen for it.                          */
 
-const PS_TOTAL = 4000;
-const PS_WORDS = 620;
-function wordCount(t) { return (t || "").trim().split(/\s+/).filter(Boolean).length; }
-
-const PS_SECTIONS = [
-  { id: "why", n: 1, title: "Why do you want to study this course?",
-    aim: "Show a specific spark, then prove you tested it. This section is about motivation that survived contact with reality.",
-    steps: [
-      "Open with the actual moment, not a childhood memory. A treatment you had, something on placement, a book, a conversation.",
-      "Say what it made you understand about the job, not just how it made you feel.",
-      "Show what you did next because of it. Motivation that led to action is the only kind worth writing down.",
-      "Land on the version of the career you now understand, downsides included.",
-    ],
-    frame: "PEEL", chars: 1200,
-    traps: ["Since I was five years old", "My parents are doctors", "I want to help people, with nothing after it", "Quotes from famous physicians"],
-  },
-  { id: "prep", n: 2, title: "What have you done to prepare for this course?",
-    aim: "Experience plus structure. The marks are in what you extracted, never in what you got access to.",
-    steps: [
-      "Pick two or three experiences, not everything. Depth outscores coverage every time.",
-      "For each: what you did, one specific thing you noticed, and what it taught you.",
-      "Include subjects where they genuinely connect. Draw a straight line from something you studied to something the course demands.",
-      "If your access was limited, say so plainly and show how you compensated. Honesty plus reflection beats exaggeration.",
-    ],
-    frame: "STAR or CAR", chars: 1500,
-    traps: ["Listing placements like a CV", "Naming the hospital or consultant to impress", "Describing what you saw with no lesson drawn"],
-  },
-  { id: "skills", n: 3, title: "How have your experiences helped you develop relevant skills?",
-    aim: "This is the reflection section. You are proving you have grown, not that you were there.",
-    steps: [
-      "Name the skill, then the evidence, then what it showed you, then how it applies to the course.",
-      "Use non-clinical experience freely: a part-time job handling angry customers, caring responsibilities, sport, music.",
-      "Show change over time. What you would do differently now is worth more than what went well.",
-      "Finish on where you have already used the lesson since.",
-    ],
-    frame: "PEEL or Gibbs", chars: 1300,
-    traps: ["Claiming skills with no evidence", "I am a good team player", "Listing adjectives about yourself"],
-  },
-];
-
-const PS_FRAMES = [
-  { id: "peel", name: "PEEL", best: "Best for reflection and for linking an experience to the course.",
-    steps: [["Point", "The claim, in one sentence."], ["Evidence", "The specific thing that happened."], ["Explanation", "What it showed you about the job."], ["Link", "Why that matters for this course."]] },
-  { id: "star", name: "STAR", best: "Best for a story with a clear outcome. Can feel rigid if overused.",
-    steps: [["Situation", "One sentence of scene setting."], ["Task", "What needed doing and why it was hard."], ["Action", "What you did, first person."], ["Result", "What changed because of you."]] },
-  { id: "car", name: "CAR", best: "A shorter STAR. Good when characters are tight, but it can lose the reflection.",
-    steps: [["Context", "Where and when."], ["Action", "What you did."], ["Result", "What happened."]] },
-  { id: "gibbs", name: "Gibbs cycle", best: "The deepest reflection. Use it once, on your most important experience.",
-    steps: [["Description", "What happened."], ["Feelings", "How you felt at the time."], ["Evaluation", "What was good or difficult about it."], ["Analysis", "What sense you make of it now."], ["Conclusion", "What it confirmed or changed."], ["Action plan", "What you have done since."]] },
-];
-
-const PS_HOWTO = [
-  { h: "The format changed in 2025", p: "The old single 4,000 character essay is gone. It is now three structured questions, sharing one budget of about 4,000 characters including spaces, which is roughly 620 words in total. That is far less than it sounds, so every sentence has to earn its place." },
-  { h: "Reflection beats description", p: "Nobody is scoring how impressive your placement was. If you shadowed a brilliant surgeon on a rare case, that is not the point. What matters is what you learned and what you did with it. Description tells them where you stood; reflection tells them who you are." },
-  { h: "Start with a list, not a paragraph", p: "Write down everything you have done, then rank it. You will not have room for all of it, so choose a few things and go deep rather than producing a CV. The blurt tool below does exactly this and tells you which section each item belongs in." },
-  { h: "Do not tailor it to one university", p: "One statement goes to every choice. Writing it around your dream school wastes characters on people who will never read it, and some schools barely use the statement at all. Write something any admissions tutor would recognise as a strong candidate." },
-  { h: "Draft early, redraft often", p: "Most successful applicants have a rough draft by the end of Year 12 and are still redrafting in September of Year 13. First drafts are supposed to be bad. Get the material down, then cut." },
-  { h: "It has to sound like you", p: "If a friend picked it up off the street they should know you wrote it. That is also why you cannot generate it: you will be asked about it at interview, and the version you did not write is the version you cannot defend." },
-];
-
-/* ---- Blurt sorter: student dumps experiences, tool assigns sections ---- */
-
-const PS_ROUTER = [
-  { sec: 3, why: "This is skill evidence. Section 3 wants the skill, the proof, and what it changed in you.",
-    re: /\b(team|teamwork|captain|led|leader|group|committee|communicat|listen|explain|taught|tutor|mentor|coach|organis|organiz|manag|part[- ]time|job|waiter|retail|customer|shop|carer|caring for|babysit|volunteer|charity|scout|duke of edinburgh|dofe)\b/i },
-  { sec: 2, why: "This is preparation evidence. Section 2 wants what you did, what you noticed, and the lesson.",
-    re: /\b(work experience|shadow|placement|hospital|clinic|gp|surgery|dentist|dental|ward|care home|hospice|pharmacy|observ|st john|first aid|course|mooc|webinar|lecture series|read|book|podcast|journal|research|epq|project|olympiad|biology|chemistry|physics|maths|a[- ]level)\b/i },
-  { sec: 1, why: "This is motivation material. Section 1 wants the spark and what you did because of it.",
-    re: /\b(inspired|sparked|why i|realised|realized|decided|fascinated|interest began|my own|family|illness|diagnos|treatment|operation|root canal|braces|appointment|patient journey|documentary)\b/i },
-];
 
 function routeBlurt(line) {
   for (const r of PS_ROUTER) if (r.re.test(line)) return r;

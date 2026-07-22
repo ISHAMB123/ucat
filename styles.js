@@ -276,6 +276,10 @@ export const CSS = `
 .ud-syl .yn button.on { background:#1E8E5A; border-color:#1E8E5A; color:#fff; }
 .ud-syl .yn button.on.no { background:#C0392B; border-color:#C0392B; }
 @keyframes udrise { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+/* Respect users who ask for less motion: drop animations and smooth-scroll. */
+@media (prefers-reduced-motion: reduce) {
+  .ud *, .ud *::before, .ud *::after { animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; scroll-behavior:auto !important; }
+}
 .ud-gate { position:fixed; inset:0; z-index:80; background:radial-gradient(1200px 600px at 70% -10%, #24304055, transparent), var(--ink); display:flex; align-items:center; justify-content:center; padding:22px; }
 .ud-gate-in { max-width:640px; width:100%; text-align:center; animation:udrise .5s ease; }
 .ud-gate h2 { font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(26px,5vw,38px); letter-spacing:-0.03em; margin:10px 0 8px; }

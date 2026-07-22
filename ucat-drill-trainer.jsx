@@ -4470,6 +4470,13 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
     return () => clearInterval(t);
   }, [phase, mock, finish]);
 
+  useEffect(() => {
+    if (!navOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setNavOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
   const startMock = (t, sl, isMini) => {
     const m = isMini
       ? (t === "vr" ? buildVrMock(week, sl, true) : t === "qr" ? buildQrMock(week, sl, true) : buildDmMock(week, sl))

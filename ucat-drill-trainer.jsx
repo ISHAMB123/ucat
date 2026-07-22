@@ -1960,7 +1960,10 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onMistakes,
 
 /* ------------------------------ HOME ------------------------------ */
 
-function Home({ unlocked, best, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onLearnSjt, onGoto, planNext }) {
+function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onLearnSjt, onGoto, planNext }) {
+  const bestBars = Object.entries(best || {}).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const weakTop = Object.entries(weak || {}).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 6);
+  const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const [estOpen, setEstOpen] = useState(false);
@@ -2054,6 +2057,44 @@ function Home({ unlocked, best, prefs, setPrefs, onStart, onUnlock, mistakesCoun
           <span className="d">Every drill's method, one page each</span>
         </button>
       </div>
+
+      {(bestBars.length > 0 || weakTop.length > 0) && (
+        <>
+          <div className="ud-sec"><h2>Your progress at a glance</h2><i /><span onClick={() => onGoto("progress")} style={{ cursor: "pointer" }}>full report ›</span></div>
+          <div className="ana-wrap">
+            {bestBars.length > 0 && (
+              <div className="ud-trend ana-card">
+                <p className="ana-h">Best score by drill</p>
+                <div className="ana-bars">
+                  {bestBars.map(([id, pct]) => (
+                    <div className="ana-bar" key={id} title={`${(DRILL_BY_ID[id] || { name: id }).name}: ${pct}%`}>
+                      <span className="pct mono">{pct}%</span>
+                      <i style={{ height: `${Math.max(pct, 4)}%` }} className={pct >= 80 ? "good" : pct >= 55 ? "mid" : "low"} />
+                      <span className="lbl">{(DRILL_BY_ID[id] || { name: id }).name.split(" ")[0]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="ud-trend ana-card">
+              <p className="ana-h">What to work on</p>
+              {weakTop.length > 0 ? (
+                <>
+                  <p className="ana-sub">Revise these first, drills already favour them:</p>
+                  <div className="ud-weak">{weakTop.map(([t, v]) => <b key={t}>{weakLabel(t)}</b>)}</div>
+                </>
+              ) : <p className="ana-sub">No weak spots flagged yet. Finish a few drills and this fills in.</p>}
+              {strongDrills.length > 0 && (
+                <>
+                  <p className="ana-sub" style={{ marginTop: 12 }}>You are strong at:</p>
+                  <div className="ud-weak strong">{strongDrills.map((n) => <b key={n}>{n}</b>)}</div>
+                </>
+              )}
+              {mistakesCount > 0 && <button className="ud-btn ghost" style={{ marginTop: 14 }} onClick={onMistakes}>Rematch {mistakesCount} mistake{mistakesCount === 1 ? "" : "s"}</button>}
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="ud-config">
         <div className="grp">
@@ -4801,7 +4842,7 @@ export default function UcatDrillTrainer() {
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
-      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
+      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
       {view === "sjtlearn" && (<><Header /><SjtLearn onBack={() => setView("drills")} onPractice={() => start(DRILL_BY_ID.sjt, prefs.exam, Math.min(prefs.count, 25), null, null, null)} /></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}

@@ -119,6 +119,18 @@ export const CSS = `
 .ud-axis { display:flex; justify-content:space-between; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--mute); margin-top:6px; }
 .ud-weak { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
 .ud-weak b { font-family:'JetBrains Mono',monospace; font-size:11px; background:var(--ink); border:1px solid var(--stop); color:var(--stop); padding:4px 8px; border-radius:2px; font-weight:400; }
+.ud-weak.strong b { border-color:var(--go); color:var(--go); }
+.ana-wrap { display:grid; grid-template-columns:1.3fr 1fr; gap:12px; padding-top:14px; }
+@media (max-width:720px) { .ana-wrap { grid-template-columns:1fr; } }
+.ana-card { padding:16px 18px; }
+.ana-h { font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mute); margin:0 0 12px; }
+.ana-sub { font-size:12.5px; color:var(--body); margin:0; }
+.ana-bars { display:flex; align-items:flex-end; gap:8px; height:130px; }
+.ana-bar { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; min-width:0; }
+.ana-bar i { width:100%; max-width:34px; border-radius:3px 3px 0 0; background:var(--mute); transition:height .5s cubic-bezier(.2,.8,.3,1); }
+.ana-bar i.good { background:var(--go); } .ana-bar i.mid { background:var(--signal); } .ana-bar i.low { background:var(--stop); }
+.ana-bar .pct { font-size:10px; color:var(--mute); }
+.ana-bar .lbl { font-size:9.5px; color:var(--mute); text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 .ud-empty { color:var(--mute); font-size:14px; line-height:1.6; padding:24px 0; max-width:56ch; }
 .ud-learn-intro { font-size:14.5px; line-height:1.65; color:var(--body); max-width:64ch; margin:14px 0 4px; }
 .ud-lcard { border:1px solid var(--line); border-radius:3px; background:var(--slate); padding:16px 17px; display:flex; flex-direction:column; gap:8px; }

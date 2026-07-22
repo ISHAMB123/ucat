@@ -3822,7 +3822,10 @@ function LegalView({ account, prefs, setPrefs, onDeleteAccount }) {
 /* ------------------------------ AUTH AND BILLING ------------------ */
 /* Wire STRIPE_LINK to a Stripe Payment Link and billing is live.     */
 
-const STRIPE_LINK = "";      /* e.g. https://buy.stripe.com/xxxxx */
+/* Stripe Payment Link. Set VITE_STRIPE_LINK in .env (e.g.
+   https://buy.stripe.com/xxxxx) and checkout goes live with no code
+   change. Empty means checkout is not connected yet. */
+const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || "";
 const PRICE = "£25";
 const PRICE_NOTE = "one payment, no subscription, no renewal";
 
@@ -4013,7 +4016,7 @@ function BillingView({ unlocked, onUnlock, email }) {
   };
   const checkout = () => {
     if (STRIPE_LINK) window.open(STRIPE_LINK, "_blank", "noopener");
-    else setErr("Checkout is not connected in this preview. Use the access code UCAT25 to unlock everything.");
+    else setErr("Checkout is not connected yet. Use the access code UCAT25 to unlock everything for now.");
   };
 
   return (

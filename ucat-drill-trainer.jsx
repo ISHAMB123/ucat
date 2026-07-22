@@ -4403,7 +4403,7 @@ export default function UcatDrillTrainer() {
   const [plan, setPlan] = useState({});
   const [weak, setWeak] = useState({});
   const [mistakes, setMistakes] = useState([]);
-  const [prefs, setPrefsState] = useState({ count: 10, exam: false, extra: 1, level: "medium" });
+  const [prefs, setPrefsState] = useState({ count: 10, exam: false, extra: 1, level: "medium", theme: "light" });
   const [ready, setReady] = useState(false);
   const [missedNow, setMissedNow] = useState(0);
   const [account, setAccount] = useState(null);
@@ -4414,7 +4414,7 @@ export default function UcatDrillTrainer() {
     loadState().then((s) => {
       setUnlocked(s.unlocked); setBest(s.best); setHistory(s.history);
       setPlan(s.plan); setWeak(s.weak); setMistakes(s.mistakes);
-      const pf = { count: 10, exam: false, extra: 1, level: s.level || "medium", ...(s.prefs || {}) };
+      const pf = { count: 10, exam: false, extra: 1, level: s.level || "medium", theme: "light", ...(s.prefs || {}) };
       setPrefsState(pf);
       if (pf.account) { setAccount(pf.account); setAuthDone(true); }
       if (pf.skippedAuth) setAuthDone(true);
@@ -4549,7 +4549,7 @@ export default function UcatDrillTrainer() {
     await deleteLocalData();
     if (supabaseEnabled) { try { await supabase.auth.signOut(); } catch (e) { /* ignore */ } }
     setUnlocked(false); setBest({}); setHistory([]); setPlan({}); setWeak({}); setMistakes([]);
-    setPrefsState({ count: 10, exam: false, extra: 1, level: "medium" });
+    setPrefsState({ count: 10, exam: false, extra: 1, level: "medium", theme: "light" });
     setAccount(null); setAuthDone(false);
     setView("drills");
   };

@@ -1221,7 +1221,7 @@ function Calculator() {
 
 /* ------------------------------ DRILL RUNNER ---------------------- */
 
-function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit }) {
+function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, onDone, onQuit }) {
   const [confirmExit, setConfirmExit] = useState(false);
   const [i, setI] = useState(0);
   const [val, setVal] = useState("");
@@ -1235,6 +1235,10 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
   const [elapsed, setElapsed] = useState(0);
   const [phase, setPhase] = useState("answer");
   const [lastEntry, setLastEntry] = useState(null);
+  const [revealed, setRevealed] = useState(!hideStart);
+  const revealedRef = useRef(!hideStart);
+  useEffect(() => { revealedRef.current = revealed; }, [revealed]);
+  const gated = hideStart && !revealed;
   const start = useRef(Date.now());
   const inputRef = useRef(null);
   const valRef = useRef("");
@@ -1252,8 +1256,10 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
 
   const advance = useCallback((list) => {
     if (i + 1 >= questions.length) onDone(list);
-    else { setI(i + 1); setVal(""); setRankPicks([]); setSyllPicks([]); setPicked(null); setShowWhy(false); setPhase("answer"); start.current = Date.now(); setElapsed(0); }
-  }, [i, questions.length, onDone]);
+    else { setI(i + 1); setVal(""); setRankPicks([]); setSyllPicks([]); setPicked(null); setShowWhy(false); setPhase("answer"); setRevealed(!hideStart); start.current = Date.now(); setElapsed(0); }
+  }, [i, questions.length, onDone, hideStart]);
+
+  const reveal = () => { setRevealed(true); start.current = Date.now(); setElapsed(0); };
 
   const record = useCallback((given) => {
     if (phaseRef.current !== "answer") return;
@@ -1320,6 +1326,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
   useEffect(() => {
     const t = setInterval(() => {
       if (phaseRef.current !== "answer") return;
+      if (hideStart && !revealedRef.current) return; /* clock paused until Go */
       const e = Date.now() - start.current;
       setElapsed(e);
       if (exam && budgetMs > 0 && e >= budgetMs) {
@@ -1361,7 +1368,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
   const goBack = () => {
     if (i === 0) return;
     setI(i - 1); setPicked(null); setRankPicks([]); setSyllPicks([]); setShowWhy(false);
-    setPhase("answer"); start.current = Date.now(); setElapsed(0);
+    setPhase("answer"); setRevealed(!hideStart); start.current = Date.now(); setElapsed(0);
   };
 
   useEffect(() => {
@@ -1403,6 +1410,14 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
         </div>
 
         <div className="vx-body">
+          {gated && (
+            <div className="q-goover">
+              <div className="q-gocard">
+                <p>Question hidden so the clock only starts when you are ready. No sneaking a look.</p>
+                <button className="ud-btn" onClick={reveal}>Go</button>
+              </div>
+            </div>
+          )}
           <div className="vx-left">
             {q.scenarioText && <p className="stem">{q.scenarioText}</p>}
             {q.passageText && <p className="stem">{q.passageText}</p>}
@@ -1559,6 +1574,14 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
         <button className="ud-quit" onClick={() => setConfirmExit(true)}>End</button>
       </div>
       <div className="ud-stage">
+        {gated && (
+          <div className="q-goover">
+            <div className="q-gocard">
+              <p>Question hidden so the clock only starts when you are ready. No sneaking a look.</p>
+              <button className="ud-btn" onClick={reveal}>Go</button>
+            </div>
+          </div>
+        )}
         <div className={`ud-panel${phase === "celebrate" ? " correct" : ""}`}>
           <div className="ud-goflash" />
           {phase === "celebrate" && (
@@ -2127,6 +2150,13 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
           <div className="row">
             <button className={!prefs.exam ? "on" : ""} onClick={() => setPrefs({ ...prefs, exam: false })}>Untimed</button>
             <button className={prefs.exam ? "on" : ""} onClick={() => setPrefs({ ...prefs, exam: true })}>Timed</button>
+          </div>
+        </div>
+        <div className="grp">
+          <label>Start on Go</label>
+          <div className="row">
+            <button className={!prefs.hideQ ? "on" : ""} onClick={() => setPrefs({ ...prefs, hideQ: false })}>Off</button>
+            <button className={prefs.hideQ ? "on" : ""} onClick={() => setPrefs({ ...prefs, hideQ: true })}>Hide until ready</button>
           </div>
         </div>
         {prefs.exam && (
@@ -4961,7 +4991,7 @@ export default function UcatDrillTrainer() {
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && !["speed", "blurt"].includes(drill.id) && (
         <DrillRunner drill={drill} questions={questions} exam={runExam} budget={runBudget}
-          showCalc={drill.id === "calc"} onDone={done} onQuit={() => setView("drills")} />
+          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} onDone={done} onQuit={() => setView("drills")} />
       )}
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}

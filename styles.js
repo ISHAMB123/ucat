@@ -148,7 +148,11 @@ export const CSS = `
 .ud-quit { background:transparent; color:var(--mute); font-size:12px; font-family:'JetBrains Mono',monospace; }
 .ud-quit:hover { color:var(--stop); }
 .ud-examflag { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--stop); border:1px solid var(--stop); padding:4px 7px; border-radius:2px; letter-spacing:0.1em; }
-.ud-stage { flex:1; display:flex; align-items:flex-start; justify-content:center; padding:28px 20px 60px; }
+.ud-stage { flex:1; display:flex; align-items:flex-start; justify-content:center; padding:28px 20px 60px; position:relative; }
+.q-goover { position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center; padding:20px;
+  backdrop-filter:blur(9px); -webkit-backdrop-filter:blur(9px); background:var(--ink)55; }
+.q-gocard { background:var(--slate); border:1px solid var(--signal); border-radius:6px; padding:22px 26px; text-align:center; box-shadow:0 14px 40px #0e131966; max-width:320px; }
+.q-gocard p { font-size:13px; color:var(--body); line-height:1.55; margin:0 0 14px; }
 .ud-panel { background:var(--card); color:#131A22; border-radius:4px; width:100%; max-width:660px; padding:26px; position:relative; overflow:hidden; }
 .ud-panel h4 { font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#5A6675; margin:0 0 16px; }
 .ud-q { font-family:'JetBrains Mono',monospace; font-size:clamp(26px,5.5vw,40px); font-weight:700; letter-spacing:-0.03em; margin:0 0 20px; }
@@ -482,7 +486,7 @@ export const CSS = `
 .vx-tool.on { background:#F5A524; color:#111; border-radius:2px; text-decoration:none; }
 .vx-tool .ic { text-decoration:none; }
 .vx-scheme { background:#1F5FA9; padding:4px 10px; font-size:12px; }
-.vx-body { flex:1; display:flex; align-items:stretch; }
+.vx-body { flex:1; display:flex; align-items:stretch; position:relative; }
 .vx-left { flex:1; padding:16px 18px; border-right:3px solid #1F5FA9; min-width:0; }
 .vx-right { width:46%; padding:16px 18px; min-width:0; }
 .vx-left .stem { font-size:13.5px; line-height:1.5; color:#111; margin:0 0 12px; }

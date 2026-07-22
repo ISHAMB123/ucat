@@ -11,6 +11,7 @@ import { PASSAGES, TFC, TFC_SETS } from "./data/vr.js";
 import { APPROP, IMPORT, SJT_THEMES, SJT_TYPES, SJT_SCENARIOS, SJT_LESSONS } from "./data/sjt.js";
 import { DM_QUESTIONS, DM_SUBS, VCTX, SYLL_SETS } from "./data/dm.js";
 import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UNIS } from "./data/universities.js";
+import { MED_SCHOOLS, MED_CHECKED } from "./data/medicine.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
 import { PS_TOTAL, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
 import { markAnswer, analyseAnswer, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
@@ -2550,6 +2551,45 @@ function assessAu(u, atar, ucatPct) {
 
 const PRED_RANK = { "A*AA": 3, "AAA": 2, "AAB": 1, "Other": 0 };
 
+const PRED_ORDER = { "A*AA": 3, "AAA": 2, "AAB": 1, "Other": 0 };
+const MED_PRED_LABEL = { notused: "not used in selection at all", threshold: "used as a threshold only, not scored", scored: "scored as part of the ranking", achieved: "only achieved grades count, not predicted" };
+
+function assessMed(u, f) {
+  const reasons = [];
+  if (u.sjt === "reject" && f.band === 4) {
+    return { status: "block", label: "Blocked", reasons: ["Automatically rejects SJT Band 4, so this one is off the table this cycle whatever your score."] };
+  }
+  if (u.pred === "notused") {
+    reasons.push("Predicted A-levels are not used in selection here, so a lower prediction does not shut the door.");
+  } else if (u.alevel && PRED_ORDER[f.pred] < (PRED_ORDER[u.alevel] || 0)) {
+    reasons.push(`Wants ${u.alevel} predicted, and yours is below, which matters because predicted grades are ${u.pred === "scored" ? "scored" : "a threshold"} here.`);
+  }
+  const high79 = (f.g9 || 0) + (f.g8 || 0) + (f.g7 || 0);
+  if (u.gcse === "scored" && high79 < 6) reasons.push("GCSEs are scored here and yours are on the light side, which costs academic points.");
+
+  let status;
+  if (/not used/.test(u.ucatW)) {
+    status = "range";
+    reasons.push("UCAT is not used, so your score neither helps nor hurts; selection runs on academics and assessments.");
+  } else if (u.floor && f.ucat < u.floor) {
+    status = "out";
+    reasons.unshift(`Below the published minimum of ${u.floor}, so it is rejected before ranking.`);
+  } else if (u.low == null) {
+    status = "range";
+    reasons.push("No published UCAT figure to compare against; the school ranks by score, so aim high and treat this as a maybe.");
+  } else {
+    const diff = f.ucat - u.low;
+    if (diff >= 150) { status = "strong"; reasons.unshift(`Your UCAT is about ${diff} above the ~${u.low} realistic bar, comfortably in range.`); }
+    else if (diff >= 0) { status = "range"; reasons.unshift(`About ${diff} above the ~${u.low} realistic bar: in the running, without much slack.`); }
+    else if (diff >= -120) { status = "aspire"; reasons.unshift(`About ${Math.abs(diff)} below the ~${u.low} realistic bar. Bars move each year, so this is a legitimate aspirational pick, one at most.`); }
+    else { status = "out"; reasons.unshift(`About ${Math.abs(diff)} below the ~${u.low} realistic bar, beyond sensible aspirational range.`); }
+  }
+  if (u.pred === "threshold" && u.alevel && PRED_ORDER[f.pred] < (PRED_ORDER[u.alevel] || 0) && (status === "strong" || status === "range")) status = "aspire";
+
+  const label = { strong: "Strong fit", range: "In range", aspire: "Aspirational", out: "Out of range", block: "Blocked" }[status];
+  return { status, label, reasons };
+}
+
 function assessUni(u, f) {
   let cut = f.scottish && u.cutScot ? u.cutScot : u.cut;
   if (f.ctx && u.cutCtx) cut = u.cutCtx;
@@ -3148,6 +3188,73 @@ function AuSelector({ track }) {
   );
 }
 
+function MedSelector() {
+  const [ucat, setUcat] = useState(2000);
+  const [band, setBand] = useState(2);
+  const [pred, setPred] = useState("AAA");
+  const [g79, setG79] = useState(7);
+  const [ctx, setCtx] = useState(false);
+  const [ran, setRan] = useState(false);
+  const results = MED_SCHOOLS.map((u) => ({ u, r: assessMed(u, { ucat, band, pred, g9: g79, g8: 0, g7: 0, ctx }) }));
+  const order = { strong: 0, range: 1, aspire: 2, out: 3, block: 4 };
+  results.sort((a, b) => order[a.r.status] - order[b.r.status] || (b.u.low || 0) - (a.u.low || 0));
+
+  return (
+    <>
+      <p className="ud-learn-intro">
+        Enter your UCAT out of 2700, SJT band and predicted grades, and the tool maps you against every UK medical school using this cycle's research.
+        Most schools set cut-offs after applications close, so these are guides, not guarantees: confirm each on the university's own page.
+      </p>
+      <div className="uni-form">
+        <label>UCAT total (out of 2700)
+          <input type="number" min="1200" max="2700" value={ucat} onChange={(e) => setUcat(Number(e.target.value))} />
+        </label>
+        <label>SJT band
+          <select value={band} onChange={(e) => setBand(Number(e.target.value))}>
+            {[1, 2, 3, 4].map((b) => <option key={b} value={b}>Band {b}</option>)}
+          </select>
+        </label>
+        <label>Predicted A-levels
+          <select value={pred} onChange={(e) => setPred(e.target.value)}>
+            {["A*AA", "AAA", "AAB", "Other"].map((p) => <option key={p}>{p}</option>)}
+          </select>
+        </label>
+        <label>GCSEs at grade 7 or above
+          <input type="number" min="0" max="12" value={g79} onChange={(e) => setG79(Number(e.target.value))} />
+        </label>
+        <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <input type="checkbox" checked={ctx} onChange={(e) => setCtx(e.target.checked)} style={{ width: "auto" }} /> Contextual / widening participation
+        </label>
+        <label style={{ justifyContent: "flex-end" }}>
+          <button className="ud-btn" onClick={() => setRan(true)}>Map my options</button>
+        </label>
+      </div>
+
+      {ran && results.map(({ u, r }, n) => (
+        <div className="uni-row" key={u.id} style={{ animationDelay: `${n * 25}ms` }}>
+          <header>
+            <span className="uni-mono" style={{ background: u.col + "22", color: u.col, borderColor: u.col }}>MED</span>
+            <h4>{u.name}</h4>
+            <span className={`uni-chip ${r.status}`}>{r.label}</span>
+            {u.low && <span className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>~{u.low} bar</span>}
+          </header>
+          <p className="why">{r.reasons.join(" ")}</p>
+          <p className="why" style={{ color: "var(--mute)" }}>
+            <b style={{ color: "var(--paper)" }}>UCAT:</b> {u.ucatW}. <b style={{ color: "var(--paper)" }}>Predicted grades:</b> {MED_PRED_LABEL[u.pred]}. <b style={{ color: "var(--paper)" }}>GCSEs:</b> {u.gcse === "none" ? "not scored" : u.gcse === "scored" ? "scored" : "threshold only"}. {u.note}
+          </p>
+        </div>
+      ))}
+      {ran && (
+        <p className="ud-empty" style={{ paddingTop: 16 }}>
+          UCAT figures are on the current out-of-2700 scale, converted from older out-of-3600 figures where needed, so treat them as approximate. Nothing here replaces a university's own admissions page.
+        </p>
+      )}
+      <LastChecked when={MED_CHECKED} />
+      <div style={{ height: 50 }} />
+    </>
+  );
+}
+
 function UniSelector({ track, prefs, setPrefs }) {
   const saved = prefs.uni || {};
   const [region, setRegion] = useState(prefs.region || "uk");
@@ -3208,10 +3315,10 @@ function UniSelector({ track, prefs, setPrefs }) {
   if (track === "med") {
     return (
       <div className="ud-wrap">
-        <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Strategic university selector</h2><i /><span>medicine</span></div>
+        <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Strategic university selector</h2><i /><span>medicine · {MED_SCHOOLS.length} UK schools</span></div>
         <RegionBar />
         <SiteDisclaimer />
-        <p className="ud-empty">The dentistry dataset is live with all 14 UK dental schools, including course structure, hospitals, placements and living-cost estimates. The medicine table is the next dataset to build, and the engine is already waiting for it. The interview bank, including the marked writing practice, is live for medicine now.</p>
+        <MedSelector />
         <div className="ud-trend" style={{ padding: 20 }}>
           <h3 style={{ marginTop: 0 }}>Graduate entry</h3>
           <p style={{ fontSize: 13.5, color: "var(--body)", lineHeight: 1.65, margin: 0 }}>{GRAD_ENTRY.med}</p>
@@ -4745,5 +4852,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  buildVrMock, buildQrMock,
+  buildVrMock, buildQrMock, assessMed,
 };

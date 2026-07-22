@@ -123,6 +123,28 @@ None of these block launch, but they make it better:
 
 ---
 
+## Security
+
+`vercel.json` sets security headers on every response: it stops the site being
+framed by other sites (clickjacking), stops content-type sniffing, limits which
+outside services the page may talk to (your own domain, Supabase and Google
+Fonts), forces HTTPS, and allows the microphone only for dictation. These are
+safe defaults and need no maintenance.
+
+One caveat, because I could not test the deployed site from here: if after
+deploying the app looks **unstyled or the fonts do not load**, the
+Content-Security-Policy is the likely cause. Remove just the
+`Content-Security-Policy` line from `vercel.json` and redeploy; the other
+headers still apply. On Netlify, put the same headers in a `_headers` file
+instead of `vercel.json`.
+
+**Leaderboard, please tighten this.** The `kv` table SQL earlier lets anyone
+read and overwrite any row, which means the leaderboard can be tampered with. It
+is fine for launch, but for a tamper-resistant board a developer should switch
+to a `scores` table that only allows inserting and reading rows (no update or
+delete for the public key), so no one can wipe or edit other people's scores.
+This pairs with the payment webhook work.
+
 ## For a developer
 
 The app is Vite + React. The main screen logic is in `ucat-drill-trainer.jsx`;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal } from "./storage.js";
+import { supabase, supabaseEnabled } from "./supabaseClient.js";
 
 /* ================================================================== */
 /*  TEMPO, a UCAT trainer.                                             */
@@ -6213,6 +6214,7 @@ function AuthScreen({ onAuthed, onSkip }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
+  const [sentMsg, setSentMsg] = useState("");
 
   const strength = (() => {
     let n = 0;
@@ -6231,15 +6233,40 @@ function AuthScreen({ onAuthed, onSkip }) {
       if (pw.length < 8) { setErr("Passwords need at least 8 characters."); return; }
       if (mode === "signup" && pw !== pw2) { setErr("The two passwords do not match."); return; }
     }
+    const addr = email.trim().toLowerCase();
     setBusy(true);
-    /* SUPABASE: replace this block.
-       signup -> supabase.auth.signUp({ email, password: pw })
-       login  -> supabase.auth.signInWithPassword({ email, password: pw })
-       reset  -> supabase.auth.resetPasswordForEmail(email)                     */
-    await new Promise((r) => setTimeout(r, 550));
-    setBusy(false);
-    if (mode === "reset") { setSent(true); return; }
-    onAuthed({ email: email.trim().toLowerCase() });
+
+    /* Local preview mode: no backend configured, so accept anything. */
+    if (!supabaseEnabled) {
+      await new Promise((r) => setTimeout(r, 550));
+      setBusy(false);
+      if (mode === "reset") { setSentMsg(`If an account exists for ${addr}, a reset link is on its way. Check spam if it does not arrive within a few minutes.`); setSent(true); return; }
+      onAuthed({ email: addr });
+      return;
+    }
+
+    /* Supabase-backed auth. */
+    try {
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({ email: addr, password: pw });
+        if (error) throw error;
+        if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id }); }
+        else { setSentMsg(`Almost there. We have emailed ${addr} a link to confirm your account. Open it, then sign in.`); setSent(true); }
+      } else if (mode === "login") {
+        const { data, error } = await supabase.auth.signInWithPassword({ email: addr, password: pw });
+        if (error) throw error;
+        onAuthed({ email: data.user.email || addr, id: data.user.id });
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(addr);
+        if (error) throw error;
+        setSentMsg(`If an account exists for ${addr}, a reset link is on its way. Check spam if it does not arrive within a few minutes.`);
+        setSent(true);
+      }
+    } catch (e) {
+      setErr(e && e.message ? e.message : "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -6255,7 +6282,7 @@ function AuthScreen({ onAuthed, onSkip }) {
 
         {sent ? (
           <>
-            <div className="auth-sent">If an account exists for {email}, a reset link is on its way. Check spam if it does not arrive within a few minutes.</div>
+            <div className="auth-sent">{sentMsg}</div>
             <button className="ud-btn ghost full" onClick={() => { setSent(false); setMode("login"); }}>Back to sign in</button>
           </>
         ) : (
@@ -6703,6 +6730,24 @@ export default function UcatDrillTrainer() {
       if (pf.skippedAuth) setAuthDone(true);
       setReady(true);
     });
+  }, []);
+
+  /* Restore a Supabase session so a signed-in user is not asked to log
+     in again after a refresh, and follow future sign-in/out events.
+     No-op when Supabase is not configured (local preview mode). */
+  useEffect(() => {
+    if (!supabaseEnabled) return;
+    supabase.auth.getSession().then(({ data }) => {
+      if (data && data.session) {
+        setAccount({ email: data.session.user.email });
+        setAuthDone(true);
+      }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) { setAccount({ email: session.user.email }); setAuthDone(true); }
+      else setAccount(null);
+    });
+    return () => { if (listener && listener.subscription) listener.subscription.unsubscribe(); };
   }, []);
 
   const setPrefs = (p) => { setPrefsState(p); setJSON("ucat:prefs", p); setJSON("ucat:level", p.level); };

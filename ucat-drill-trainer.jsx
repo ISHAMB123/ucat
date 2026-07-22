@@ -4421,6 +4421,9 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   const [mock, setMock] = useState(null);
   const [i, setI] = useState(0);
   const [answers, setAnswers] = useState([]);
+  const [seen, setSeen] = useState([]);
+  const [flags, setFlags] = useState([]);
+  const [navOpen, setNavOpen] = useState(false);
   const [left, setLeft] = useState(0);
   const [board, setBoard] = useState(null);
   const [name, setName] = useState(prefs.name || "");
@@ -4462,15 +4465,17 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
       ? (t === "vr" ? buildVrMock(week, sl, true) : t === "qr" ? buildQrMock(week, sl, true) : buildDmMock(week, sl))
       : (t === "vr" ? buildVrMock(week, sl) : buildQrMock(week, sl));
     setType(t); setSlot(sl); setMini(!!isMini); setMock(m);
-    setPhase("run"); setI(0); setAnswers([]); setLeft(m.secs);
+    setPhase("run"); setI(0); setAnswers(Array(m.flat.length).fill(null)); setSeen([0]); setFlags([]); setNavOpen(false); setLeft(m.secs);
     setSubmitted(false); setBoard(null);
   };
 
-  const answer = (val) => {
-    const next = [...answers, val];
-    if (next.length >= mock.flat.length) finish(next, mock);
-    else { setAnswers(next); setI(i + 1); }
-  };
+  /* Free navigation: selecting an option records it in place, and you
+     move with Next, Previous or the Navigator, as in the real UCAT. */
+  const select = (val) => setAnswers((a) => { const c = [...a]; c[i] = val; return c; });
+  const go = (idx) => { setSeen((s) => (s.includes(idx) ? s : [...s, idx])); setI(idx); setNavOpen(false); };
+  const next = () => { if (i + 1 < mock.flat.length) go(i + 1); else finish(answersRef.current, mock); };
+  const prev = () => { if (i > 0) go(i - 1); };
+  const toggleFlag = () => setFlags((f) => (f.includes(i) ? f.filter((x) => x !== i) : [...f, i]));
 
   const isRight = (q, given) => (q.a !== undefined ? given === q.a : given === q.answer);
   const score = mock ? answers.filter((a, n) => isRight(mock.flat[n], a)).length : 0;
@@ -4542,13 +4547,14 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
     const gmax = q.graph ? Math.max(...q.graph.values) : 1;
     return (
       <div className="ud-run">
-        <ExitGuard open={confirmExit} onStay={() => setConfirmExit(false)} onLeave={() => setPhase("idle")} />
+        <ExitGuard open={confirmExit} onStay={() => setConfirmExit(false)} onLeave={() => { setConfirmExit(false); finish(answersRef.current, mock); }} />
         <div className="ud-runbar">
           <BrandMark onClick={() => setConfirmExit(true)} />
           <div className={`ud-clock mono${left < 60 ? " warn" : ""}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</div>
           <span className="ud-examflag">MOCK</span>
           <div className="ud-prog"><i style={{ width: `${(i / mock.flat.length) * 100}%` }} /></div>
           <span className="mono" style={{ fontSize: 12, color: "var(--mute)" }}>{i + 1}/{mock.flat.length}</span>
+          <button className={`ud-quit${flags.includes(i) ? " on" : ""}`} onClick={toggleFlag} aria-pressed={flags.includes(i)}>{flags.includes(i) ? "⚑ Flagged" : "⚑ Flag"}</button>
           <button className="ud-quit" onClick={() => setConfirmExit(true)}>End</button>
         </div>
         <div className="ud-stage">
@@ -4612,14 +4618,50 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
               </svg>
             )}
             <p className="ud-qs">{q.stem || q.prompt}</p>
-            {(q.options).map((o, n) => (
-              <button key={n} className="ud-opt" onClick={() => answer(type === "vr" ? n : o)}>
-                <b>{String.fromCharCode(65 + n)}</b>{o}
-              </button>
-            ))}
-            <p className="ud-hint">No feedback until the end. Aim for {mock.perQ} seconds a question.</p>
+            {(q.options).map((o, n) => {
+              const val = type === "vr" ? n : o;
+              const sel = answers[i] === val;
+              return (
+                <button key={n} className={`ud-opt${sel ? " sel" : ""}`} onClick={() => select(val)} aria-pressed={sel}>
+                  <b>{String.fromCharCode(65 + n)}</b>{o}
+                </button>
+              );
+            })}
+            <p className="ud-hint">No feedback until the end. Move with Previous, Next or the Navigator. Aim for {mock.perQ} seconds a question.</p>
           </div>
         </div>
+        <div className="ud-mockfoot">
+          <button className="mock-navbtn" onClick={() => setConfirmExit(true)}>End exam</button>
+          <span style={{ flex: 1 }} />
+          <button className="mock-navbtn" onClick={prev} disabled={i === 0}>◀ Previous</button>
+          <button className="mock-navbtn" onClick={() => setNavOpen(true)}>Navigator</button>
+          <button className="mock-navbtn main" onClick={next}>{i + 1 >= mock.flat.length ? "Finish ▶" : "Next ▶"}</button>
+        </div>
+        {navOpen && (
+          <div className="ud-modal" onClick={() => setNavOpen(false)}>
+            <div className="nav-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Question navigator">
+              <div className="nav-head"><b>Navigator</b><span>select a question to go to it</span></div>
+              <div className="nav-grid">
+                <div className="nav-row nav-hd"><span>Question</span><span>Status</span><span>Review</span></div>
+                {mock.flat.map((_, n) => {
+                  const answered = answers[n] !== null && answers[n] !== undefined;
+                  const status = answered ? "Answered" : seen.includes(n) ? "Incomplete" : "Unseen";
+                  return (
+                    <button key={n} className={`nav-row${n === i ? " cur" : ""}`} onClick={() => go(n)}>
+                      <span>Question {n + 1}</span>
+                      <span className={answered ? "ok" : "no"}>{status}</span>
+                      <span className="flag">{flags.includes(n) ? "Flagged" : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="nav-foot">
+                <span>{mock.flat.filter((_, n) => answers[n] === null || answers[n] === undefined).length} unseen or incomplete</span>
+                <button className="ud-btn ghost" onClick={() => setNavOpen(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -4634,6 +4676,21 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
         <div className="ud-stat"><b className="mono">{score}/{mock.flat.length}</b><span>Correct</span></div>
         {avg !== null && <div className="ud-stat"><b className="mono">{avg}%</b><span>Average, this mock</span></div>}
         {rank && <div className="ud-stat"><b className="mono">#{rank}</b><span>Your rank</span></div>}
+      </div>
+
+      <div className="ud-sec"><h2>Review screen</h2><i /><span>green right, red wrong, grey skipped</span></div>
+      <div className="ud-reviewgrid" role="list" aria-label="Question results">
+        {mock.flat.map((q, n) => {
+          const given = answers[n];
+          const unans = given === null || given === undefined;
+          const ok = !unans && isRight(q, given);
+          return (
+            <a key={n} href={`#mockq${n}`} className={`rv ${unans ? "skip" : ok ? "ok" : "no"}`} role="listitem"
+              aria-label={`Question ${n + 1}: ${unans ? "skipped" : ok ? "correct" : "wrong"}${flags.includes(n) ? ", flagged" : ""}`}>
+              {n + 1}{flags.includes(n) ? <i className="fl" aria-hidden="true">⚑</i> : null}
+            </a>
+          );
+        })}
       </div>
 
       {!submitted && (
@@ -4666,7 +4723,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
         <>
           <div className="ud-sec"><h2>The ones you missed</h2><i /><span>{type === "vr" ? "evidence highlighted in the passage" : "full working shown"}</span></div>
           {wrong.map(({ q, given, n }) => (
-            <div className="ud-trend" key={n} style={{ padding: 20 }}>
+            <div className="ud-trend" key={n} id={`mockq${n}`} style={{ padding: 20, scrollMarginTop: 20 }}>
               <p className="ud-qs" style={{ color: "var(--paper)" }}>{n + 1}. {q.stem || q.prompt}</p>
               <p style={{ fontSize: 13, margin: "0 0 4px" }}>
                 <span style={{ color: "var(--stop)" }}>Yours: {given === null || given === undefined ? "unanswered (time ran out)" : q.a !== undefined ? q.options[given] : String(given)}</span>

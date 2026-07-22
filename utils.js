@@ -47,3 +47,6 @@ export function fiveOptions(correct, spread, unit) {
   }
   return { options: shuffle(opts), answer: dress(correct) };
 }
+
+/* Count words in a block of user text. */
+export function wordCount(t) { return (t || "").trim().split(/\s+/).filter(Boolean).length; }

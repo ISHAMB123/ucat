@@ -43,7 +43,7 @@ export function analyseAnswer(text) {
   return splitSentences(text).map((sn) => ({ sn, ...analyseSentence(sn) }));
 }
 
-const MODEL_SKELETON = {
+export const MODEL_SKELETON = {
   Motivation: ["Open with the specific moment that started it, not a childhood memory.",
     "Say how you tested the idea: what you saw, read, or did that could have changed your mind.",
     "Name one difficulty you observed and why you still chose it.",
@@ -78,7 +78,7 @@ const MODEL_SKELETON = {
 /* specificity, ownership, reflection, landing. It reads signals,     */
 /* not prose quality, and it never marks spelling or grammar.         */
 
-const STARR_STEPS = [
+export const STARR_STEPS = [
   ["1. Situation", "One sentence of scene-setting. Where, when, who. No more than that."],
   ["2. Task", "What needed doing and why it mattered, or why it was hard."],
   ["3. Action", "What YOU did, in first person, step by step. This is the longest part."],
@@ -130,6 +130,26 @@ export function markAnswer(text) {
   const band = score >= 80 ? "Excellent" : score >= 62 ? "Strong" : score >= 40 ? "Medium" : "Weak";
   return { crits, total: raw, score, band };
 }
+
+/* Cliche patterns used only by the draft checker below. */
+const PS_CLICHE_LIST = [
+  [/\bsince i was (a )?(young|little|small|five|\d+)\b/i, "Since I was ... opener"],
+  [/\bfrom a young age\b/i, "From a young age"],
+  [/\bi (have )?(always )?(wanted|dreamed|dreamt) (to be|of being)\b/i, "Always wanted to be"],
+  [/\bi am (very |really )?passionate about\b/i, "Passionate about"],
+  [/\bhelp(ing)? people\b/i, "Helping people, unqualified"],
+  [/\bmake a difference\b/i, "Make a difference"],
+  [/\brewarding (career|profession|job)\b/i, "Rewarding career"],
+  [/\bmy parents are\b/i, "My parents are"],
+  [/\bfascinating (world|field) of\b/i, "The fascinating world of"],
+  [/\bever since\b/i, "Ever since"],
+  [/\bi believe (that )?i (would|am|have)\b/i, "I believe I would be"],
+  [/\bhard[- ]working (and|individual|person)\b/i, "Hard-working"],
+  [/\bwell[- ]rounded\b/i, "Well-rounded"],
+  [/\bthis experience taught me a lot\b/i, "Taught me a lot, unspecific"],
+  [/\bin today's (world|society)\b/i, "In today's society"],
+  [/\bplays a (vital|crucial|key) role\b/i, "Plays a vital role"],
+];
 
 export function checkGeneric(text) {
   const raw = text.trim();

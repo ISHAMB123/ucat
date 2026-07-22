@@ -6,14 +6,14 @@ import {
   MARKING_DISCLOSURE, MARKING_DISCLOSURE_SHORT, fillLegal, legalPlaceholdersPending,
 } from "./legalContent.js";
 import { CSS } from "./styles.js";
-import { seeded, rnd, pick, shuffle, fmt, median, weightedPick, LEVELS, fiveOptions } from "./utils.js";
+import { seeded, rnd, pick, shuffle, fmt, median, weightedPick, LEVELS, fiveOptions, wordCount } from "./utils.js";
 import { PASSAGES, TFC, TFC_SETS } from "./data/vr.js";
 import { APPROP, IMPORT, SJT_THEMES, SJT_TYPES, SJT_SCENARIOS, SJT_LESSONS } from "./data/sjt.js";
 import { DM_QUESTIONS, DM_SUBS, VCTX, SYLL_SETS } from "./data/dm.js";
 import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UNIS } from "./data/universities.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
 import { PS_TOTAL, PS_WORDS, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
-import { markAnswer, analyseAnswer, checkGeneric } from "./engine/marking.js";
+import { markAnswer, analyseAnswer, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
 
 /* ================================================================== */
 /*  TEMPO, a UCAT trainer.                                             */
@@ -3497,24 +3497,6 @@ function routeBlurt(line) {
    honest non-native writers constantly. This scores how templated the
    writing is, which is what actually loses marks.                     */
 
-const PS_CLICHE_LIST = [
-  [/\bsince i was (a )?(young|little|small|five|\d+)\b/i, "Since I was ... opener"],
-  [/\bfrom a young age\b/i, "From a young age"],
-  [/\bi (have )?(always )?(wanted|dreamed|dreamt) (to be|of being)\b/i, "Always wanted to be"],
-  [/\bi am (very |really )?passionate about\b/i, "Passionate about"],
-  [/\bhelp(ing)? people\b/i, "Helping people, unqualified"],
-  [/\bmake a difference\b/i, "Make a difference"],
-  [/\brewarding (career|profession|job)\b/i, "Rewarding career"],
-  [/\bmy parents are\b/i, "My parents are"],
-  [/\bfascinating (world|field) of\b/i, "The fascinating world of"],
-  [/\bever since\b/i, "Ever since"],
-  [/\bi believe (that )?i (would|am|have)\b/i, "I believe I would be"],
-  [/\bhard[- ]working (and|individual|person)\b/i, "Hard-working"],
-  [/\bwell[- ]rounded\b/i, "Well-rounded"],
-  [/\bthis experience taught me a lot\b/i, "Taught me a lot, unspecific"],
-  [/\bin today's (world|society)\b/i, "In today's society"],
-  [/\bplays a (vital|crucial|key) role\b/i, "Plays a vital role"],
-];
 
 
 /* ---- Live tips shown beside the box while marking ---- */

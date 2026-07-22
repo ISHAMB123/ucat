@@ -2,7 +2,6 @@
 
 export const PS_TOTAL = 4000;
 export const PS_WORDS = 620;
-function wordCount(t) { return (t || "").trim().split(/\s+/).filter(Boolean).length; }
 
 export const PS_SECTIONS = [
   { id: "why", n: 1, title: "Why do you want to study this course?",

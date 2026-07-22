@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { supabase, supabaseEnabled } from "./supabaseClient.js";
 import {
-  PRIVACY, TERMS, DISCLAIMER, DISCLAIMER_SHORT, STORAGE_NOTICE, CONSENT,
-  MARKING_DISCLOSURE, MARKING_DISCLOSURE_SHORT, fillLegal, legalPlaceholdersPending,
+  PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
+  MARKING_DISCLOSURE, fillLegal, legalPlaceholdersPending,
 } from "./legalContent.js";
 import { CSS } from "./styles.js";
 import { seeded, rnd, pick, shuffle, fmt, median, weightedPick, LEVELS, fiveOptions, wordCount } from "./utils.js";
@@ -12,7 +12,7 @@ import { APPROP, IMPORT, SJT_THEMES, SJT_TYPES, SJT_SCENARIOS, SJT_LESSONS } fro
 import { DM_QUESTIONS, DM_SUBS, VCTX, SYLL_SETS } from "./data/dm.js";
 import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UNIS } from "./data/universities.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
-import { PS_TOTAL, PS_WORDS, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
+import { PS_TOTAL, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
 import { markAnswer, analyseAnswer, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
 import { WorkDiagram, BrandMark, ExitGuard, LastChecked, MarkingNotice, SiteDisclaimer, Monogram, Locked } from "./components/ui.jsx";
 
@@ -1287,13 +1287,16 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
     const list = [...log, entry];
     setLog(list);
     setLastEntry(entry);
-    if (correct) {
+    if (exam) {
+      /* Timed: no feedback, like the real UCAT. Move straight on. */
+      advance(list);
+    } else if (correct) {
       setPhase("celebrate");
       setTimeout(() => advance(list), 780);
     } else {
       setPhase("review");
     }
-  }, [q, log, advance]);
+  }, [q, log, advance, exam]);
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -1346,9 +1349,10 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
     const onKey = (e) => {
       if (!e.altKey) return;
       const k = e.key.toLowerCase();
-      if (k === "n") { e.preventDefault(); if (phaseRef.current === "answer") { if (hasAnswer) submitExam(); } else advance(log); }
-      if (k === "p") { e.preventDefault(); goBack(); }
+      if (k === "n") { e.preventDefault(); if (phaseRef.current === "answer") { if (exam || hasAnswer) submitExam(); } else advance(log); }
+      if (k === "p") { e.preventDefault(); if (!exam) goBack(); }
       if (k === "f") { e.preventDefault(); setFlagged((f) => f.includes(i) ? f.filter((x) => x !== i) : [...f, i]); }
+      if (k === "c") { e.preventDefault(); setCalcOpen((o) => !o); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1507,12 +1511,15 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
           <button className="vx-nav" onClick={() => setConfirmExit(true)}>✕ End Session</button>
           {exam && <span className="vx-clock mono">{Math.max(left / 1000, 0).toFixed(0)}s</span>}
           <span className="vx-spacer" />
-          <span className="vx-hint">Alt+P previous · Alt+N next · Alt+F flag</span>
-          <button className="vx-nav" onClick={goBack} disabled={i === 0}>◀ Previous</button>
+          <span className="vx-hint">Alt+N next · Alt+F flag · Alt+C calculator</span>
           {phase === "answer" ? (
-            <button className="vx-nav main" onClick={submitExam} disabled={!hasAnswer}>Next ▶</button>
+            <button className="vx-nav main" onClick={submitExam} disabled={!exam && !hasAnswer}>
+              {exam ? (i + 1 >= total ? "Finish ▶" : "Next ▶") : "Submit Answer"}
+            </button>
           ) : (
-            <button className="vx-nav main" onClick={() => { setShowWhy(false); advance(log); }}>Next ▶</button>
+            <button className="vx-nav main" onClick={() => { setShowWhy(false); advance(log); }}>
+              {i + 1 >= total ? "Finish ▶" : "Next ▶"}
+            </button>
           )}
         </div>
       </div>

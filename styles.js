@@ -344,6 +344,24 @@ export const CSS = `
 .wp-crit .dot.s2 { background:var(--go); } .wp-crit .dot.s1 { background:var(--signal); } .wp-crit .dot.s0 { background:var(--stop); }
 .wp-crit b { font-size:12.5px; } .wp-crit p { font-size:12.5px; color:var(--body); line-height:1.55; margin:3px 0 0; }
 .wp-note { font-size:11.5px; color:var(--mute); line-height:1.6; margin:12px 0 0; }
+.wp-reveal { position:relative; border-top:1px solid var(--line); margin-top:16px; padding-top:16px; animation:udrise .45s ease both; }
+.wp-close { position:absolute; top:10px; right:0; width:30px; height:30px; border:1px solid var(--line); border-radius:3px; background:var(--slate); color:var(--mute); font-size:14px; line-height:1; display:flex; align-items:center; justify-content:center; }
+.wp-close:hover { color:var(--stop); border-color:var(--stop); }
+.wp-revealgrid { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+@media (max-width:720px) { .wp-revealgrid { grid-template-columns:1fr; } }
+.wp-revealright { background:var(--slate); border:1px solid var(--line); border-radius:4px; padding:16px; animation:udrise .5s ease .1s both; }
+.wp-score10 { display:flex; align-items:baseline; gap:12px; margin:0 0 12px; }
+.wp-score10 b { font-family:'Bricolage Grotesque',sans-serif; font-size:40px; letter-spacing:-0.03em; }
+.wp-score10 b em { font-style:normal; font-size:20px; color:var(--mute); }
+.wp-score10 b.excellent { color:var(--go); } .wp-score10 b.strong { color:#7FE0B0; }
+.wp-score10 b.medium { color:var(--signal); } .wp-score10 b.weak { color:var(--stop); }
+.wp-score10 span { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:0.1em; }
+.wp-range { display:flex; gap:10px; margin-bottom:12px; }
+.wp-range > div { flex:1; border:1px solid var(--line); border-radius:3px; padding:8px 10px; text-align:center; }
+.wp-range span { display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--mute); margin-bottom:3px; }
+.wp-range b { font-size:17px; }
+.wp-casetext { font-size:12.5px; color:var(--body); line-height:1.55; margin:0 0 8px; }
+.wp-casetext b { color:var(--paper); }
 .wp-samples { border-top:1px solid var(--line); margin-top:16px; padding-top:14px; animation:udrise .3s ease; }
 .wp-samples > div { background:var(--ink); border:1px solid var(--line); border-radius:3px; padding:12px 14px; margin-bottom:10px; }
 .wp-samples p { font-size:13px; color:var(--body); line-height:1.65; margin:6px 0 0; }

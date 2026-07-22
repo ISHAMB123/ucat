@@ -128,7 +128,18 @@ export function markAnswer(text) {
   if (words < 90) score -= 12;
   score = Math.max(0, Math.min(100, score));
   const band = score >= 80 ? "Excellent" : score >= 62 ? "Strong" : score >= 40 ? "Medium" : "Weak";
-  return { crits, total: raw, score, band };
+
+  /* Overall out of 10, plus an honest range. The weakest criterion is the
+     one that swings the mark either way, so it drives best and worst case. */
+  const to10 = (s) => Math.max(1, Math.min(10, Math.round(s / 10)));
+  const outOf10 = to10(score);
+  const weakest = crits.slice().sort((a, b) => a.score - b.score)[0];
+  const best10 = to10(Math.min(100, score + (2 - weakest.score) * 9 + 6));
+  const worst10 = to10(Math.max(0, score - 14));
+  const bestCase = `On a generous read, and with ${weakest.name.toLowerCase()} tightened up, this lands around ${best10}/10. ${weakest.fix}`;
+  const worstCase = `A strict interviewer weighting ${weakest.name.toLowerCase()} could mark it near ${worst10}/10, so do not count on the benefit of the doubt.`;
+
+  return { crits, total: raw, score, band, outOf10, best10, worst10, bestCase, worstCase, weakest: weakest.name };
 }
 
 /* Cliche patterns used only by the draft checker below. */

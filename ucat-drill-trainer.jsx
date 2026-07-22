@@ -2274,6 +2274,10 @@ function ProgressView({ history, weak }) {
   history.forEach((h) => { (byDrill[h.drill] = byDrill[h.drill] || []).push(h); });
   const ids = Object.keys(byDrill);
   const weakTop = Object.entries(weak).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 10);
+  const [ivMarks, setIvMarks] = useState([]);
+  useEffect(() => { getJSON("ucat:ivmarks", []).then((a) => setIvMarks(Array.isArray(a) ? a : [])); }, []);
+  const ivRecent = ivMarks.slice(-12);
+  const ivAvg = ivMarks.length ? (ivMarks.reduce((a, m) => a + (m.out10 || 0), 0) / ivMarks.length).toFixed(1) : null;
   return (
     <div className="ud-wrap">
       <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>{history.length} runs recorded</span></div>
@@ -2296,6 +2300,17 @@ function ProgressView({ history, weak }) {
           </div>
         );
       })}
+      {ivMarks.length > 0 && (<>
+        <div className="ud-sec"><h2>Interview practice</h2><i /><span>{ivMarks.length} answers marked</span></div>
+        <div className="ud-trend">
+          <header>
+            <h3>Marked answers</h3>
+            <span className="sum">average {ivAvg}/10 · latest {ivRecent[ivRecent.length - 1].out10}/10</span>
+          </header>
+          <div className="ud-spark">{ivRecent.map((m, i) => <div key={i} style={{ height: `${Math.max((m.out10 || 0) * 10, 6)}%` }} title={`${m.out10}/10`} />)}</div>
+          <div className="ud-axis"><span>oldest</span><span>latest</span></div>
+        </div>
+      </>)}
       {weakTop.length > 0 && (<>
         <div className="ud-sec"><h2>What keeps catching you</h2><i /><span>drills now favour these</span></div>
         <div className="ud-weak">{weakTop.map(([t, v]) => <b key={t}>{weakLabel(t)} · {Math.round(v)}</b>)}</div>
@@ -2775,12 +2790,25 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
   const startTimed = () => { setText(""); setResult(null); setLines(null); setTPhase("think"); setTLeft(5); };
   const WRITE_SECS = 45;
 
+  /* When the writing timer runs out, mark automatically so the score
+     reveal animates in on its own, as in a real timed station. */
+  useEffect(() => {
+    if (tPhase === "done" && !result && text.trim().split(/\s+/).filter(Boolean).length >= 5) doMark();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tPhase]);
+
   const doMark = () => {
     const wc = text.trim().split(/\s+/).filter(Boolean).length;
     if (wc < 15) { setResult({ tooShort: true }); setLines(null); return; }
-    setResult(markAnswer(text));
+    const r = markAnswer(text);
+    setResult(r);
     setLines(analyseAnswer(text));
     if (tPhase !== "off") setTPhase("done");
+    /* Save to the progress report. */
+    getJSON("ucat:ivmarks", []).then((arr) => {
+      const list = Array.isArray(arr) ? arr : [];
+      setJSON("ucat:ivmarks", [...list, { ts: Date.now(), out10: r.outOf10, band: r.band, track }].slice(-100));
+    });
   };
 
   return (
@@ -2861,45 +2889,55 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
         </p>
       )}
       {result && !result.tooShort && (
-        <div className="wp-result">
-          <p className="band">
-            <b className={result.band.toLowerCase()}>{result.score}<em>/100</em></b>
-            <span className="mono">{result.band} · marked hard, because interviewers are</span>
-          </p>
-          {lines && lines.length > 0 && (
-            <div className="wp-hl">
-              <p className="hh">Your answer, marked line by line</p>
-              <div className="hkey">
-                <span className="green">strong</span><span className="amber">could be better</span><span className="red">weak</span>
+        <div className="wp-reveal">
+          <button className="wp-close" onClick={() => { setResult(null); setLines(null); }} aria-label="Close feedback">✕</button>
+          <div className="wp-revealgrid">
+            <div className="wp-revealleft">
+              {lines && lines.length > 0 ? (
+                <div className="wp-hl">
+                  <p className="hh">Your answer, marked line by line</p>
+                  <div className="hkey">
+                    <span className="green">strong</span><span className="amber">could be better</span><span className="red">weak</span>
+                  </div>
+                  {lines.map((l, n) => (
+                    <div className={`hline ${l.v}`} key={n}>
+                      <p className="txt">{l.sn}</p>
+                      <p className="note">{l.n}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="wp-note">{text}</p>}
+            </div>
+
+            <div className="wp-revealright">
+              <div className="wp-score10">
+                <b className={result.band.toLowerCase()}>{result.outOf10}<em>/10</em></b>
+                <span className="mono">{result.band}</span>
               </div>
-              {lines.map((l, n) => (
-                <div className={`hline ${l.v}`} key={n}>
-                  <p className="txt">{l.sn}</p>
-                  <p className="note">{l.n}</p>
+              <div className="wp-range">
+                <div><span>Best case</span><b className="mono">{result.best10}/10</b></div>
+                <div><span>Worst case</span><b className="mono">{result.worst10}/10</b></div>
+              </div>
+              <p className="wp-casetext"><b>Best case.</b> {result.bestCase}</p>
+              <p className="wp-casetext"><b>Worst case.</b> {result.worstCase}</p>
+              {result.crits.map((c) => (
+                <div className="wp-crit" key={c.name}>
+                  <span className={`dot s${c.score}`} />
+                  <div>
+                    <b>{c.name} · {c.score}/2</b>
+                    <p>{c.score === 2 ? c.good : c.fix}</p>
+                  </div>
                 </div>
               ))}
             </div>
-          )}
-          {result.crits.map((c) => (
-            <div className="wp-crit" key={c.name}>
-              <span className={`dot s${c.score}`} />
-              <div>
-                <b>{c.name} · {c.score}/2</b>
-                <p>{c.score === 2 ? c.good : c.fix}</p>
-              </div>
-            </div>
-          ))}
-          <div style={{ background: "var(--ink)", border: "1px solid var(--line)", borderRadius: 3, padding: "12px 14px", marginTop: 12 }}>
-            <p style={{ fontSize: 13, color: "var(--body)", lineHeight: 1.65, margin: 0 }}>
-              <strong style={{ color: "var(--signal)" }}>How to build this one:</strong> {cur.g}
-            </p>
           </div>
+
           <div className="wp-model">
             <p className="hh">A better response would run like this</p>
             <ol>{(MODEL_SKELETON[cur.theme] || MODEL_SKELETON.default).map((x, n) => <li key={n}>{x}</li>)}</ol>
             <p className="mn"><b>For this question specifically:</b> {cur.g}</p>
           </div>
-          <p className="wp-note">Automated marking against a fixed scheme: it reads structural and content signals, not prose quality, and deliberately ignores spelling and grammar. A human mock interview remains the gold standard; use this to make every attempt before one count.</p>
+          <MarkingNotice />
         </div>
       )}
 

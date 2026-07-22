@@ -2682,6 +2682,7 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
   const [micState, setMicState] = useState("idle");
   const recRef = useRef(null);
   const baseRef = useRef("");
+  const wantRef = useRef(false);
 
   const uniData = src !== "general" ? IVTABLE[src] : null;
   const pool = uniData
@@ -2712,28 +2713,53 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
     const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (!SR) { setMicState("unsupported"); return; }
     const rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB";
+    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB"; rec.maxAlternatives = 1;
     rec.onresult = (e) => {
-      let out = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) out += e.results[i][0].transcript;
-      setText((baseRef.current + " " + out).trim());
+      /* Commit finalised phrases to the buffer so nothing is lost as you
+         keep talking; show any in-progress words on top of it. */
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const seg = e.results[i][0].transcript;
+        if (e.results[i].isFinal) baseRef.current = (baseRef.current + " " + seg).replace(/\s+/g, " ").trim();
+        else interim += seg;
+      }
+      setText((baseRef.current + (interim ? " " + interim : "")).replace(/\s+/g, " ").trim());
       setResult(null);
     };
-    rec.onerror = (e) => { if (e.error === "not-allowed" || e.error === "service-not-allowed") setMicState("denied"); setListening(false); };
-    rec.onend = () => setListening(false);
+    rec.onerror = (e) => {
+      /* Only a genuine permission block should stop us. Silence, brief
+         network drops and "aborted" are normal; onend then restarts. */
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        wantRef.current = false; setMicState("denied"); setListening(false);
+      }
+    };
+    rec.onend = () => {
+      /* Chrome ends the session on every pause. If the user still wants
+         to dictate, restart so they can carry on speaking seamlessly. */
+      if (wantRef.current) { try { rec.start(); } catch (err) { /* mid-restart */ } }
+      else setListening(false);
+    };
     recRef.current = rec;
-    return () => { try { rec.stop(); } catch (err) { /* already stopped */ } };
+    return () => { wantRef.current = false; try { rec.stop(); } catch (err) { /* already stopped */ } };
   }, []);
+
+  const stopMic = () => {
+    wantRef.current = false;
+    const rec = recRef.current;
+    if (rec) { try { rec.stop(); } catch (e) { /* ignore */ } }
+    setListening(false);
+  };
 
   const toggleMic = () => {
     const rec = recRef.current;
     if (!rec) return;
-    if (listening) { try { rec.stop(); } catch (e) { /* ignore */ } setListening(false); return; }
-    baseRef.current = text;
+    if (listening) { stopMic(); return; }
+    baseRef.current = text ? text.replace(/\s+/g, " ").trim() : "";
+    wantRef.current = true;
     try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* already running */ }
   };
 
-  const nextQ = () => { setQi((n) => (n + 1) % pool.length); setText(""); setResult(null); setLines(null); setTPhase("off"); };
+  const nextQ = () => { stopMic(); setQi((n) => (n + 1) % pool.length); setText(""); setResult(null); setLines(null); setTPhase("off"); };
 
   useEffect(() => {
     if (tPhase === "off" || tPhase === "done") return;

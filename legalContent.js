@@ -11,9 +11,9 @@
 
 export const LEGAL_CONFIG = {
   /* If trading as an individual, this must be your personal name. */
-  controller: "[your full name or registered trading name]",
-  contactEmail: "[privacy@yourdomain.com]",
-  lastUpdated: "[date not yet set]",
+  controller: "Isham Bari",
+  contactEmail: "ishambari6@gmail.com",
+  lastUpdated: "22 July 2026",
 };
 
 /* True while any placeholder is still unset, so the UI can warn the

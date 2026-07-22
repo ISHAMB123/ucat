@@ -1426,6 +1426,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, onDone, onQuit 
                 <text x="252" y="130" fontSize="11" fill="#444">{q.venn.neither} neither</text>
               </svg>
             )}
+            {q.kind === "mcq" && <p className="ask">{q.stem || q.prompt}</p>}
             {q.kind === "scale" && (
               <p className="ask">
                 How <b>{q.typeName === "Importance" ? "important" : "appropriate"}</b>{" "}

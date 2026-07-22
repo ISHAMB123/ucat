@@ -282,6 +282,9 @@ export const CSS = `
 .ud-track svg { width:46px; height:46px; color:var(--signal); }
 .ud-track b { font-family:'Bricolage Grotesque',sans-serif; font-size:20px; letter-spacing:-0.02em; }
 .ud-track span { font-size:12px; color:var(--mute); line-height:1.5; max-width:26ch; }
+.ud-charttoggle { display:inline-flex; gap:2px; border:1px solid var(--line); border-radius:3px; overflow:hidden; }
+.ud-charttoggle button { background:transparent; color:var(--mute); font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.08em; padding:4px 9px; }
+.ud-charttoggle button.on { background:var(--signal); color:#131A22; }
 .ud-mode { display:flex; gap:6px; align-items:center; }
 .ud-mode span { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mute); margin-right:6px; }
 .ud-mode button { background:transparent; border:1px solid var(--line); color:var(--mute); font-size:12px; padding:7px 12px; border-radius:2px; font-family:'JetBrains Mono',monospace; }

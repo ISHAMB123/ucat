@@ -2338,9 +2338,29 @@ function ProgressView({ history, weak }) {
   useEffect(() => { getJSON("ucat:ivmarks", []).then((a) => setIvMarks(Array.isArray(a) ? a : [])); }, []);
   const ivRecent = ivMarks.slice(-12);
   const ivAvg = ivMarks.length ? (ivMarks.reduce((a, m) => a + (m.out10 || 0), 0) / ivMarks.length).toFixed(1) : null;
+  const [chart, setChart] = useState("bar");
+
+  const LineSpark = ({ pts, height = 90 }) => {
+    const n = pts.length;
+    if (n === 0) return null;
+    const coords = pts.map((p, i) => [n === 1 ? 50 : (i / (n - 1)) * 100, 100 - Math.max(Math.min(p, 100), 2)]);
+    const dPath = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    return (
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height, display: "block" }}>
+        <path d={dPath} fill="none" stroke="var(--signal)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        {coords.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.7" fill="var(--signal)" vectorEffect="non-scaling-stroke" />)}
+      </svg>
+    );
+  };
+
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>{history.length} runs recorded</span></div>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i />
+        <span className="ud-charttoggle">
+          <button className={chart === "bar" ? "on" : ""} onClick={() => setChart("bar")}>Bars</button>
+          <button className={chart === "line" ? "on" : ""} onClick={() => setChart("line")}>Line</button>
+        </span>
+      </div>
       {ids.length === 0 && (
         <p className="ud-empty">Nothing here yet. Finish a drill and your accuracy starts plotting from the next run. Green bars are timed runs.</p>
       )}
@@ -2355,7 +2375,9 @@ function ProgressView({ history, weak }) {
               <h3>{d.name}</h3>
               <span className="sum">{runs.length} runs · latest {last.pct}% · median {fmt(last.med)}{trend !== null && ` · ${trend >= 0 ? "+" : ""}${trend} pts`}</span>
             </header>
-            <div className="ud-spark">{runs.map((r, i) => <div key={i} className={r.exam ? "exam" : ""} style={{ height: `${Math.max(r.pct, 3)}%` }} title={`${r.pct}%`} />)}</div>
+            {chart === "bar"
+              ? <div className="ud-spark">{runs.map((r, i) => <div key={i} className={r.exam ? "exam" : ""} style={{ height: `${Math.max(r.pct, 3)}%` }} title={`${r.pct}%`} />)}</div>
+              : <LineSpark pts={runs.map((r) => r.pct)} />}
             <div className="ud-axis"><span>oldest</span><span>latest</span></div>
           </div>
         );
@@ -2691,6 +2713,9 @@ function assessUni(u, f) {
     if (u.cutCtx) reasons.push(`Contextual threshold of ${u.cutCtx} applied.`);
     else if (u.ctxFriendly) reasons.push("Notably contextual-friendly: expect a lower effective threshold and a reduced offer, typically around one grade.");
     else reasons.push("As a contextual applicant, most schools weight thresholds lower and reduce offers by about a grade; confirm this school's scheme.");
+  }
+  if (!u.pred) {
+    reasons.push("Predicted grades are not scored here, so a lower prediction does not hold you back.");
   }
   return { status, label: status === "strong" ? "Strong fit" : status === "range" ? "In range" : status === "aspire" ? "Aspirational" : "Out of reach", reasons };
 }

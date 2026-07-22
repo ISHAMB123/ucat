@@ -4433,6 +4433,41 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
 
 const MISTAKE_DRILL = { id: "mistakes", section: "MIX", name: "Mistake rematch", budget: 30 };
 
+/* First-payment walkthrough of the main features, shown once after
+   unlocking. Advancing navigates the app to the feature being described. */
+const FEATURE_TOUR = [
+  { t: "Welcome to Tempo", p: "You're unlocked. Here is a quick tour of everything you now have. Skip whenever you like.", view: "drills" },
+  { t: "Drills", p: "Every UCAT skill as a focused drill: times tables, the on-screen calculator, estimation, verbal reasoning, decision making and situational judgement. Timed or untimed.", view: "drills" },
+  { t: "Learn", p: "Short lessons on the technique behind each section, with a quick quiz as you go. Read these before you drill.", view: "learn" },
+  { t: "Weekly mocks", p: "Full timed VR and QR mocks, three of each every week, marked with a leaderboard so you can see where you stand.", view: "mock" },
+  { t: "Interview", p: "Written and spoken practice for real interview themes, marked out of 10 with a best and worst case, plus dictation so you can rehearse out loud.", view: "interview" },
+  { t: "University selector", p: "Enter your grades and UCAT and map yourself against every school, with cut-offs, weightings and living costs.", view: "unis" },
+  { t: "Personal statement", p: "Build your statement section by section, marked line by line, with frameworks and an experience router.", view: "ps" },
+  { t: "Mistakes and progress", p: "Everything you get wrong comes back for spaced review, and Progress tracks your scores, weak spots and interview marks over time.", view: "progress" },
+];
+
+function FeatureTour({ onGoto, onClose }) {
+  const [i, setI] = useState(0);
+  const go = (n) => { setI(n); if (FEATURE_TOUR[n].view) onGoto(FEATURE_TOUR[n].view); };
+  const s = FEATURE_TOUR[i];
+  const last = i === FEATURE_TOUR.length - 1;
+  return (
+    <div className="tour-wrap">
+      <div className="tour-card">
+        <span className="step mono">{i + 1} of {FEATURE_TOUR.length}</span>
+        <h3>{s.t}</h3>
+        <p>{s.p}</p>
+        <div className="tour-dots">{FEATURE_TOUR.map((_, n) => <i key={n} className={n === i ? "on" : ""} />)}</div>
+        <div className="tour-btns">
+          <button className="ud-quit" onClick={onClose}>Skip</button>
+          {i > 0 && <button className="ud-btn ghost" onClick={() => go(i - 1)}>Back</button>}
+          <button className="ud-btn" onClick={() => { if (last) { onGoto("drills"); onClose(); } else go(i + 1); }}>{last ? "Start" : "Next"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function UcatDrillTrainer() {
   const [view, setView] = useState("drills");
   const [drill, setDrill] = useState(null);
@@ -4453,6 +4488,7 @@ export default function UcatDrillTrainer() {
   const [missedNow, setMissedNow] = useState(0);
   const [account, setAccount] = useState(null);
   const [authDone, setAuthDone] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const lastRun = useRef(null);
 
   useEffect(() => {
@@ -4463,6 +4499,8 @@ export default function UcatDrillTrainer() {
       setPrefsState(pf);
       if (pf.account) { setAccount(pf.account); setAuthDone(true); }
       if (pf.skippedAuth) setAuthDone(true);
+      /* Show the feature tour once to anyone already unlocked who has not seen it. */
+      if (s.unlocked && !pf.tourSeen) setShowTour(true);
       setReady(true);
     });
   }, []);
@@ -4584,7 +4622,8 @@ export default function UcatDrillTrainer() {
     setView("results");
   };
 
-  const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); };
+  const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); if (!prefs.tourSeen) setShowTour(true); };
+  const closeTour = () => { setShowTour(false); setPrefs({ ...prefs, tourSeen: true }); };
 
   /* Self-service deletion: wipe every key on this device, sign out of
      Supabase, and reset to a clean, signed-out state. Full server-side
@@ -4654,6 +4693,7 @@ export default function UcatDrillTrainer() {
         />
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
+      {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
       {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
       {view === "sjtlearn" && (<><Header /><SjtLearn onBack={() => setView("drills")} onPractice={() => start(DRILL_BY_ID.sjt, prefs.exam, Math.min(prefs.count, 25), null, null, null)} /></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} onStart={start} onUnlock={() => setView("billing")} /></>)}

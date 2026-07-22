@@ -4263,6 +4263,16 @@ const IV_THEMES = [
 /* Facts only, reworded; always confirm on official pages before      */
 /* submitting UCAS choices. UCAT scale: 900-2700 plus SJT band.       */
 
+/* When each admissions dataset was last checked against official
+   sources. These figures go stale every cycle, so update the relevant
+   entry whenever you reconfirm a dataset and the UI updates with it. */
+const DATA_CHECKED = {
+  ukDental: "the 2025 admissions cycle",
+  ukMed: "the 2025 admissions cycle",
+  australia: "the 2025 admissions cycle",
+  fees: "2026 entry figures",
+};
+
 const UNIS = [
   { id: "belfast", col: "#C8102E", hosp: "School of Dentistry on the Royal Victoria Hospital site, west of the city centre.", course: "Five-year BDS mixing lectures, e-learning and early practical skills, with clinical treatment sessions building from mid-course.", plc: "Outreach placements across Northern Ireland trusts in the later years.", rent: [450, 600], intl: "roughly £42k-£48k a year", near: "Titanic Quarter, the Cathedral Quarter music scene, and the coast an hour away.", name: "Queen's University Belfast", cut: 1600, safer: 1800, pi: 15,
     weight: "Points system out of 42: GCSEs up to 36, UCAT banded up to 6. GCSEs dominate.",
@@ -4375,6 +4385,14 @@ const UCAT_FACTS = [
   { k: "ANZ eligibility", v: "Open to students in, or who have recently completed, the final year of secondary school. Australian Year 11 students are not eligible, even when taking Year 12 subjects early." },
 ];
 
+function LastChecked({ when }) {
+  return (
+    <p className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.04em", margin: "10px 0 0" }}>
+      Last checked against official sources: {when}. Always confirm on the university's own page before deciding.
+    </p>
+  );
+}
+
 function IntlPanel({ region }) {
   const d = INTL[region];
   return (
@@ -4392,6 +4410,7 @@ function IntlPanel({ region }) {
         Fees rise every year, differ between pre-clinical and clinical years, and change with visa and levy rules. Treat these
         as planning ranges and confirm the exact figure on the university's own fees page before committing to anything.
       </p>
+      <LastChecked when={DATA_CHECKED.fees} />
     </div>
   );
 }
@@ -5361,8 +5380,8 @@ function AuSelector({ track }) {
       <p className="ud-learn-intro">
         Australian direct entry runs on ATAR plus UCAT ANZ, and the balance between them varies enormously by school.
         Some weight UCAT at 100 per cent of the interview shortlist, others ignore it completely. Enter your numbers and
-        the tool sorts every programme by fit. Figures come from 2025 research notes and move every cycle, so confirm on
-        each university's own page before preferencing.
+        the tool sorts every programme by fit. Figures move every cycle, so confirm on each university's own page before
+        preferencing.
       </p>
 
       <div className="uni-form">
@@ -5409,10 +5428,13 @@ function AuSelector({ track }) {
       ))}
 
       {ran && (
-        <p className="ud-empty" style={{ paddingTop: 16 }}>
-          ATAR baselines, weightings and pathway rules change every cycle and differ for rural, Indigenous and interstate
-          applicants. Nothing here replaces the university's own admissions page or TISC, UAC, QTAC and VTAC guidance.
-        </p>
+        <div className="ud-empty" style={{ paddingTop: 16 }}>
+          <p style={{ margin: 0 }}>
+            ATAR baselines, weightings and pathway rules change every cycle and differ for rural, Indigenous and interstate
+            applicants. Nothing here replaces the university's own admissions page or TISC, UAC, QTAC and VTAC guidance.
+          </p>
+          <LastChecked when={DATA_CHECKED.australia} />
+        </div>
       )}
       <div style={{ height: 50 }} />
     </>
@@ -5507,8 +5529,8 @@ function UniSelector({ track, prefs, setPrefs }) {
       <p className="ud-learn-intro">
         Type your actual grades, mark contextual status if any widening participation scheme applies to you, and the tool maps you against
         every dental school's latest known thresholds. Contextual applicants are weighted more gently almost everywhere: lower effective
-        UCAT thresholds and offers typically reduced by a grade. Figures are 2025-cycle research and move yearly, so confirm everything
-        on official admissions pages before UCAS.
+        UCAT thresholds and offers typically reduced by a grade. Figures move yearly, so confirm everything on official admissions
+        pages before UCAS.
       </p>
 
       <div className="uni-form">
@@ -5599,10 +5621,13 @@ function UniSelector({ track, prefs, setPrefs }) {
             <p style={{ fontSize: 13.5, color: "var(--body)", lineHeight: 1.65, margin: 0 }}>{GRAD_ENTRY.dent}</p>
           </div>
 
-          <p className="ud-empty" style={{ paddingTop: 16 }}>
-            Thresholds, rents and fees shown are approximate figures from 2025-cycle research and estimates, and every one of them moves.
-            Nothing here replaces the universities' own published criteria; check each admissions and fees page before submitting UCAS choices.
-          </p>
+          <div className="ud-empty" style={{ paddingTop: 16 }}>
+            <p style={{ margin: 0 }}>
+              Thresholds, rents and fees shown are approximate research figures and estimates, and every one of them moves.
+              Nothing here replaces the universities' own published criteria; check each admissions and fees page before submitting UCAS choices.
+            </p>
+            <LastChecked when={DATA_CHECKED.ukDental} />
+          </div>
         </>
       )}
       <div style={{ height: 50 }} />

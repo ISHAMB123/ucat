@@ -12,5 +12,9 @@ describe("the app mounts without throwing", () => {
     await waitFor(() => {
       expect(screen.getAllByText(/Tempo/i).length).toBeGreaterThan(0);
     });
+    /* The default signup screen carries the required terms consent box. */
+    await waitFor(() => {
+      expect(screen.getByText(/agree to the Terms/i)).toBeTruthy();
+    });
   });
 });

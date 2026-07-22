@@ -29,6 +29,7 @@ function makeMemoryDriver() {
     async get(key) { return map.has(key) ? map.get(key) : null; },
     async set(key, value) { map.set(key, value); },
     async remove(key) { map.delete(key); },
+    async keys() { return [...map.keys()]; },
   };
 }
 
@@ -43,6 +44,13 @@ function makeLocalStorageDriver() {
     },
     async remove(key) {
       try { window.localStorage.removeItem(key); } catch (e) { /* ignore */ }
+    },
+    async keys() {
+      try {
+        const out = [];
+        for (let i = 0; i < window.localStorage.length; i++) out.push(window.localStorage.key(i));
+        return out;
+      } catch (e) { return []; }
     },
   };
 }
@@ -137,4 +145,29 @@ export async function setSharedJSON(key, value) {
 /* Which per-device driver won, for diagnostics and the storage notice. */
 export function localDriverName() {
   return localDriver.name;
+}
+
+/* ---- data rights: export and delete everything held on this device ---- */
+
+const OWNED_PREFIXES = ["ucat:", "lb:"];
+const isOwned = (k) => OWNED_PREFIXES.some((p) => k.startsWith(p));
+
+/* Return every key/value this app has stored on the device, parsed
+   where possible, for the user's data-export download. */
+export async function exportLocalData() {
+  const out = {};
+  const keys = (await localDriver.keys()).filter(isOwned);
+  for (const k of keys) {
+    const raw = await localDriver.get(k);
+    try { out[k] = JSON.parse(raw); } catch (e) { out[k] = raw; }
+  }
+  return out;
+}
+
+/* Remove every key this app has stored on the device. Returns the
+   number removed. Never throws. */
+export async function deleteLocalData() {
+  const keys = (await localDriver.keys()).filter(isOwned);
+  for (const k of keys) await localDriver.remove(k);
+  return keys.length;
 }

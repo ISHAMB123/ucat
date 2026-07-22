@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal } from "./storage.js";
+import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { supabase, supabaseEnabled } from "./supabaseClient.js";
+import {
+  PRIVACY, TERMS, DISCLAIMER, DISCLAIMER_SHORT, STORAGE_NOTICE, CONSENT,
+  MARKING_DISCLOSURE, MARKING_DISCLOSURE_SHORT, fillLegal, legalPlaceholdersPending,
+} from "./legalContent.js";
 
 /* ================================================================== */
 /*  TEMPO, a UCAT trainer.                                             */
@@ -4393,6 +4397,25 @@ function LastChecked({ when }) {
   );
 }
 
+/* Automated-marking notice. The marking is fixed rules, not AI, and
+   nothing the user writes leaves their device. Shown at every surface
+   that marks writing. */
+function MarkingNotice() {
+  return (
+    <p className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.04em", margin: "10px 0 0", lineHeight: 1.55 }}>
+      {MARKING_DISCLOSURE_SHORT}
+    </p>
+  );
+}
+
+/* Short independence and not-advice disclaimer, for the interview and
+   university sections and the home footer. */
+function SiteDisclaimer() {
+  return (
+    <p className="ud-empty" style={{ paddingTop: 10, fontSize: 11.5, lineHeight: 1.6 }}>{DISCLAIMER_SHORT}</p>
+  );
+}
+
 function IntlPanel({ region }) {
   const d = INTL[region];
   return (
@@ -5187,6 +5210,7 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
         <button className="ud-btn ghost" onClick={nextQ}>Next question</button>
         <button className="ud-btn ghost" onClick={() => setShowSamples((o) => !o)}>{showSamples ? "Hide" : "See"} a strong vs weak answer</button>
       </div>
+      <MarkingNotice />
 
       {result && (
         <div className="wp-result">
@@ -5298,6 +5322,7 @@ function InterviewView({ track, onSwitch }) {
         and practice moves scores more than talent does. Open any question for how to build the answer, then use practice mode to rehearse
         under real thinking time.
       </p>
+      <SiteDisclaimer />
 
       <UniInterviewDeck track={track} sel={uniSel} setSel={setUniSel} onPractise={(qq) => setJump({ q: qq, n: Date.now() })} />
 
@@ -5492,6 +5517,7 @@ function UniSelector({ track, prefs, setPrefs }) {
       <div className="ud-wrap">
         <div className="ud-sec" style={{ paddingTop: 32 }}><h2>University selector</h2><i /><span>Australia, direct entry</span></div>
         <RegionBar />
+        <SiteDisclaimer />
         <AuSelector track={track} />
       </div>
     );
@@ -5502,6 +5528,7 @@ function UniSelector({ track, prefs, setPrefs }) {
       <div className="ud-wrap">
         <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Strategic university selector</h2><i /><span>medicine</span></div>
         <RegionBar />
+        <SiteDisclaimer />
         <p className="ud-empty">The dentistry dataset is live with all 14 UK dental schools, including course structure, hospitals, placements and living-cost estimates. The medicine table is the next dataset to build, and the engine is already waiting for it. The interview bank, including the marked writing practice, is live for medicine now.</p>
         <div className="ud-trend" style={{ padding: 20 }}>
           <h3 style={{ marginTop: 0 }}>Graduate entry</h3>
@@ -5526,6 +5553,7 @@ function UniSelector({ track, prefs, setPrefs }) {
     <div className="ud-wrap">
       <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Strategic university selector</h2><i /><span>14 UK dental schools</span></div>
       <RegionBar />
+        <SiteDisclaimer />
       <p className="ud-learn-intro">
         Type your actual grades, mark contextual status if any widening participation scheme applies to you, and the tool maps you against
         every dental school's latest known thresholds. Contextual applicants are weighted more gently almost everywhere: lower effective
@@ -6016,6 +6044,7 @@ function PsBuilder({ unlocked, onUnlock }) {
                         <button className="ud-btn" disabled={(d[sec.id] || "").trim().split(/\s+/).filter(Boolean).length < 12} onClick={() => markSection(sec)}>Mark this section</button>
                         <button className="ud-btn ghost" onClick={save}>{saved ? "Saved ✓" : "Save"}</button>
                       </div>
+                      <MarkingNotice />
                     </div>
 
                     {tips[sec.id] && (
@@ -6137,6 +6166,7 @@ function PsBuilder({ unlocked, onUnlock }) {
           <button className="ud-btn" onClick={() => setGen(checkGeneric(PS_SECTIONS.map((sec) => d[sec.id] || "").join(" ")))}>
             Check this draft
           </button>
+          <MarkingNotice />
           {gen === null && <p className="ud-empty" style={{ paddingTop: 12 }}>Write at least thirty words across the sections, then run the check.</p>}
           {gen && (
             <div className="ps-gen">
@@ -6211,9 +6241,139 @@ function PsBuilder({ unlocked, onUnlock }) {
   );
 }
 
+/* ------------------------------ LEGAL ----------------------------- */
+/* Privacy, terms and disclaimer copy plus the user's data rights:    */
+/* export everything held on the device, and delete it. Full server   */
+/* erasure of a Supabase account needs a service-role Edge Function;   */
+/* until that exists the email route in the privacy policy is the      */
+/* legally sufficient path, and the button text does not overclaim.   */
+
+function LegalDoc({ doc }) {
+  return (
+    <div className="ud-trend" style={{ padding: 22, marginTop: 12 }}>
+      <h3 style={{ marginTop: 0 }}>{doc.title}</h3>
+      {doc.paragraphs
+        ? doc.paragraphs.map((p, n) => <p key={n} style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.7 }}>{fillLegal(p)}</p>)
+        : doc.sections.map((s, n) => (
+            <div key={n} style={{ marginBottom: 14 }}>
+              {s.h && <p style={{ fontWeight: 600, color: "var(--paper)", margin: "0 0 4px", fontSize: 14 }}>{s.h}</p>}
+              <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>{fillLegal(s.p)}</p>
+            </div>
+          ))}
+    </div>
+  );
+}
+
+function LegalView({ account, prefs, setPrefs, onDeleteAccount }) {
+  const [tab, setTab] = useState("privacy");
+  const [busy, setBusy] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [note, setNote] = useState("");
+
+  const doExport = async () => {
+    setBusy(true);
+    try {
+      const data = await exportLocalData();
+      const payload = { app: "Tempo", exportedAt: new Date().toISOString(), account: account ? { email: account.email } : null, data };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "tempo-data.json";
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      setNote("Your data has been downloaded as tempo-data.json.");
+    } catch (e) {
+      setNote("Could not build the download. Please try again.");
+    }
+    setBusy(false);
+  };
+
+  const doDelete = async () => {
+    setBusy(true);
+    await onDeleteAccount();
+    setBusy(false);
+  };
+
+  const tabs = [["privacy", "Privacy"], ["terms", "Terms"], ["disclaimer", "Disclaimer"], ["data", "Your data"]];
+
+  return (
+    <div className="ud-wrap">
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Legal and your data</h2><i /><span>policies, consent and data rights</span></div>
+
+      {legalPlaceholdersPending() && (
+        <p className="ud-empty" style={{ paddingTop: 12, color: "var(--signal)" }}>
+          Setup note for the operator: the controller name, contact email and last-updated date are not yet filled in. Set them in legalContent.js (LEGAL_CONFIG) before taking any payment.
+        </p>
+      )}
+
+      <div className="ud-mode" style={{ paddingTop: 14 }}>
+        <span>Section</span>
+        {tabs.map(([k, label]) => (
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => { setTab(k); setNote(""); }}>{label}</button>
+        ))}
+      </div>
+
+      {tab === "privacy" && <LegalDoc doc={PRIVACY} />}
+      {tab === "terms" && <LegalDoc doc={TERMS} />}
+      {tab === "disclaimer" && <LegalDoc doc={DISCLAIMER} />}
+
+      {tab === "data" && (
+        <>
+          <div className="ud-trend" style={{ padding: 22, marginTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>How your writing is marked</h3>
+            <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>{MARKING_DISCLOSURE}</p>
+          </div>
+
+          <div className="ud-trend" style={{ padding: 22, marginTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Storage and tracking</h3>
+            <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.7, margin: 0 }}>{STORAGE_NOTICE}</p>
+          </div>
+
+          <div className="ud-trend" style={{ padding: 22, marginTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Improving the marking</h3>
+            <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
+              <input type="checkbox" checked={!!prefs.consentImprove} style={{ marginTop: 3 }}
+                onChange={(e) => setPrefs({ ...prefs, consentImprove: e.target.checked })} />
+              <span style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.6 }}>{CONSENT.improve}</span>
+            </label>
+            <p className="mono" style={{ fontSize: 11, color: "var(--mute)", marginTop: 8 }}>
+              This is off unless you tick it. Marking runs on your device today, so nothing is collected either way; this records your choice for any future opt-in feature.
+            </p>
+          </div>
+
+          <div className="ud-trend" style={{ padding: 22, marginTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Download your data</h3>
+            <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.7 }}>Get everything Tempo has stored on this device as a single JSON file.</p>
+            <button className="ud-btn ghost" onClick={doExport} disabled={busy}>Download my data</button>
+          </div>
+
+          <div className="ud-trend" style={{ padding: 22, marginTop: 12 }}>
+            <h3 style={{ marginTop: 0 }}>Delete your data</h3>
+            <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.7 }}>
+              This removes all your progress, drafts and settings from this device{supabaseEnabled ? " and signs you out" : ""}. It is immediate and cannot be undone.
+              {supabaseEnabled ? ` To erase your account from our servers entirely, email ${fillLegal("{email}")} and we will action it within 30 days.` : ""}
+            </p>
+            {!confirmDel ? (
+              <button className="ud-btn" style={{ background: "var(--stop)", color: "#fff" }} onClick={() => setConfirmDel(true)}>Delete my data</button>
+            ) : (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="ud-btn" style={{ background: "var(--stop)", color: "#fff" }} onClick={doDelete} disabled={busy}>Yes, delete everything</button>
+                <button className="ud-btn ghost" onClick={() => setConfirmDel(false)} disabled={busy}>Cancel</button>
+              </div>
+            )}
+          </div>
+
+          {note && <p className="ud-empty" style={{ paddingTop: 12 }}>{note}</p>}
+        </>
+      )}
+
+      <div style={{ height: 50 }} />
+    </div>
+  );
+}
+
 /* ------------------------------ AUTH AND BILLING ------------------ */
-/* UI only. Wire STRIPE_LINK to a Stripe Payment Link, and replace    */
-/* the three auth handlers with Supabase calls, and this is live.     */
+/* Wire STRIPE_LINK to a Stripe Payment Link and billing is live.     */
 
 const STRIPE_LINK = "";      /* e.g. https://buy.stripe.com/xxxxx */
 const PRICE = "£25";
@@ -6240,6 +6400,9 @@ function AuthScreen({ onAuthed, onSkip }) {
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
   const [sentMsg, setSentMsg] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreeImprove, setAgreeImprove] = useState(false);
+  const [showLegal, setShowLegal] = useState(false);
 
   const strength = (() => {
     let n = 0;
@@ -6257,8 +6420,10 @@ function AuthScreen({ onAuthed, onSkip }) {
     if (mode !== "reset") {
       if (pw.length < 8) { setErr("Passwords need at least 8 characters."); return; }
       if (mode === "signup" && pw !== pw2) { setErr("The two passwords do not match."); return; }
+      if (mode === "signup" && !agreeTerms) { setErr("Please accept the Terms and Privacy Policy to create an account."); return; }
     }
     const addr = email.trim().toLowerCase();
+    const consent = mode === "signup" ? { consentImprove: agreeImprove } : {};
     setBusy(true);
 
     /* Local preview mode: no backend configured, so accept anything. */
@@ -6266,7 +6431,7 @@ function AuthScreen({ onAuthed, onSkip }) {
       await new Promise((r) => setTimeout(r, 550));
       setBusy(false);
       if (mode === "reset") { setSentMsg(`If an account exists for ${addr}, a reset link is on its way. Check spam if it does not arrive within a few minutes.`); setSent(true); return; }
-      onAuthed({ email: addr });
+      onAuthed({ email: addr, ...consent });
       return;
     }
 
@@ -6275,7 +6440,7 @@ function AuthScreen({ onAuthed, onSkip }) {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({ email: addr, password: pw });
         if (error) throw error;
-        if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id }); }
+        if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id, ...consent }); }
         else { setSentMsg(`Almost there. We have emailed ${addr} a link to confirm your account. Open it, then sign in.`); setSent(true); }
       } else if (mode === "login") {
         const { data, error } = await supabase.auth.signInWithPassword({ email: addr, password: pw });
@@ -6343,6 +6508,29 @@ function AuthScreen({ onAuthed, onSkip }) {
               </label>
             )}
 
+            {mode === "signup" && (
+              <div className="auth-consent" style={{ margin: "6px 0 2px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <label style={{ display: "flex", gap: 9, alignItems: "flex-start", cursor: "pointer", fontSize: 12.5, lineHeight: 1.5, color: "var(--body)" }}>
+                  <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span>{CONSENT.terms}{" "}
+                    <button type="button" onClick={() => setShowLegal((o) => !o)} style={{ background: "none", border: "none", color: "var(--signal)", padding: 0, cursor: "pointer", font: "inherit", textDecoration: "underline" }}>
+                      {showLegal ? "Hide them" : "Read them"}
+                    </button>
+                  </span>
+                </label>
+                <label style={{ display: "flex", gap: 9, alignItems: "flex-start", cursor: "pointer", fontSize: 12.5, lineHeight: 1.5, color: "var(--body)" }}>
+                  <input type="checkbox" checked={agreeImprove} onChange={(e) => setAgreeImprove(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span>{CONSENT.improve}</span>
+                </label>
+                {showLegal && (
+                  <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--line)", borderRadius: 3, padding: "4px 12px" }}>
+                    <LegalDoc doc={TERMS} />
+                    <LegalDoc doc={PRIVACY} />
+                  </div>
+                )}
+              </div>
+            )}
+
             {err && <p className="auth-err">{err}</p>}
 
             <button className="ud-btn full" onClick={submit} disabled={busy}>
@@ -6360,7 +6548,9 @@ function AuthScreen({ onAuthed, onSkip }) {
 
         <div className="auth-foot">
           <button className="ud-quit" onClick={onSkip}>Continue without an account</button>
-          <p>Accounts are not connected in this preview, so nothing is sent anywhere and progress still saves to this browser only.</p>
+          <p>{supabaseEnabled
+            ? "No tracking cookies and no analytics. Without an account your progress stays in this browser; with one it also syncs so it follows you between devices."
+            : "No tracking cookies and no analytics. Progress saves to this browser only until account sync is connected."}</p>
         </div>
       </div>
     </div>
@@ -6876,6 +7066,19 @@ export default function UcatDrillTrainer() {
 
   const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); };
 
+  /* Self-service deletion: wipe every key on this device, sign out of
+     Supabase, and reset to a clean, signed-out state. Full server-side
+     erasure of the account needs the email route in the privacy policy
+     (or a service-role Edge Function), which the UI states honestly. */
+  const deleteAccount = async () => {
+    await deleteLocalData();
+    if (supabaseEnabled) { try { await supabase.auth.signOut(); } catch (e) { /* ignore */ } }
+    setUnlocked(false); setBest({}); setHistory([]); setPlan({}); setWeak({}); setMistakes([]);
+    setPrefsState({ count: 10, exam: false, extra: 1, level: "medium" });
+    setAccount(null); setAuthDone(false);
+    setView("drills");
+  };
+
   const Header = () => (
     <div className="ud-wrap">
       <div className="ud-top">
@@ -6883,7 +7086,7 @@ export default function UcatDrillTrainer() {
           <span className="ud-mark"><b>Tempo</b><span>UCAT trainer</span></span>
         </button>
         <div className="ud-nav">
-          {[["drills", "Drills"], ["learn", "Learn"], ["mock", "Mock"], ["interview", "Interview"], ["unis", "Unis"], ["ps", "Statement"], ["plan", "Plan"], ["progress", "Progress"], ["mistakes", "Mistakes"], ["billing", unlocked ? "Access" : "Unlock"]].map(([k, label]) => (
+          {[["drills", "Drills"], ["learn", "Learn"], ["mock", "Mock"], ["interview", "Interview"], ["unis", "Unis"], ["ps", "Statement"], ["plan", "Plan"], ["progress", "Progress"], ["mistakes", "Mistakes"], ["legal", "Legal"], ["billing", unlocked ? "Access" : "Unlock"]].map(([k, label]) => (
             <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>
               {label}
               {k === "mistakes" && activeMistakes.length > 0 && <span className="dot" />}
@@ -6922,7 +7125,11 @@ export default function UcatDrillTrainer() {
       <style>{CSS}</style>
       {!authDone && (
         <AuthScreen
-          onAuthed={(a) => { setAccount(a); setAuthDone(true); setPrefs({ ...prefs, account: a }); }}
+          onAuthed={(a) => {
+            const acct = { email: a.email, id: a.id };
+            setAccount(acct); setAuthDone(true);
+            setPrefs({ ...prefs, account: acct, ...(a.consentImprove !== undefined ? { consentImprove: a.consentImprove } : {}) });
+          }}
           onSkip={() => { setAuthDone(true); setPrefs({ ...prefs, skippedAuth: true }); }}
         />
       )}
@@ -6944,6 +7151,7 @@ export default function UcatDrillTrainer() {
             <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.65 }}>Enter your GCSEs, UCAT and predictions and see where you are strong, in range or aspirational, with contextual weighting, course detail and living costs.</p></div>
           </Locked></div>}</>)}
       {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} email={account ? account.email : ""} /></>)}
+      {view === "legal" && (<><Header /><LegalView account={account} prefs={prefs} setPrefs={setPrefs} onDeleteAccount={deleteAccount} /></>)}
       {view === "ps" && (<><Header /><PsBuilder unlocked={unlocked} onUnlock={() => setView("billing")} /></>)}
       {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} /></>)}
       {view === "progress" && !unlocked && (<><Header /><div className="ud-wrap"><div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>locked</span></div>

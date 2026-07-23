@@ -3,7 +3,7 @@ import {
   LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan,
   makeTfc, makeSjt, makeDm, makeVenn, makeProb, makeLogic,
-  buildVrMock, buildQrMock, buildDmMock,
+  buildVrMock, buildQrMock,
 } from "../ucat-drill-trainer.jsx";
 
 /* Every generated question's stated answer must resolve to a real
@@ -158,11 +158,10 @@ describe("generators produce answers that exist in their options", () => {
       buildQrMock(week, slot).flat.forEach((q) => checkQuestion(q, "buildQrMock"));
   });
 
-  it("mini mocks (VR, QR, DM)", () => {
+  it("mini mocks (VR, QR)", () => {
     for (let week = 1; week < 30; week++) for (let slot = 0; slot < 5; slot++) {
       buildVrMock(week, slot, true).flat.forEach((q) => checkQuestion(q, "vrMini"));
       buildQrMock(week, slot, true).flat.forEach((q) => checkQuestion(q, "qrMini"));
-      buildDmMock(week, slot).flat.forEach((q) => checkQuestion(q, "dmMini"));
     }
   });
 });

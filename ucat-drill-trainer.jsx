@@ -9,7 +9,7 @@ import { CSS } from "./styles.js";
 import { seeded, rnd, pick, shuffle, fmt, median, weightedPick, LEVELS, fiveOptions, wordCount } from "./utils.js";
 import { PASSAGES, TFC, TFC_SETS } from "./data/vr.js";
 import { APPROP, IMPORT, SJT_THEMES, SJT_TYPES, SJT_SCENARIOS, SJT_LESSONS } from "./data/sjt.js";
-import { DM_QUESTIONS, DM_SUBS, VCTX, SYLL_SETS } from "./data/dm.js";
+import { DM_QUESTIONS, VCTX, SYLL_SETS } from "./data/dm.js";
 import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UNIS } from "./data/universities.js";
 import { MED_SCHOOLS, MED_CHECKED } from "./data/medicine.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
@@ -738,20 +738,6 @@ function buildQrMock(week, slot, mini) {
   return { title: mini ? `QR Mini ${slot + 1}` : `QR Mock ${"ABC"[slot]}`, flat, secs: flat.length * 43, perQ: 43 };
 }
 
-function buildDmMock(week, slot) {
-  /* DM mini paper: generated Venn questions plus the static logic,
-     probability and syllogism items, all multiple choice. */
-  const flat = seeded(week * 151 + slot * 19 + 11, () => {
-    const venns = makeVenn(5, "hard");
-    const statics = shuffle(DM_QUESTIONS).slice(0, 4).map((q) => ({
-      kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null,
-      tag: q.tag, why: q.why, improve: q.improve,
-    }));
-    return shuffle([...venns, ...statics]);
-  }).map((q) => ({ ...q, kindm: "dm" }));
-  return { title: `DM Mini ${slot + 1}`, flat, secs: flat.length * 60, perQ: 60 };
-}
-
 /* ------------------------------ DRILLS ---------------------------- */
 
 const DRILLS = [
@@ -764,10 +750,9 @@ const DRILLS = [
   { id: "scan", section: "VR", name: "Scanning", blurb: "Find one fact in a passage against the clock. The core VR skill.", free: false, max: 25, def: 9, budget: 22 },
   { id: "blurt", section: "VR", name: "Blurting", blurb: "Read, hide, recall. Shows how little of a passage you actually keep.", free: false, max: 1, def: 1, budget: 0 },
   { id: "sjt", section: "SJT", name: "Situational Judgement", blurb: "All three official formats, a written reason for every answer, band estimate at the end.", free: false, max: 25, def: 12, budget: 22 },
-  { id: "dm", section: "DM", name: "Decision Making", blurb: "Syllogism sets in the real five-conclusion format, generated Venns, probability and logic puzzles.", free: false, max: 25, def: 10, budget: 60, sub: "dm" },
 ];
 const DRILL_BY_ID = Object.fromEntries(DRILLS.map((d) => [d.id, d]));
-const TIMED = ["tables", "calc", "estimate", "scan", "sjt", "dm", "tfc", "qrset"];
+const TIMED = ["tables", "calc", "estimate", "scan", "sjt", "tfc", "qrset"];
 
 const EST_SUBS = [
   { id: "mixed", name: "Mixed", desc: "Every family, shuffled. Closest to the exam." },
@@ -818,25 +803,6 @@ const LEARN = [
       { h: "Rates and time", p: "Distance, speed and time is one triangle; output per hour is the same triangle wearing overalls. Fix the units first: minutes to hours before you divide, not after.", drill: "estimate", sub: "rate" },
       { h: "Percentages", p: "Find 10% by moving the decimal, then build: 30% is three of those, 5% is half of one. Percentage change is difference over original, and the original is whichever number came first in time.", drill: "estimate", sub: "pct" },
       { h: "The calculator costs you", p: "The on-screen calculator is slow by design. Every question you can do by estimation is seconds saved for the ones that genuinely need it.", drill: "calc" },
-    ],
-  },
-  {
-    id: "dm", title: "Decision Making",
-    intro: "DM looks like it tests cleverness. It actually tests whether you know about six patterns. Syllogisms, Venn logic and probability cover most of the marks, and each one collapses into a mechanical habit once you have seen it.",
-    extra: [
-      { h: "Notation: union and intersection", p: "A ∪ B, the union, is everything in A or B or both: the whole of both circles. A ∩ B, the intersection, is only the shared middle where both apply. If a question uses symbols, translate them to circle regions before doing anything else." },
-      { h: "Notation: complement, subset, member, empty", p: "A′ is everything outside circle A: if A is tea drinkers, A′ is everyone who does not drink tea. A ⊂ B means A sits completely inside B, the way all cats sit inside animals. x ∈ A says one individual belongs to group A. And ∅ is the empty set: A ∩ B = ∅ means the circles do not overlap at all." },
-      { h: "Region discipline", p: "A number written in one section counts only that exact section: the 'just tea' part of the tea circle excludes the tea-and-coffee overlap. To total a circle, add every section inside it, overlaps included. With three circles, work middle-out: triple overlap first, then the pairs, then the singles, or you will double count." },
-    ],
-    cards: [
-      { h: "Syllogisms: try to break the conclusion", p: "A conclusion 'follows' only if the premises make it unavoidable. Ask one question: could the premises be true while the conclusion is false? If you can imagine that world, the answer is 'does not follow'. Most wrong answers come from accepting plausible instead of demanding certain.", drill: "dm", sub: "dsyll" },
-      { h: "Draw circles for groups", p: "Any question about categories becomes easy as circles: 'all A are B' puts A inside B, 'no A are B' pulls them apart, 'some' overlaps them. If the circles can be arranged two different ways, nothing about their relationship follows.", drill: "dm", sub: "dsyll" },
-      { h: "Venn numbers: overlap first", p: "Fill the overlap first, then each 'only' region, then whatever is outside. A circle's total always includes the overlap, and the survey total minus everything inside the circles gives 'neither'. Every Venn question is those three moves.", drill: "dm", sub: "dvenn" },
-      { h: "The whiteboard habit", p: "Sketch the circles every single time, even when it looks easy enough to hold in your head. Read the question first so you know whether you are building a diagram, reading one, or matching a statement to one. Most dropped marks come from rushed overlaps, not hard arithmetic.", drill: "dm", sub: "dvenn" },
-      { h: "The totals check", p: "Every region plus the outside must add up to the number in the question. Run that check before you answer: if it fails, you have double counted an overlap somewhere, and finding it costs five seconds instead of the mark.", drill: "dm", sub: "dvenn" },
-      { h: "Some, all, no", p: "Three words carry the whole logic. 'Some' means at least one, so the circles overlap. 'All' means one circle sits entirely inside the other, so everything in the smaller belongs to the bigger. 'No' means the circles never touch. Shape-matching questions are just these three words drawn.", drill: "dm", sub: "dsyll" },
-      { h: "Logic puzzles: pin the fixed clue", p: "Seats, heights, rotas: start with the clue that fixes something absolutely, an end seat, a named day, then chain the relative clues off it. If two arrangements survive every clue, the answer is 'cannot be determined', and that option is sometimes right.", drill: "dm", sub: "dlogic" },
-      { h: "Probability: use the complement", p: "'At least one' questions are answered backwards: find the probability of none, subtract from 1. And keep the denominator honest: it is everything that could happen, not just the outcomes the question mentions.", drill: "dm", sub: "dprob" },
     ],
   },
   {
@@ -1516,7 +1482,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
      exam, whenever feedback is deferred (timed or review-at-end). Answers
      are held per index so a question can be revisited and changed, and the
      whole set is marked at the finish. */
-  const examSkin = drill.section === "SJT" || drill.section === "DM" || drill.id === "qrset";
+  const examSkin = drill.section === "SJT" || drill.id === "qrset";
   const navigable = noFeedback && examSkin;
   const [answers, setAnswers] = useState([]);
   const [navOpen, setNavOpen] = useState(false);
@@ -1684,7 +1650,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
       <div className="vx">
         <ExitGuard open={confirmExit} onStay={() => setConfirmExit(false)} onLeave={onQuit} />
         <div className="vx-top">
-          <span className="ttl">{drill.section === "SJT" ? "Situational Judgement" : "Decision Making"} Question Bank</span>
+          <span className="ttl">{drill.section === "SJT" ? "Situational Judgement" : "Quantitative Reasoning"} Question Bank</span>
           <span className="cnt mono">{i + 1} of {total}</span>
         </div>
         <div className="vx-bar">
@@ -2360,11 +2326,9 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
   const [err, setErr] = useState("");
   const [estOpen, setEstOpen] = useState(false);
   const [sjtOpen, setSjtOpen] = useState(false);
-  const [dmOpen, setDmOpen] = useState(false);
   const secs = [
     ["QR", "Quantitative Reasoning", "arithmetic under pressure"],
     ["VR", "Verbal Reasoning", "the weakest subtest nationally"],
-    ["DM", "Decision Making", "logic you can learn as patterns"],
     ["SJT", "Situational Judgement", "banded separately, learnable"],
   ];
 
@@ -2372,7 +2336,6 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
 
   const startDrill = (d, sub) => {
     if (d.id === "estimate" && !sub) { setEstOpen((o) => !o); return; }
-    if (d.id === "dm" && !sub) { setDmOpen((o) => !o); return; }
     if (d.id === "sjt" && !sub) { setSjtOpen((o) => !o); return; }
     onStart(d, prefs.exam, Math.min(prefs.count, d.max), null, sub === "practice" ? null : sub || null, null);
   };
@@ -2409,7 +2372,7 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
   return (
     <div className="ud-wrap">
       <div className="ud-hero">
-        <div className="ud-eyebrow">VR · QR · DM · SJT · The training layer</div>
+        <div className="ud-eyebrow">VR · QR · SJT · The training layer</div>
         <h1 className="ud-h1">Your question bank shows the score. This fixes <em>why</em>.</h1>
         <p className="ud-lede">
           Tempo runs beside whichever question bank you already use, it does not replace one. Banks give you volume;
@@ -2546,15 +2509,6 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
               {EST_SUBS.map((s) => (
                 <button key={s.id} className="ud-sub" onClick={() => startDrill(DRILL_BY_ID.estimate, s.id)}>
                   <b>{s.name}</b><span>{s.desc}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {sec === "DM" && dmOpen && (
-            <div className="ud-subs">
-              {DM_SUBS.map((s2) => (
-                <button key={s2.id} className="ud-sub" onClick={() => startDrill(DRILL_BY_ID.dm, s2.id)}>
-                  <b>{s2.name}</b><span>{s2.desc}</span>
                 </button>
               ))}
             </div>
@@ -4488,7 +4442,7 @@ const PRICE = "£25";
 const PRICE_NOTE = "one payment, no subscription, no renewal";
 
 const PLAN_INCLUDES = [
-  "Every drill: QR, VR, Decision Making and SJT",
+  "Every drill: QR, VR and SJT",
   "Weekly mocks, three per section, with leaderboards",
   "The mistake bank with spaced review at 3, 7 and 21 days",
   "Interview preparation, marked written practice and dictation",
@@ -4826,9 +4780,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   }, [navOpen]);
 
   const startMock = (t, sl, isMini) => {
-    const m = isMini
-      ? (t === "vr" ? buildVrMock(week, sl, true) : t === "qr" ? buildQrMock(week, sl, true) : buildDmMock(week, sl))
-      : (t === "vr" ? buildVrMock(week, sl) : buildQrMock(week, sl));
+    const m = t === "vr" ? buildVrMock(week, sl, isMini) : buildQrMock(week, sl, isMini);
     setType(t); setSlot(sl); setMini(!!isMini); setMock(m);
     setPhase("run"); setI(0); setAnswers(Array(m.flat.length).fill(null)); setSeen([0]); setFlags([]); setNavOpen(false); setLeft(m.secs);
     setSubmitted(false); setBoard(null);
@@ -4872,21 +4824,20 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
       ? { count: VR_MOCK_QCOUNT, mins: Math.round(VR_MOCK_SECONDS / 60), note: "Three passages at the exam's exact pace: 30 seconds a question, the same rate as 44 in 22:00. Fresh passage combinations every week." }
       : { count: QR_MOCK_QCOUNT, mins: 26, note: "Full length: 36 questions in 26 minutes, matching the real section. Freshly generated each week; everyone sits the identical paper." };
     const note = mini
-      ? "Short papers for a spare ten minutes, at the exam's pace: five each for VR, QR and Decision Making, fresh every week."
+      ? "Short papers for a spare ten minutes, at the exam's pace: five each for VR and QR, fresh every week."
       : full.note;
     return (
       <div className="ud-wrap">
         <div className="ud-sec" style={{ paddingTop: 32 }}><h2>{mini ? "Mini mocks" : "Weekly mocks"}</h2><i /><span>week {week % 1000} · boards reset weekly</span></div>
         <div className="ud-mode" style={{ paddingTop: 14 }}>
           <span>Length</span>
-          <button className={!mini ? "on" : ""} onClick={() => { setMini(false); if (type === "dm") setType("vr"); }}>Full mock</button>
+          <button className={!mini ? "on" : ""} onClick={() => setMini(false)}>Full mock</button>
           <button className={mini ? "on" : ""} onClick={() => setMini(true)}>Mini, five each</button>
         </div>
         <div className="ud-mode" style={{ paddingTop: 10 }}>
           <span>Section</span>
           <button className={type === "vr" ? "on" : ""} onClick={() => setType("vr")}>Verbal Reasoning</button>
           <button className={type === "qr" ? "on" : ""} onClick={() => setType("qr")}>Quantitative Reasoning</button>
-          {mini && <button className={type === "dm" ? "on" : ""} onClick={() => setType("dm")}>Decision Making</button>}
         </div>
         <p className="ud-learn-intro">{note} No feedback until the end, one clock, no pausing. Your score joins this week's board, {boardGlobal ? "shared with everyone sitting it" : "kept on this device"}.</p>
         <div className="ud-subs" style={{ paddingTop: 16 }}>
@@ -5244,7 +5195,6 @@ export default function UcatDrillTrainer() {
     else if (d.id === "scan") qs = makeScan(count, weak);
     else if (d.id === "tfc") qs = makeTfc(count, weak, seenBank);
     else if (d.id === "sjt") qs = makeSjt(count, weak, theme, seenBank);
-    else if (d.id === "dm") qs = makeDm(count, weak, sub, lvl);
     recordSeen(qs);
     lastRun.current = { d, isExam, count, sub, theme };
     setDrill(d);
@@ -5451,5 +5401,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  makeProb, makeLogic, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildDmMock, assessMed,
+  makeProb, makeLogic, scoreEntry, snapAnswered, buildVrMock, buildQrMock, assessMed,
 };

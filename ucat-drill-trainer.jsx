@@ -1670,7 +1670,6 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
                 <text x="252" y="130" fontSize="11" fill="#444">{q.venn.neither} neither</text>
               </svg>
             )}
-            {q.kind === "mcq" && <p className="ask">{q.stem || q.prompt}</p>}
             {q.kind === "scale" && (
               <p className="ask">
                 How <b>{q.typeName === "Importance" ? "important" : "appropriate"}</b>{" "}
@@ -1694,6 +1693,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
                 ))}
               </>
             )}
+            {q.kind === "mcq" && <p className="opt-stem">{q.stem || q.prompt}</p>}
             {q.kind === "mcq" && q.options.map((o, n) => (
               <label key={n} className={`vx-opt${picked === n ? " sel" : ""}${phase === "review" && o === q.answer ? " right" : ""}`}
                 onClick={() => phase === "answer" && setPicked(n)}>

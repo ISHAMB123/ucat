@@ -430,7 +430,7 @@ function makeLogic(n, weak, lvl) {
 }
 
 function makeDm(n, weak, sub, lvl) {
-  const L = lvl || "medium";
+  const L = lvl || "hard";
   const mapStatic = (q) => ({ kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null, tag: q.tag, section: "DM", drill: "dm", why: q.why, improve: q.improve });
   if (sub === "dvenn") return makeVenn(n, L);
   if (sub === "dprob") {
@@ -728,8 +728,8 @@ function buildQrMock(week, slot, mini) {
   const setQ = mini ? 8 : 28;
   const singleQ = mini ? 2 : QR_MOCK_QCOUNT - 28;
   const flat = seeded(week * 131 + slot * 17 + 3 + (mini ? 500 : 0), () => {
-    const sets = makeQrSets(setQ, "medium");
-    const singles = makeEstimate(singleQ, {}, "medium", null);
+    const sets = makeQrSets(setQ, "hard");
+    const singles = makeEstimate(singleQ, {}, "hard", null);
     return [...sets, ...singles];
   }).map((q) => ({ ...q, kindm: "qr" }));
   return { title: mini ? `QR Mini ${slot + 1}` : `QR Mock ${"ABC"[slot]}`, flat, secs: flat.length * 43, perQ: 43 };
@@ -739,7 +739,7 @@ function buildDmMock(week, slot) {
   /* DM mini paper: generated Venn questions plus the static logic,
      probability and syllogism items, all multiple choice. */
   const flat = seeded(week * 151 + slot * 19 + 11, () => {
-    const venns = makeVenn(5, "medium");
+    const venns = makeVenn(5, "hard");
     const statics = shuffle(DM_QUESTIONS).slice(0, 4).map((q) => ({
       kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null,
       tag: q.tag, why: q.why, improve: q.improve,
@@ -753,12 +753,12 @@ function buildDmMock(week, slot) {
 
 const DRILLS = [
   { id: "tables", section: "QR", name: "Times tables to 15", blurb: "The foundation. Hesitate on 13 × 7 and the question is already lost.", free: true, max: 25, def: 15, budget: 6 },
-  { id: "calc", section: "QR", name: "On-screen calculator", blurb: "Keyboard only, like the real thing. Build the muscle memory early.", free: false, max: 25, def: 10, budget: 30 },
+  { id: "calc", section: "QR", name: "On-screen calculator", blurb: "Keyboard only, like the real thing. Build the muscle memory early.", free: false, max: 25, def: 10, budget: 40 },
   { id: "qrset", section: "QR", name: "Data sets", blurb: "Four linked questions on one table, five options, comparison answers. The shape the real section actually takes.", free: false, max: 24, def: 8, budget: 40 },
   { id: "estimate", section: "QR", name: "Estimation", blurb: "Five options, one right. Ratios, graphs, rates, percentages and inference.", free: false, max: 25, def: 10, budget: 40, sub: true },
   { id: "speed", section: "VR", name: "Pacing", blurb: "Words at a fixed rate, then comprehension. Trains you to stop re-reading.", free: false, max: 1, def: 1, budget: 0 },
-  { id: "tfc", section: "VR", name: "True, false, can't tell", blurb: "The signature VR format. Can't tell is the most-missed answer in the exam, and this drills exactly why.", free: false, max: 25, def: 12, budget: 30 },
-  { id: "scan", section: "VR", name: "Scanning", blurb: "Find one fact in a passage against the clock. The core VR skill.", free: false, max: 25, def: 9, budget: 25 },
+  { id: "tfc", section: "VR", name: "True, false, can't tell", blurb: "The signature VR format. Can't tell is the most-missed answer in the exam, and this drills exactly why.", free: false, max: 25, def: 12, budget: 22 },
+  { id: "scan", section: "VR", name: "Scanning", blurb: "Find one fact in a passage against the clock. The core VR skill.", free: false, max: 25, def: 9, budget: 22 },
   { id: "blurt", section: "VR", name: "Blurting", blurb: "Read, hide, recall. Shows how little of a passage you actually keep.", free: false, max: 1, def: 1, budget: 0 },
   { id: "sjt", section: "SJT", name: "Situational Judgement", blurb: "All three official formats, a written reason for every answer, band estimate at the end.", free: false, max: 25, def: 12, budget: 22 },
   { id: "dm", section: "DM", name: "Decision Making", blurb: "Syllogism sets in the real five-conclusion format, generated Venns, probability and logic puzzles.", free: false, max: 25, def: 10, budget: 60, sub: "dm" },
@@ -1260,10 +1260,13 @@ function weakLabel(tag) {
 async function loadState() {
   const [unlocked, best, history, plan, weak, level, mistakes, prefs, seenBank] = await Promise.all([
     getJSON("ucat:unlocked", false), getJSON("ucat:best", {}), getJSON("ucat:history", []),
-    getJSON("ucat:plan", {}), getJSON("ucat:weak", {}), getJSON("ucat:level", "medium"),
+    getJSON("ucat:plan", {}), getJSON("ucat:weak", {}), getJSON("ucat:level", "hard"),
     getJSON("ucat:mistakes", []), getJSON("ucat:prefs", {}), getJSON("ucat:seenbank", {}),
   ]);
-  return { unlocked: unlocked === true, best, history, plan, weak, level, mistakes, prefs, seenBank };
+  /* Medium was removed. Anyone still on it is moved to Hard, the new
+     default, so no saved preference points at a level that no longer exists. */
+  const safeLevel = LEVELS[level] ? level : "hard";
+  return { unlocked: unlocked === true, best, history, plan, weak, level: safeLevel, mistakes, prefs, seenBank };
 }
 
 /* Styles live in ./styles.js and are imported as CSS at the top. */
@@ -2141,7 +2144,7 @@ function diagnoseVR(log, exam, budget) {
 
 /* ------------------------------ RESULTS --------------------------- */
 
-function Results({ drill, log, meta, exam, history, onHome, onAgain, onMistakes, missedNow, budget, onDiagDrill }) {
+function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onDiagDrill }) {
   const vrDiag = diagnoseVR(log, exam, budget);
   const points = log.reduce((a, l) => a + l.score, 0);
   const pct = log.length ? Math.round((points / log.length) * 100) : 0;
@@ -2188,9 +2191,8 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onMistakes,
       )}
       <p className="ud-tip">{TIPS[drill.id] || TIPS.mistakes}</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button className="ud-btn" onClick={onAgain}>Run it again</button>
-        {missedNow > 0 && <button className="ud-btn ghost" onClick={onMistakes}>Retry the {missedNow} you missed</button>}
-        <button className="ud-btn ghost" onClick={onHome}>All drills</button>
+        <button className="ud-btn" onClick={onAgain}>Do another</button>
+        <button className="ud-btn ghost" onClick={onHome}>Home</button>
       </div>
     </div>
   );
@@ -5018,9 +5020,8 @@ export default function UcatDrillTrainer() {
   const [weak, setWeak] = useState({});
   const [seenBank, setSeenBank] = useState({});
   const [mistakes, setMistakes] = useState([]);
-  const [prefs, setPrefsState] = useState({ count: 10, exam: false, extra: 1, level: "medium", theme: "light" });
+  const [prefs, setPrefsState] = useState({ count: 10, exam: false, extra: 1, level: "hard", theme: "light" });
   const [ready, setReady] = useState(false);
-  const [missedNow, setMissedNow] = useState(0);
   const [account, setAccount] = useState(null);
   const [authDone, setAuthDone] = useState(false);
   const [showTour, setShowTour] = useState(false);
@@ -5030,7 +5031,8 @@ export default function UcatDrillTrainer() {
     loadState().then((s) => {
       setUnlocked(s.unlocked); setBest(s.best); setHistory(s.history);
       setPlan(s.plan); setWeak(s.weak); setSeenBank(s.seenBank || {}); setMistakes(s.mistakes);
-      const pf = { count: 10, exam: false, extra: 1, level: s.level || "medium", theme: "light", ...(s.prefs || {}) };
+      const pf = { count: 10, exam: false, extra: 1, level: s.level || "hard", theme: "light", ...(s.prefs || {}) };
+      if (!LEVELS[pf.level]) pf.level = "hard";
       setPrefsState(pf);
       if (pf.account) { setAccount(pf.account); setAuthDone(true); }
       if (pf.skippedAuth) setAuthDone(true);
@@ -5172,7 +5174,6 @@ export default function UcatDrillTrainer() {
     });
     bank = bank.slice(-100);
     setMistakes(bank); setJSON("ucat:mistakes", bank);
-    setMissedNow(l.filter((x) => !x.correct).length);
     setView("results");
   };
 
@@ -5187,7 +5188,7 @@ export default function UcatDrillTrainer() {
     await deleteLocalData();
     if (supabaseEnabled) { try { await supabase.auth.signOut(); } catch (e) { /* ignore */ } }
     setUnlocked(false); setBest({}); setHistory([]); setPlan({}); setWeak({}); setMistakes([]);
-    setPrefsState({ count: 10, exam: false, extra: 1, level: "medium", theme: "light" });
+    setPrefsState({ count: 10, exam: false, extra: 1, level: "hard", theme: "light" });
     setAccount(null); setAuthDone(false);
     setView("drills");
   };
@@ -5284,8 +5285,7 @@ export default function UcatDrillTrainer() {
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}
           onHome={() => setView("drills")} onAgain={rerun} budget={runBudget}
-          onDiagDrill={(id) => start(DRILL_BY_ID[id], false, DRILL_BY_ID[id].def, null, null, null)}
-          onMistakes={startMistakes} missedNow={missedNow} />
+          onDiagDrill={(id) => start(DRILL_BY_ID[id], false, DRILL_BY_ID[id].def, null, null, null)} />
       </>)}
     </div>
   );

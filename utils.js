@@ -21,10 +21,12 @@ export function weightedPick(items, weak, prefix) {
   return items[items.length - 1];
 }
 
+/* Two levels only. Hard is the default and runs at real UCAT pace with
+   terse, exam-style working. Easy gives more time and leads with the
+   strategy so the technique can be learned before it is timed. */
 export const LEVELS = {
-  easy: { label: "Easy", fMin: 2, fMax: 12, budget: 1.6, spread: 0.35, round: true },
-  medium: { label: "Medium", fMin: 2, fMax: 15, budget: 1.0, spread: 0.18, round: false },
-  hard: { label: "Hard", fMin: 6, fMax: 15, budget: 0.72, spread: 0.07, round: false },
+  hard: { label: "Hard (exam pace)", fMin: 6, fMax: 15, budget: 1.0, spread: 0.1, round: false },
+  easy: { label: "Easy (learn the method)", fMin: 2, fMax: 12, budget: 1.5, spread: 0.32, round: true },
 };
 
 export function fiveOptions(correct, spread, unit) {

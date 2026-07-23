@@ -295,7 +295,126 @@ export const PASSAGES = [
       { q: "Cargoes that continued after the railways were those:", options: ["Needing speed", "Tolerant of slow transit", "Of highest value", "Carried underground"], correct: 1 },
     ],
   },
-
+  {
+    id: "pennypost",
+    title: "The penny that moved the post",
+    text: `Before 1840, the cost of sending a letter in Britain was paid by the person receiving it, and rose with both the distance and the number of sheets. Rowland Hill, a schoolmaster, argued that the accounting swallowed much of the revenue and proposed a single rate of one penny for any letter under half an ounce, prepaid by the sender. The Penny Black, the first adhesive postage stamp, appeared the same year. Critics predicted ruin, yet the volume of letters more than doubled within a year as ordinary people began to write. Postage revenue took two decades to recover its former level, but the wider effect, in orders, invoices and family correspondence, was judged to outweigh the shortfall. The prepaid stamp spread quickly abroad, and uniform postage became a feature of almost every postal system by the century's end.`,
+    facts: [
+      { q: "In which year was the penny rate introduced?", a: "1840" },
+      { q: "Under what weight in an ounce did the penny rate apply?", a: "half" },
+      { q: "By what factor did letter volume at least rise within a year?", a: "doubled" },
+    ],
+    points: [
+      "Before 1840 the recipient paid", "Cost rose with distance and sheets", "Rowland Hill proposed reform",
+      "Single penny rate under half an ounce", "Prepaid by the sender", "Penny Black the first adhesive stamp",
+      "Critics predicted ruin", "Letter volume more than doubled in a year", "Revenue took two decades to recover",
+      "Uniform postage spread abroad",
+    ],
+    comprehension: [
+      { q: "Before the reform, postage was usually paid by:", options: ["The sender", "The recipient", "The Post Office", "A local agent"], correct: 1 },
+      { q: "Revenue returned to its former level after about:", options: ["One year", "Five years", "Two decades", "A century"], correct: 2 },
+    ],
+  },
+  {
+    id: "tidemill",
+    title: "Grinding by the tide",
+    text: `A tide mill grinds grain using the rise and fall of the sea rather than a river. As the tide comes in, water is let through a one-way gate into a holding pond behind the mill. When the tide turns and falls, the trapped water is released back to the sea through a wheel, which drives the millstones. Because the sea governs the timing, a tide mill works in shifts that move about an hour later each day, following the tides rather than the clock. The Domesday survey of 1086 records a mill of this kind at Dover, and dozens once lined the estuaries of southern England. Most were abandoned as steam and then electricity freed milling from the shoreline. A handful survive as working museums, among them Eling in Hampshire, where visitors can still buy flour ground by the ebbing tide.`,
+    facts: [
+      { q: "In which year did the Domesday survey record a tide mill at Dover?", a: "1086" },
+      { q: "The trapped water is released as the tide does what?", a: "falls" },
+      { q: "Which surviving tide mill is in Hampshire?", a: "Eling" },
+    ],
+    points: [
+      "Uses the rise and fall of the sea", "Incoming tide fills a holding pond", "A one-way gate traps the water",
+      "Falling tide drives the wheel", "Works in shifts about an hour later daily", "Follows the tides not the clock",
+      "Domesday recorded one at Dover in 1086", "Common on southern estuaries", "Abandoned as steam and electricity spread",
+      "Eling in Hampshire still works",
+    ],
+    comprehension: [
+      { q: "A tide mill's working hours shift because:", options: ["Millers preferred night work", "The sea governs the timing", "Rivers dried up", "Electricity was rationed"], correct: 1 },
+      { q: "Most tide mills were abandoned when:", options: ["Tides weakened", "The sea retreated", "Steam and electricity freed milling from the shore", "Grain ran short"], correct: 2 },
+    ],
+  },
+  {
+    id: "seedvault",
+    title: "The vault in the permafrost",
+    text: `The Svalbard Global Seed Vault, opened in 2008, is a backup store for the world's crop diversity, built into a mountainside on a Norwegian island inside the Arctic Circle. It does not grow or study seeds; it holds duplicate samples sent by other seed banks, so that a variety lost to war, drought or mismanagement elsewhere can be restored. The chambers are kept below freezing, and the surrounding permafrost is meant to hold them cold even if the cooling equipment fails. The vault is designed to take up to four and a half million samples. Its first withdrawal came in 2015, when researchers displaced from a seed bank in Aleppo requested duplicates to rebuild their collection. In 2017 meltwater entered the entrance tunnel without reaching the seeds, and the approach was rebuilt to keep pace with a warming Arctic.`,
+    facts: [
+      { q: "In which year did the seed vault open?", a: "2008" },
+      { q: "In which year was the first withdrawal made?", a: "2015" },
+      { q: "Up to how many and a half million samples can it take?", a: "four" },
+    ],
+    points: [
+      "Opened in 2008", "A backup store for crop diversity", "Built into an Arctic mountainside in Norway",
+      "Holds duplicate samples from other banks", "Restores varieties lost elsewhere", "Kept below freezing",
+      "Permafrost as a backup cold source", "Designed for up to 4.5 million samples", "First withdrawal in 2015 for Aleppo",
+      "Tunnel rebuilt after 2017 meltwater",
+    ],
+    comprehension: [
+      { q: "The vault's main purpose is to:", options: ["Breed new crops", "Study seed genetics", "Hold backup duplicates of seeds", "Sell seed to farmers"], correct: 2 },
+      { q: "The permafrost is intended to:", options: ["Keep seeds cold if cooling fails", "Power the vault", "Attract researchers", "Block meltwater"], correct: 0 },
+    ],
+  },
+  {
+    id: "peregrine",
+    title: "The falcon on the tower",
+    text: `The peregrine falcon is the fastest animal on Earth, reaching speeds above three hundred kilometres an hour as it folds its wings and drops on prey in a dive known as a stoop. In the middle of the twentieth century the species nearly vanished across Europe and North America, as the pesticide DDT built up in its food and thinned its eggshells until they broke under the incubating bird. Bans on the chemical from the 1970s allowed a slow recovery. Peregrines have since colonised cities, treating tall buildings, cathedrals and bridges as substitutes for the cliffs they nest on in the wild, and feeding largely on the abundant urban pigeon. Nest cameras on office towers now follow individual birds through the breeding season, and the falcon has become an unlikely emblem of wildlife adapting to the built environment.`,
+    facts: [
+      { q: "Above how many hundred kilometres an hour can a peregrine dive?", a: "three" },
+      { q: "Which pesticide thinned the falcon's eggshells?", a: "DDT" },
+      { q: "In which decade did bans on the chemical begin?", a: "1970s" },
+    ],
+    points: [
+      "The fastest animal on Earth", "Exceeds 300 km/h in a stoop", "The dive is called a stoop",
+      "Nearly vanished mid-twentieth century", "DDT thinned its eggshells", "Eggs broke under the bird",
+      "Bans from the 1970s aided recovery", "Colonised cities", "Nests on tall buildings and bridges",
+      "Feeds largely on urban pigeons",
+    ],
+    comprehension: [
+      { q: "The stoop is the falcon's:", options: ["Nest site", "High-speed dive", "Call", "Mate"], correct: 1 },
+      { q: "DDT harmed peregrines by:", options: ["Poisoning them outright", "Thinning their eggshells", "Scaring away prey", "Destroying cliffs"], correct: 1 },
+    ],
+  },
+  {
+    id: "antikythera",
+    title: "The geared model of the heavens",
+    text: `Recovered by sponge divers from a Roman-era shipwreck off the Greek island of Antikythera in 1901, the Antikythera mechanism is a corroded lump of bronze that turned out to contain dozens of interlocking gears. Study over the following century, and X-ray imaging in particular, showed it to be a hand-cranked model of the heavens. Turning a handle moved pointers that gave the positions of the sun and moon, tracked the phases of the moon, and predicted eclipses using cycles known to Greek astronomers. One dial even marked the four-year cycle of athletic games including the Olympics. Nothing of comparable complexity survives from the ancient world, and no similar geared device is known for more than a thousand years afterwards. It is often described as the earliest known analogue computer, a description that says as much about later gaps as about the object itself.`,
+    facts: [
+      { q: "In which year was the mechanism recovered?", a: "1901" },
+      { q: "Off which Greek island was it found?", a: "Antikythera" },
+      { q: "Which imaging method revealed its workings?", a: "X-ray" },
+    ],
+    points: [
+      "Recovered off Antikythera in 1901", "From a Roman-era shipwreck", "Corroded bronze with dozens of gears",
+      "Revealed by X-ray imaging", "A hand-cranked model of the heavens", "Gave sun and moon positions",
+      "Tracked lunar phases", "Predicted eclipses", "Marked the four-year games cycle",
+      "Called the earliest analogue computer",
+    ],
+    comprehension: [
+      { q: "The mechanism was operated by:", options: ["Water", "A hand crank", "Weights", "Steam"], correct: 1 },
+      { q: "Its complexity is notable because:", options: ["It was mass-produced", "Nothing comparable survives for over a thousand years", "It was made of gold", "It still works today"], correct: 1 },
+    ],
+  },
+  {
+    id: "coffeerust",
+    title: "The rust that made a tea nation",
+    text: `Coffee leaf rust is a fungus that attacks the leaves of the coffee plant, spotting them orange and causing them to drop, which starves the plant and cuts its yield. It reached the plantations of Ceylon, now Sri Lanka, in 1869, at a time when the island was one of the world's leading coffee producers. Within about twenty years the disease had ruined the industry there. Growers with failing coffee turned instead to tea, which the same climate suited and which the fungus did not touch, and Ceylon tea became famous in coffee's place. The rust has since spread through most coffee-growing regions and remains a serious threat, particularly as warmer temperatures let it climb to higher altitudes once thought safe. There is still no cure, and control depends on resistant varieties, fungicides and careful pruning.`,
+    facts: [
+      { q: "In which year did the rust reach Ceylon?", a: "1869" },
+      { q: "To which crop did growers turn instead?", a: "tea" },
+      { q: "What colour does the rust spot the leaves?", a: "orange" },
+    ],
+    points: [
+      "A fungus attacking coffee leaves", "Spots leaves orange and drops them", "Starves the plant and cuts yield",
+      "Reached Ceylon in 1869", "Ceylon was a leading coffee producer", "Industry ruined within about twenty years",
+      "Growers switched to tea", "Ceylon tea became famous", "Rust spread through most coffee regions",
+      "No cure, managed by resistant varieties",
+    ],
+    comprehension: [
+      { q: "Ceylon's growers switched to tea because:", options: ["Tea sold for more", "The climate suited it and the fungus spared it", "Coffee was banned", "Labour was cheaper"], correct: 1 },
+      { q: "Warmer temperatures now let the rust:", options: ["Die off", "Climb to higher altitudes", "Turn harmless", "Spread only in Ceylon"], correct: 1 },
+    ],
+  },
 ];
 
 export const TFC = ["True", "False", "Can't tell"];
@@ -392,5 +511,64 @@ export const TFC_SETS = {
     { t: "Restoration since the 1970s has been mainly for freight.", a: 1,
       w: "Almost entirely leisure use rather than freight. Reversing the stated comparison is a favourite False shape." },
   ],
-
+  pennypost: [
+    { t: "Before the reform, the sender normally paid for a letter.", a: 1,
+      w: "The passage says the cost was paid by the person receiving it. Swapping sender for recipient is a straight reversal, so False." },
+    { t: "The Penny Black carried a portrait of Rowland Hill.", a: 2,
+      w: "The passage names the stamp but never says what it showed. A plausible detail the text does not give is Can't tell." },
+    { t: "Letter volume rose after the penny rate came in.", a: 0,
+      w: "Stated: the volume of letters more than doubled within a year. Directly supported, so True." },
+    { t: "Postage revenue recovered its old level within a year.", a: 1,
+      w: "Revenue took two decades to recover, while volume doubled in a year. Swapping those two figures is the trap, so False." },
+  ],
+  tidemill: [
+    { t: "A tide mill can grind at the same hours every day.", a: 1,
+      w: "The shifts move about an hour later each day, following the tides. Fixed daily hours contradicts that, so False." },
+    { t: "The Dover mill recorded in 1086 is still working today.", a: 2,
+      w: "The passage dates a Dover mill to 1086 and separately says Eling still works, but never that the Dover mill survives. Can't tell." },
+    { t: "Tide mills were once common on estuaries in southern England.", a: 0,
+      w: "Stated: dozens once lined the estuaries of southern England. True." },
+    { t: "Eling mill grinds flour that visitors can buy.", a: 0,
+      w: "Stated almost directly: visitors can still buy flour ground by the ebbing tide. True." },
+  ],
+  seedvault: [
+    { t: "The Svalbard vault carries out research on the seeds it stores.", a: 1,
+      w: "The passage says it does not grow or study seeds, only holds duplicates. Contradicted, so False." },
+    { t: "The 2015 withdrawal was used to rebuild a collection from Aleppo.", a: 0,
+      w: "Stated: researchers displaced from a seed bank in Aleppo requested duplicates. True." },
+    { t: "The 2017 meltwater destroyed some of the stored seeds.", a: 1,
+      w: "The meltwater entered the tunnel without reaching the seeds. Contradicted, so False." },
+    { t: "The vault is the largest seed store in the world.", a: 2,
+      w: "The passage gives its capacity but never compares it with other stores. Can't tell." },
+  ],
+  peregrine: [
+    { t: "The peregrine is the fastest animal on Earth.", a: 0,
+      w: "Stated directly in the opening line. True." },
+    { t: "DDT killed peregrines by poisoning the adult birds directly.", a: 1,
+      w: "The passage says DDT thinned the eggshells until they broke, not that it poisoned adults outright. The stated mechanism contradicts this, so False." },
+    { t: "Urban peregrines prefer pigeons to every other prey.", a: 2,
+      w: "They feed largely on pigeons, but the passage never says pigeons are preferred above all else. Largely is not the same as preferred, so Can't tell." },
+    { t: "Peregrine numbers began to recover after DDT was banned.", a: 0,
+      w: "Stated: bans from the 1970s allowed a slow recovery. True." },
+  ],
+  antikythera: [
+    { t: "The Antikythera mechanism was operated by a hand crank.", a: 0,
+      w: "Stated: turning a handle moved the pointers. True." },
+    { t: "The mechanism could predict eclipses.", a: 0,
+      w: "Stated directly. True." },
+    { t: "The mechanism was built by Archimedes.", a: 2,
+      w: "The passage credits cycles known to Greek astronomers but names no maker. Attaching a famous name the text never gives is Can't tell." },
+    { t: "Similar geared devices were common in the centuries just after it.", a: 1,
+      w: "The passage says no similar device is known for more than a thousand years afterwards. Contradicted, so False." },
+  ],
+  coffeerust: [
+    { t: "Coffee leaf rust attacks the roots of the coffee plant.", a: 1,
+      w: "The passage says it attacks the leaves, spotting them orange. Roots for leaves is a swap, so False." },
+    { t: "Ceylon growers switched to tea after the rust ruined coffee.", a: 0,
+      w: "Stated: growers turned instead to tea. True." },
+    { t: "The rust was wiped out after the Ceylon outbreak.", a: 1,
+      w: "It has since spread through most coffee regions and there is still no cure. Contradicted, so False." },
+    { t: "The rust now reaches coffee grown at higher altitudes than before.", a: 0,
+      w: "Stated: warmer temperatures let it climb to higher altitudes once thought safe. True." },
+  ],
 };

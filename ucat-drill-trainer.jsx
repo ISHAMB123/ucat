@@ -2310,16 +2310,24 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onD
         {delta !== null && <div className="ud-stat"><b className="mono" style={{ color: delta >= 0 ? "var(--go)" : "var(--stop)" }}>{delta >= 0 ? "+" : ""}{delta}</b><span>vs last run</span></div>}
         {meta && meta.wpm && <div className="ud-stat"><b className="mono">{meta.wpm}</b><span>Words / min</span></div>}
       </div>
-      <div className="ud-sec"><h2>Where the time went</h2><i /><span>bar width = seconds</span></div>
-      <div className="ud-strip">
-        {log.map((l, i) => (
-          <div className="ud-row" key={i}>
-            <span>{String(i + 1).padStart(2, "0")}</span>
-            <div className="ud-bar" style={{ width: `${Math.max((l.ms / max) * 76, 2)}%`, background: l.correct ? "var(--go)" : l.score > 0 ? "var(--signal)" : "var(--stop)" }} />
-            <em>{fmt(l.ms)}{l.score > 0 && l.score < 1 ? " · partial" : ""}</em>
-          </div>
-        ))}
-      </div>
+      {(() => {
+        const noTimes = log.every((l) => !l.ms);
+        const labelOf = (l) => l.given === "no answer" ? "Skipped" : l.correct ? "Correct" : l.score > 0 ? "Partial" : "Wrong";
+        return (
+          <>
+            <div className="ud-sec"><h2>{noTimes ? "Question by question" : "Where the time went"}</h2><i /><span>{noTimes ? "answered or skipped" : "bar width = seconds"}</span></div>
+            <div className="ud-strip">
+              {log.map((l, i) => (
+                <div className="ud-row" key={i}>
+                  <span>{String(i + 1).padStart(2, "0")}</span>
+                  <div className="ud-bar" style={{ width: noTimes ? "18%" : `${Math.max((l.ms / max) * 76, 2)}%`, background: l.given === "no answer" ? "var(--mute)" : l.correct ? "var(--go)" : l.score > 0 ? "var(--signal)" : "var(--stop)" }} />
+                  <em>{noTimes ? labelOf(l) : `${fmt(l.ms)}${l.score > 0 && l.score < 1 ? " · partial" : ""}`}</em>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      })()}
       {vrDiag && (
         <div className={`vr-diag ${vrDiag.tone}`}>
           <span className="k">Diagnosis</span>

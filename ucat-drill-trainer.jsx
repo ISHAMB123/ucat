@@ -248,25 +248,199 @@ function makeSyllSets() {
   }));
 }
 
+/* ---- Probability: generated fresh, answers as reduced fractions ---- */
+/* The distractors are the real UCAT traps: comparing one group with the */
+/* other, forgetting the box shrinks (with replacement), and giving the  */
+/* complement instead of the event. Fractions are always fully reduced.  */
+
+function gcdInt(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a || 1; }
+function asFrac(num, den) {
+  if (num <= 0) return "0";
+  if (num >= den) return "1";
+  const g = gcdInt(num, den);
+  return `${num / g}/${den / g}`;
+}
+function fourOpts(correct, distractors) {
+  const seen = new Set([correct]);
+  const opts = [correct];
+  const pad = ["1/2", "1/3", "1/4", "2/3", "3/4", "1/5", "2/5", "3/8", "5/8"];
+  for (const d of [...distractors, ...pad]) {
+    if (opts.length >= 4) break;
+    if (d && !seen.has(d)) { seen.add(d); opts.push(d); }
+  }
+  return { options: shuffle(opts), answer: correct };
+}
+
+const PROB_CTX = [
+  { where: "A tray", plural: "swabs", a: "sterile", b: "non-sterile" },
+  { where: "A bag", plural: "counters", a: "red", b: "blue" },
+  { where: "A rack", plural: "samples", a: "labelled", b: "unlabelled" },
+  { where: "A box", plural: "cards", a: "appointment", b: "blank" },
+  { where: "A drawer", plural: "vials", a: "full", b: "empty" },
+];
+
+function makeProb(n, weak, lvl) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const c = pick(PROB_CTX);
+    const ka = rnd(2, 5), kb = rnd(3, 6), total = ka + kb;
+    const kind = lvl === "easy" ? pick(["single", "single", "both"])
+      : lvl === "hard" ? pick(["both", "atleast", "atleast"])
+        : pick(["single", "both", "atleast"]);
+    const den2 = total * (total - 1);
+    if (kind === "single") {
+      const answer = asFrac(ka, total);
+      const built = fourOpts(answer, [asFrac(kb, total), asFrac(ka, total - 1), asFrac(ka - 1, total)]);
+      out.push({ kind: "mcq", section: "DM", drill: "dm", tag: "dprob", options: built.options, answer: built.answer,
+        stem: `${c.where} holds ${ka} ${c.a} and ${kb} ${c.b} ${c.plural}, identical to the touch. One is taken at random. What is the probability it is ${c.a}?`,
+        why: `Favourable over total. There are ${ka} ${c.a} out of ${total} ${c.plural} altogether, so the probability is ${ka}/${total} = ${answer}. The tempting ${asFrac(kb, total)} counts the other group by mistake, and dividing by ${total - 1} forgets to include the drawn item in the total.`,
+        improve: "Probability is favourable over total, and the total is every item present, not just the other group. If your denominator is not the whole set, start again." });
+    } else if (kind === "both") {
+      const answer = asFrac(ka * (ka - 1), den2);
+      const built = fourOpts(answer, [asFrac(ka * ka, total * total), asFrac(ka, total), asFrac(ka * (ka - 1), total * total)]);
+      out.push({ kind: "mcq", section: "DM", drill: "dm", tag: "dprob", options: built.options, answer: built.answer,
+        stem: `${c.where} holds ${ka} ${c.a} and ${kb} ${c.b} ${c.plural}, identical to the touch. Two are drawn at random without replacement. What is the probability that both are ${c.a}?`,
+        why: `The draws are dependent. First ${c.a}: ${ka}/${total}. One ${c.a} is now gone, leaving ${ka - 1} of ${total - 1}, so the second is ${ka - 1}/${total - 1}. Multiply: ${ka * (ka - 1)}/${den2} = ${answer}. Treating the draws as independent, ${ka}/${total} twice, is the with-replacement trap.`,
+        improve: "Without replacement means the denominator falls by one and the matching count falls too. Multiplying the same fraction twice is the with-replacement error." });
+    } else {
+      const answer = asFrac(den2 - kb * (kb - 1), den2);
+      const built = fourOpts(answer, [asFrac(kb * (kb - 1), den2), asFrac(ka, total), asFrac(total * total - kb * kb, total * total)]);
+      out.push({ kind: "mcq", section: "DM", drill: "dm", tag: "dprob", options: built.options, answer: built.answer,
+        stem: `${c.where} holds ${ka} ${c.a} and ${kb} ${c.b} ${c.plural}, identical to the touch. Two are drawn at random without replacement. What is the probability that at least one is ${c.a}?`,
+        why: `Use the complement. Probability that neither is ${c.a}: first non-${c.a} ${kb}/${total}, then ${kb - 1}/${total - 1}, giving ${kb * (kb - 1)}/${den2}. At least one ${c.a} is one minus that: ${answer}. Counting the favourable pairs directly is slower and where most slips happen.`,
+        improve: "For any 'at least one' question, work out the probability of none and subtract from 1. It is nearly always faster than listing the winning cases." });
+    }
+  }
+  return out;
+}
+
+/* ---- Logic puzzles: generated, then a brute-force solver keeps only   */
+/* the ones with exactly one provable arrangement. A random puzzle can   */
+/* come out with zero or several valid answers, so every candidate is    */
+/* checked against all 24 orderings before it is ever shown.             */
+
+const SEAT_NAMES = ["Ade", "Bea", "Cai", "Deb", "Eve", "Fin", "Gus", "Hana", "Ivo", "Jo", "Kit", "Lena", "Mo", "Nia"];
+function permsOf(nP) {
+  const res = [], a = Array.from({ length: nP }, (_, i) => i);
+  const rec = (k) => { if (k === nP) { res.push(a.slice()); return; } for (let i = k; i < nP; i++) { [a[k], a[i]] = [a[i], a[k]]; rec(k + 1); [a[k], a[i]] = [a[i], a[k]]; } };
+  rec(0);
+  return res;
+}
+const PERMS4 = permsOf(4);
+
+/* Greedily add clues drawn from a known-true arrangement until exactly
+   one ordering survives. Returns the surviving clues, or null if the
+   attempt did not pin it down tidily. truth[person] = position. */
+function pinDown(truth, candidates) {
+  const shuffled = shuffle(candidates);
+  const used = [];
+  let sols = PERMS4;
+  for (const cl of shuffled) {
+    if (sols.length === 1) break;
+    const next = sols.filter(cl.pred);
+    if (next.length >= 1 && next.length < sols.length) { used.push(cl); sols = next; }
+  }
+  if (sols.length === 1 && used.length >= 2 && used.length <= 5) return { sol: sols[0], used };
+  return null;
+}
+
+function makeSeatPuzzle() {
+  const N = 4;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const people = shuffle(SEAT_NAMES).slice(0, N);
+    const truth = shuffle([0, 1, 2, 3]);
+    const cand = [];
+    for (let p = 0; p < N; p++) {
+      if (truth[p] === 0 || truth[p] === N - 1) cand.push({ txt: `${people[p]} sits at one end of the row.`, pred: (P) => P[p] === 0 || P[p] === N - 1 });
+      else cand.push({ txt: `${people[p]} does not sit at either end.`, pred: (P) => P[p] !== 0 && P[p] !== N - 1 });
+    }
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) if (x !== y) {
+      if (truth[x] + 1 === truth[y]) cand.push({ txt: `${people[x]} sits immediately to the left of ${people[y]}.`, pred: (P) => P[x] + 1 === P[y] });
+      else if (truth[x] < truth[y]) cand.push({ txt: `${people[x]} sits somewhere to the left of ${people[y]}.`, pred: (P) => P[x] < P[y] });
+    }
+    const pinned = pinDown(truth, cand);
+    if (!pinned) continue;
+    const sol = pinned.sol;
+    const j = rnd(0, N - 1);
+    const answer = people[sol.indexOf(j)];
+    const order = [0, 1, 2, 3].map((s) => people[sol.indexOf(s)]);
+    const clues = shuffle(pinned.used.map((c) => c.txt)).join(" ");
+    return { kind: "mcq", section: "DM", drill: "dm", tag: "dlogic", options: shuffle(people), answer,
+      stem: `Four colleagues, ${people.join(", ")}, sit in a row of four seats numbered 1 to 4 from left to right. ${clues} Who sits in seat ${j + 1}?`,
+      why: `Only one arrangement satisfies every clue. Starting from the most restrictive statement and chaining outward, seats 1 to 4 must be ${order.join(", ")}. That puts ${answer} in seat ${j + 1}.`,
+      improve: "Start with the most restrictive clue, usually a fixed seat or an end, and chain outward. Reading the clues in the order given wastes time." };
+  }
+  return null;
+}
+
+function makeHeightPuzzle() {
+  const N = 4;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const people = shuffle(SEAT_NAMES).slice(0, N);
+    const truth = shuffle([0, 1, 2, 3]); /* rank, 0 = tallest */
+    const cand = [];
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) if (x !== y && truth[x] < truth[y]) cand.push({ txt: `${people[x]} is taller than ${people[y]}.`, pred: (P) => P[x] < P[y] });
+    const pinned = pinDown(truth, cand);
+    if (!pinned) continue;
+    const sol = pinned.sol;
+    const rankAsked = pick([1, 2]);
+    const label = ["tallest", "second tallest", "third tallest", "shortest"][rankAsked];
+    const answer = people[sol.indexOf(rankAsked)];
+    const order = [0, 1, 2, 3].map((r) => people[sol.indexOf(r)]);
+    const clues = shuffle(pinned.used.map((c) => c.txt)).join(" ");
+    return { kind: "mcq", section: "DM", drill: "dm", tag: "dlogic", options: shuffle(people), answer,
+      stem: `Four students are compared by height, all different. ${clues} Who is the ${label}?`,
+      why: `Chain the comparisons into one order, tallest to shortest: ${order.join(", ")}. The ${label} is therefore ${answer}.`,
+      improve: "Turn every comparison into a single chain before reading the options. A taller than B and B taller than C becomes one line, and the ranks fall out at a glance." };
+  }
+  return null;
+}
+
+function makeLogic(n, weak, lvl) {
+  const statics = shuffle(DM_QUESTIONS.filter((q) => q.tag === "dlogic")).map((q) => ({
+    kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], tag: q.tag, section: "DM", drill: "dm", why: q.why, improve: q.improve,
+  }));
+  const out = [];
+  let si = 0, guard = 0;
+  while (out.length < n && guard < n * 8) {
+    guard++;
+    const r = rnd(1, 10);
+    let q = r <= 5 ? makeSeatPuzzle() : r <= 9 ? makeHeightPuzzle() : null;
+    if (!q && si < statics.length) q = statics[si++];
+    if (q) out.push(q);
+  }
+  while (out.length < n && si < statics.length) out.push(statics[si++]);
+  return out.slice(0, n);
+}
+
 function makeDm(n, weak, sub, lvl) {
   const L = lvl || "medium";
+  const mapStatic = (q) => ({ kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null, tag: q.tag, section: "DM", drill: "dm", why: q.why, improve: q.improve });
   if (sub === "dvenn") return makeVenn(n, L);
+  if (sub === "dprob") {
+    const stat = shuffle(DM_QUESTIONS.filter((q) => q.tag === "dprob")).map(mapStatic);
+    return shuffle([...makeProb(n, weak, L), ...stat]).slice(0, n);
+  }
+  if (sub === "dlogic") {
+    const stat = shuffle(DM_QUESTIONS.filter((q) => q.tag === "dlogic")).map(mapStatic);
+    return shuffle([...makeLogic(n, weak, L), ...stat]).slice(0, n);
+  }
   if (sub === "dsyll") {
     const sets = makeSyllSets();
-    const easy = shuffle(DM_QUESTIONS.filter((q) => q.tag === "dsyll")).map((q) => ({
-      kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null,
-      tag: q.tag, section: "DM", drill: "dm", why: q.why, improve: q.improve,
-    }));
+    const easy = shuffle(DM_QUESTIONS.filter((q) => q.tag === "dsyll")).map(mapStatic);
     const pool = L === "easy" ? [...easy, ...sets] : L === "hard" ? sets : shuffle([...sets, ...easy.slice(0, 2)]);
     return pool.slice(0, Math.min(n, pool.length));
   }
   const src = sub && sub !== "mixed" ? DM_QUESTIONS.filter((q) => q.tag === sub) : DM_QUESTIONS;
-  const statics = shuffle(src).map((q) => ({
-    kind: "mcq", stem: q.stem, options: q.options, answer: q.options[q.a], venn: q.venn || null,
-    tag: q.tag, section: "DM", drill: "dm", why: q.why, improve: q.improve,
-  }));
+  const statics = shuffle(src).map(mapStatic);
   if (sub && sub !== "mixed") return statics.slice(0, Math.min(n, statics.length));
-  const blend = shuffle([...statics, ...makeVenn(Math.ceil(n / 2), L), ...makeSyllSets().slice(0, 2)]);
+  const blend = shuffle([
+    ...statics,
+    ...makeVenn(Math.ceil(n / 3), L),
+    ...makeProb(Math.ceil(n / 4), weak, L),
+    ...makeLogic(Math.ceil(n / 4), weak, L),
+    ...makeSyllSets().slice(0, 2),
+  ]);
   return blend.slice(0, Math.min(n, blend.length));
 }
 
@@ -5085,5 +5259,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  buildVrMock, buildQrMock, buildDmMock, assessMed,
+  makeProb, makeLogic, buildVrMock, buildQrMock, buildDmMock, assessMed,
 };

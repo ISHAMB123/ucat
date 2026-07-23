@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan,
-  makeTfc, makeSjt, makeDm, makeVenn, buildVrMock, buildQrMock, buildDmMock,
+  makeTfc, makeSjt, makeDm, makeVenn, makeProb, makeLogic,
+  buildVrMock, buildQrMock, buildDmMock,
 } from "../ucat-drill-trainer.jsx";
 
 /* Every generated question's stated answer must resolve to a real
@@ -85,6 +86,28 @@ describe("generators produce answers that exist in their options", () => {
   it("makeVenn (all seven shapes)", () => {
     for (const lvl of LVLS) for (let i = 0; i < REPS * 4; i++)
       makeVenn(7, lvl).forEach((q) => checkQuestion(q, "makeVenn"));
+  });
+
+  it("makeProb (every level)", () => {
+    for (const lvl of LVLS) for (let i = 0; i < REPS * 2; i++) {
+      const qs = makeProb(12, {}, lvl);
+      expect(qs.length).toBe(12);
+      qs.forEach((q) => {
+        checkQuestion(q, "makeProb");
+        expect(q.options.length, q.stem).toBe(4);
+      });
+    }
+  });
+
+  it("makeLogic (verified single-solution puzzles)", () => {
+    for (const lvl of LVLS) for (let i = 0; i < REPS * 2; i++) {
+      const qs = makeLogic(12, {}, lvl);
+      expect(qs.length).toBe(12);
+      qs.forEach((q) => {
+        checkQuestion(q, "makeLogic");
+        expect(q.options, q.stem).toContain(q.answer);
+      });
+    }
   });
 
   it("makeDm (every sub)", () => {

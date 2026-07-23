@@ -33,42 +33,36 @@ import { WorkDiagram, BrandMark, ExitGuard, LastChecked, MarkingNotice, SiteDisc
 /* passages. Can't Tell is the most-missed answer in the real exam.   */
 
 
-/* Order keys so the least-seen come first, randomised within each tier.
-   A stable sort over a shuffled list gives random order among ties, so
-   unseen content is always served before anything already practised. */
-function leastSeenFirst(keys, seen, prefix) {
-  seen = seen || {};
-  return shuffle(keys)
-    .map((k, i) => ({ k, i }))
-    .sort((a, b) => (seen[prefix + a.k] || 0) - (seen[prefix + b.k] || 0) || a.i - b.i)
-    .map((o) => o.k);
+/* Strict no-repeat. Every item in a finite bank carries a stable key.
+   Serve only keys the learner has not seen; a question shown once is not
+   shown again. Only when the whole bank is exhausted does it cycle, and
+   the caller then resets that bank's seen set so a fresh cycle begins.
+   `cycled` on the returned batch flags that the bank had run out. */
+function pickUnseen(all, seen, n) {
+  const unseen = all.filter((x) => !seen || !seen[x.key]);
+  if (unseen.length >= n) return { chosen: shuffle(unseen).slice(0, n), cycled: false };
+  const rest = shuffle(all.filter((x) => seen && seen[x.key]));
+  return { chosen: shuffle(unseen).concat(rest).slice(0, n), cycled: true };
 }
 
 function makeTfc(n, weak, seen) {
-  const ids = leastSeenFirst(Object.keys(TFC_SETS), seen, "vr:");
-  if (!ids.length) return [];
-  const out = [];
-  const used = new Set();
-  let gi = 0, guard = 0;
-  while (out.length < n && guard < n * 20 + 40) {
-    guard++;
-    const pid = ids[gi % ids.length];
-    gi++;
+  const all = [];
+  Object.keys(TFC_SETS).forEach((pid) => {
     const p2 = PASSAGES.find((x) => x.id === pid);
-    if (!p2) continue;
-    const pool = TFC_SETS[pid].filter((_, idx) => !used.has(pid + idx));
-    const set = pool.length ? pool : TFC_SETS[pid];
-    const item = pick(set);
-    used.add(pid + TFC_SETS[pid].indexOf(item));
-    out.push({
-      kind: "scale", scenarioText: null, passageText: p2.text, passageTitle: p2.title,
-      stem: item.t, options: TFC, answer: item.a, typeName: "True, false, can't tell",
-      tag: "t" + pid, pid, section: "VR", drill: "tfc",
-      why: item.w,
-      diagram: { type: "tfc" },
-      improve: "Ask only one question: does the passage itself settle this? True means it says so, False means it contradicts it, Can't tell means it is silent. Watch for swapped absolutes (always, never, sole), invented causes between two true facts, and outside knowledge creeping in.",
-    });
-  }
+    if (!p2) return;
+    TFC_SETS[pid].forEach((item, idx) => all.push({ key: `vr:${pid}#${idx}`, pid, p2, item }));
+  });
+  if (!all.length) return [];
+  const { chosen, cycled } = pickUnseen(all, seen, n);
+  const out = chosen.map(({ key, pid, p2, item }) => ({
+    kind: "scale", scenarioText: null, passageText: p2.text, passageTitle: p2.title,
+    stem: item.t, options: TFC, answer: item.a, typeName: "True, false, can't tell",
+    tag: "t" + pid, pid, seenKey: key, section: "VR", drill: "tfc",
+    why: item.w,
+    diagram: { type: "tfc" },
+    improve: "Ask only one question: does the passage itself settle this? True means it says so, False means it contradicts it, Can't tell means it is silent. Watch for swapped absolutes (always, never, sole), invented causes between two true facts, and outside knowledge creeping in.",
+  }));
+  out.cycled = cycled;
   return out;
 }
 
@@ -1192,21 +1186,24 @@ function makeScan(n, weak) {
 }
 
 function makeSjt(n, weak, theme, seen) {
-  const all = SJT_SCENARIOS.filter((s) => !theme || theme === "all" || s.theme === theme);
-  const byId = Object.fromEntries(all.map((s) => [s.id, s]));
-  const ordered = leastSeenFirst(all.map((s) => s.id), seen, "sjt:");
-  const pool = [];
-  for (const id of ordered) {
-    const sc = byId[id];
-    if (sc.ranking) {
-      pool.push({ kind: "rank", scenarioText: sc.text, sid: sc.id, themeName: SJT_THEMES[sc.theme].name, stem: sc.ranking.stem, options: sc.ranking.options, order: sc.ranking.order, why: sc.ranking.why, improve: sc.ranking.fix, tag: "jrank", section: "SJT", drill: "sjt", typeName: "Ranking" });
+  const scen = SJT_SCENARIOS.filter((s) => !theme || theme === "all" || s.theme === theme);
+  const all = [];
+  scen.forEach((sc) => {
+    if (sc.ranking) all.push({ key: `sjt:${sc.id}#rank`, sc, rank: true });
+    (sc.items || []).forEach((it, idx) => all.push({ key: `sjt:${sc.id}#${idx}`, sc, it }));
+  });
+  if (!all.length) return [];
+  const { chosen, cycled } = pickUnseen(all, seen, n);
+  const out = chosen.map((c) => {
+    const sc = c.sc;
+    if (c.rank) {
+      return { kind: "rank", scenarioText: sc.text, sid: sc.id, seenKey: c.key, themeName: SJT_THEMES[sc.theme].name, stem: sc.ranking.stem, options: sc.ranking.options, order: sc.ranking.order, why: sc.ranking.why, improve: sc.ranking.fix, tag: "jrank", section: "SJT", drill: "sjt", typeName: "Ranking" };
     }
-    shuffle(sc.items).forEach((it) => {
-      pool.push({ kind: "scale", scenarioText: sc.text, sid: sc.id, themeName: SJT_THEMES[sc.theme].name, stem: it.stem, options: it.type === "importance" ? IMPORT : APPROP, answer: it.answer, why: it.why, improve: it.fix, tag: "j" + it.type, section: "SJT", drill: "sjt", typeName: SJT_TYPES[it.type].name });
-    });
-    if (pool.length >= n) break;
-  }
-  return shuffle(pool).slice(0, Math.min(n, pool.length));
+    const it = c.it;
+    return { kind: "scale", scenarioText: sc.text, sid: sc.id, seenKey: c.key, themeName: SJT_THEMES[sc.theme].name, stem: it.stem, options: it.type === "importance" ? IMPORT : APPROP, answer: it.answer, why: it.why, improve: it.fix, tag: "j" + it.type, section: "SJT", drill: "sjt", typeName: SJT_TYPES[it.type].name };
+  });
+  out.cycled = cycled;
+  return out;
 }
 
 const WEAK_LABEL = {
@@ -5172,18 +5169,18 @@ export default function UcatDrillTrainer() {
   const qKey = (q) => `${q.drill}|${q.stem || q.prompt}|${q.answer ?? (q.order || []).join("")}`;
 
   /* Count each VR passage and SJT scenario as it is served, so the
-     generators can serve the least-seen first and nothing repeats until
-     the whole bank has been worked through at least once. */
+     generators serve only unseen items, so a question is shown once and
+     not again until the whole bank is exhausted. When a batch reports it
+     had to cycle, that bank's seen keys are cleared first so a clean new
+     cycle starts. */
   const recordSeen = (qs) => {
-    const keys = new Set();
-    qs.forEach((q) => {
-      if (q.pid) keys.add("vr:" + q.pid);
-      else if (q.sid) keys.add("sjt:" + q.sid);
-    });
-    if (!keys.size) return;
+    const keys = qs.map((q) => q.seenKey).filter(Boolean);
+    if (!keys.length) return;
+    const prefix = keys[0].slice(0, keys[0].indexOf(":") + 1);
     setSeenBank((prev) => {
       const next = { ...prev };
-      keys.forEach((k) => { next[k] = (next[k] || 0) + 1; });
+      if (qs.cycled) Object.keys(next).forEach((k) => { if (k.startsWith(prefix)) delete next[k]; });
+      keys.forEach((k) => { next[k] = 1; });
       setJSON("ucat:seenbank", next);
       return next;
     });

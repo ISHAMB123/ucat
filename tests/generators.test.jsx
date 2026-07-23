@@ -110,22 +110,23 @@ describe("generators produce answers that exist in their options", () => {
     }
   });
 
-  it("makeSjt and makeTfc serve the least-seen content first", () => {
-    /* Discover every scenario/passage id, then mark all but one as heavily
-       seen and confirm the generator serves the untouched one first. */
-    const allSids = [...new Set(makeSjt(999, {}, "all", {}).map((q) => q.sid))];
-    expect(allSids.length).toBeGreaterThan(1);
-    const targetS = allSids[allSids.length - 1];
-    const seenS = {};
-    allSids.forEach((id) => { if (id !== targetS) seenS["sjt:" + id] = 9; });
-    makeSjt(1, {}, "all", seenS).forEach((q) => expect(q.sid).toBe(targetS));
+  it("makeSjt and makeTfc never repeat a seen question until exhausted", () => {
+    for (const draw of [(n, seen) => makeSjt(n, {}, "all", seen), (n, seen) => makeTfc(n, {}, seen)]) {
+      const allKeys = draw(9999, {}).map((q) => q.seenKey);
+      expect(allKeys.length).toBeGreaterThan(5);
+      expect(new Set(allKeys).size, "a single draw has no duplicate items").toBe(allKeys.length);
+      /* Mark half seen: a fresh batch must contain none of them. */
+      const half = new Set(allKeys.slice(0, Math.floor(allKeys.length / 2)));
+      const seen = {}; half.forEach((k) => { seen[k] = 1; });
+      draw(5, seen).forEach((q) => expect(half.has(q.seenKey), `served a seen item ${q.seenKey}`).toBe(false));
+    }
+  });
 
-    const allPids = [...new Set(makeTfc(999, {}, {}).map((q) => q.pid))];
-    expect(allPids.length).toBeGreaterThan(1);
-    const targetP = allPids[allPids.length - 1];
-    const seenP = {};
-    allPids.forEach((id) => { if (id !== targetP) seenP["vr:" + id] = 9; });
-    makeTfc(1, {}, seenP).forEach((q) => expect(q.pid).toBe(targetP));
+  it("flags a batch as cycled only when the bank is exhausted", () => {
+    expect(makeTfc(5, {}, {}).cycled).toBe(false);
+    const allSeen = {};
+    makeTfc(9999, {}, {}).forEach((q) => { allSeen[q.seenKey] = 1; });
+    expect(makeTfc(5, {}, allSeen).cycled).toBe(true);
   });
 
   it("makeDm (every sub)", () => {

@@ -134,6 +134,15 @@ describe("generators produce answers that exist in their options", () => {
       makeDm(12, {}, sub, lvl).forEach((q) => checkQuestion(q, `makeDm:${sub}`));
   });
 
+  it("makeDm never returns an empty bank", () => {
+    /* An empty array would pass the answer-in-options check vacuously, so
+       assert a real bank for every sub, including null and an unrecognised
+       value like the drill's own "dm" tag, which must not filter to nothing. */
+    for (const sub of ["mixed", "dsyll", "dvenn", "dprob", "dlogic", null, undefined, "dm"])
+      for (const lvl of LVLS)
+        expect(makeDm(10, {}, sub, lvl).length, `empty for sub ${sub}`).toBeGreaterThan(0);
+  });
+
   it("makeSjt (every format)", () => {
     for (let i = 0; i < REPS; i++)
       makeSjt(25, {}, "all").forEach((q) => checkQuestion(q, "makeSjt"));

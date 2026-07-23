@@ -449,7 +449,10 @@ function makeDm(n, weak, sub, lvl) {
   }
   const src = sub && sub !== "mixed" ? DM_QUESTIONS.filter((q) => q.tag === sub) : DM_QUESTIONS;
   const statics = shuffle(src).map(mapStatic);
-  if (sub && sub !== "mixed") return statics.slice(0, Math.min(n, statics.length));
+  /* Only short-circuit on a recognised sub that actually matched questions.
+     An unrecognised sub (for example the drill's own "dm" tag) filters to
+     nothing, so fall through to the mixed blend rather than return empty. */
+  if (sub && sub !== "mixed" && statics.length) return statics.slice(0, Math.min(n, statics.length));
   const blend = shuffle([
     ...statics,
     ...makeVenn(Math.ceil(n / 3), L),

@@ -702,26 +702,30 @@ MOCK_BANK.push(
   ]},
 );
 
-const VR_MOCK_QCOUNT = 12;             /* 3 passage sets of 4 */
+const VR_MOCK_QCOUNT = 44;             /* full length: 44 Qs in 22:00 */
 const VR_MOCK_SECONDS = VR_MOCK_QCOUNT * 30;   /* the real section's pace: 44 Qs in 22:00 = 30s each */
 const QR_MOCK_QCOUNT = 36;
 const QR_MOCK_SECONDS = 26 * 60;       /* full length: 36 Qs in 26:00, matching the exam */
 
 function buildVrMock(week, slot, mini) {
   /* The real section mixes true/false/can't tell sets with inference sets,
-     so evidence sets plus a TFC set reproduce the same texture. Mini uses
-     one evidence set plus one TFC set for a quick eight-question paper.     */
-  const nSets = mini ? 1 : 2;
+     so evidence sets plus TFC sets reproduce the same texture. A full paper
+     is eight evidence sets and three TFC sets, forty-four questions at the
+     exam's 30-second pace. Mini is one of each for a quick eight-question run. */
+  const nSets = mini ? 1 : 8;   /* evidence sets, 4 questions each */
+  const nTfc = mini ? 1 : 3;    /* TFC sets, 4 statements each */
   const sets = seeded(week * 97 + slot * 13 + 7 + (mini ? 500 : 0), () => shuffle(MOCK_BANK)).slice(0, nSets);
   const flat = [];
   sets.forEach((set) => set.questions.forEach((q) => flat.push({ ...q, kindm: "vr", passage: mockPassage(set.pid) })));
-  const tfcId = seeded(week * 41 + slot * 7 + 5 + (mini ? 500 : 0), () => pick(Object.keys(TFC_SETS)));
-  const tp = PASSAGES.find((x) => x.id === tfcId);
-  TFC_SETS[tfcId].forEach((item) => flat.push({
-    kindm: "vr", stem: item.t, options: TFC, a: item.a, tfc: true,
-    why: item.w, diagram: { type: "tfc" }, tag: "t" + tfcId,
-    passage: { title: tp.title, text: tp.text },
-  }));
+  const tfcIds = seeded(week * 41 + slot * 7 + 5 + (mini ? 500 : 0), () => shuffle(Object.keys(TFC_SETS))).slice(0, nTfc);
+  tfcIds.forEach((tfcId) => {
+    const tp = PASSAGES.find((x) => x.id === tfcId);
+    TFC_SETS[tfcId].forEach((item) => flat.push({
+      kindm: "vr", stem: item.t, options: TFC, a: item.a, tfc: true,
+      why: item.w, diagram: { type: "tfc" }, tag: "t" + tfcId,
+      passage: { title: tp.title, text: tp.text },
+    }));
+  });
   return { title: mini ? `VR Mini ${slot + 1}` : `VR Mock ${"ABC"[slot]}`, flat, secs: flat.length * 30, perQ: 30 };
 }
 
@@ -4821,7 +4825,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   if (phase === "idle") {
     const slots = mini ? [0, 1, 2, 3, 4] : [0, 1, 2];
     const full = type === "vr"
-      ? { count: VR_MOCK_QCOUNT, mins: Math.round(VR_MOCK_SECONDS / 60), note: "Three passages at the exam's exact pace: 30 seconds a question, the same rate as 44 in 22:00. Fresh passage combinations every week." }
+      ? { count: VR_MOCK_QCOUNT, mins: Math.round(VR_MOCK_SECONDS / 60), note: "Full length: 44 questions in 22 minutes, the exam's 30-second pace. Fresh passage combinations every week; everyone sits the identical paper." }
       : { count: QR_MOCK_QCOUNT, mins: 26, note: "Full length: 36 questions in 26 minutes, matching the real section. Freshly generated each week; everyone sits the identical paper." };
     const note = mini
       ? "Short papers for a spare ten minutes, at the exam's pace: five each for VR and QR, fresh every week."

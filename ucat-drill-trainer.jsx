@@ -33,13 +33,29 @@ import { WorkDiagram, BrandMark, ExitGuard, LastChecked, MarkingNotice, SiteDisc
 /* passages. Can't Tell is the most-missed answer in the real exam.   */
 
 
-function makeTfc(n, weak) {
-  const ids = Object.keys(TFC_SETS);
+/* Order keys so the least-seen come first, randomised within each tier.
+   A stable sort over a shuffled list gives random order among ties, so
+   unseen content is always served before anything already practised. */
+function leastSeenFirst(keys, seen, prefix) {
+  seen = seen || {};
+  return shuffle(keys)
+    .map((k, i) => ({ k, i }))
+    .sort((a, b) => (seen[prefix + a.k] || 0) - (seen[prefix + b.k] || 0) || a.i - b.i)
+    .map((o) => o.k);
+}
+
+function makeTfc(n, weak, seen) {
+  const ids = leastSeenFirst(Object.keys(TFC_SETS), seen, "vr:");
+  if (!ids.length) return [];
   const out = [];
   const used = new Set();
-  for (let i = 0; i < n; i++) {
-    const pid = weightedPick(ids, weak, "t");
+  let gi = 0, guard = 0;
+  while (out.length < n && guard < n * 20 + 40) {
+    guard++;
+    const pid = ids[gi % ids.length];
+    gi++;
     const p2 = PASSAGES.find((x) => x.id === pid);
+    if (!p2) continue;
     const pool = TFC_SETS[pid].filter((_, idx) => !used.has(pid + idx));
     const set = pool.length ? pool : TFC_SETS[pid];
     const item = pick(set);
@@ -47,7 +63,7 @@ function makeTfc(n, weak) {
     out.push({
       kind: "scale", scenarioText: null, passageText: p2.text, passageTitle: p2.title,
       stem: item.t, options: TFC, answer: item.a, typeName: "True, false, can't tell",
-      tag: "t" + pid, section: "VR", drill: "tfc",
+      tag: "t" + pid, pid, section: "VR", drill: "tfc",
       why: item.w,
       diagram: { type: "tfc" },
       improve: "Ask only one question: does the passage itself settle this? True means it says so, False means it contradicts it, Can't tell means it is silent. Watch for swapped absolutes (always, never, sole), invented causes between two true facts, and outside knowledge creeping in.",
@@ -1202,17 +1218,21 @@ function makeScan(n, weak) {
   return out;
 }
 
-function makeSjt(n, weak, theme) {
+function makeSjt(n, weak, theme, seen) {
+  const all = SJT_SCENARIOS.filter((s) => !theme || theme === "all" || s.theme === theme);
+  const byId = Object.fromEntries(all.map((s) => [s.id, s]));
+  const ordered = leastSeenFirst(all.map((s) => s.id), seen, "sjt:");
   const pool = [];
-  const scenarios = shuffle(SJT_SCENARIOS.filter((s) => !theme || theme === "all" || s.theme === theme));
-  scenarios.forEach((sc) => {
+  for (const id of ordered) {
+    const sc = byId[id];
     if (sc.ranking) {
-      pool.push({ kind: "rank", scenarioText: sc.text, themeName: SJT_THEMES[sc.theme].name, stem: sc.ranking.stem, options: sc.ranking.options, order: sc.ranking.order, why: sc.ranking.why, improve: sc.ranking.fix, tag: "jrank", section: "SJT", drill: "sjt", typeName: "Ranking" });
+      pool.push({ kind: "rank", scenarioText: sc.text, sid: sc.id, themeName: SJT_THEMES[sc.theme].name, stem: sc.ranking.stem, options: sc.ranking.options, order: sc.ranking.order, why: sc.ranking.why, improve: sc.ranking.fix, tag: "jrank", section: "SJT", drill: "sjt", typeName: "Ranking" });
     }
     shuffle(sc.items).forEach((it) => {
-      pool.push({ kind: "scale", scenarioText: sc.text, themeName: SJT_THEMES[sc.theme].name, stem: it.stem, options: it.type === "importance" ? IMPORT : APPROP, answer: it.answer, why: it.why, improve: it.fix, tag: "j" + it.type, section: "SJT", drill: "sjt", typeName: SJT_TYPES[it.type].name });
+      pool.push({ kind: "scale", scenarioText: sc.text, sid: sc.id, themeName: SJT_THEMES[sc.theme].name, stem: it.stem, options: it.type === "importance" ? IMPORT : APPROP, answer: it.answer, why: it.why, improve: it.fix, tag: "j" + it.type, section: "SJT", drill: "sjt", typeName: SJT_TYPES[it.type].name });
     });
-  });
+    if (pool.length >= n) break;
+  }
   return shuffle(pool).slice(0, Math.min(n, pool.length));
 }
 
@@ -1238,12 +1258,12 @@ function weakLabel(tag) {
 /* as the shared backend for a real global leaderboard.               */
 
 async function loadState() {
-  const [unlocked, best, history, plan, weak, level, mistakes, prefs] = await Promise.all([
+  const [unlocked, best, history, plan, weak, level, mistakes, prefs, seenBank] = await Promise.all([
     getJSON("ucat:unlocked", false), getJSON("ucat:best", {}), getJSON("ucat:history", []),
     getJSON("ucat:plan", {}), getJSON("ucat:weak", {}), getJSON("ucat:level", "medium"),
-    getJSON("ucat:mistakes", []), getJSON("ucat:prefs", {}),
+    getJSON("ucat:mistakes", []), getJSON("ucat:prefs", {}), getJSON("ucat:seenbank", {}),
   ]);
-  return { unlocked: unlocked === true, best, history, plan, weak, level, mistakes, prefs };
+  return { unlocked: unlocked === true, best, history, plan, weak, level, mistakes, prefs, seenBank };
 }
 
 /* Styles live in ./styles.js and are imported as CSS at the top. */
@@ -4996,6 +5016,7 @@ export default function UcatDrillTrainer() {
   const [history, setHistory] = useState([]);
   const [plan, setPlan] = useState({});
   const [weak, setWeak] = useState({});
+  const [seenBank, setSeenBank] = useState({});
   const [mistakes, setMistakes] = useState([]);
   const [prefs, setPrefsState] = useState({ count: 10, exam: false, extra: 1, level: "medium", theme: "light" });
   const [ready, setReady] = useState(false);
@@ -5008,7 +5029,7 @@ export default function UcatDrillTrainer() {
   useEffect(() => {
     loadState().then((s) => {
       setUnlocked(s.unlocked); setBest(s.best); setHistory(s.history);
-      setPlan(s.plan); setWeak(s.weak); setMistakes(s.mistakes);
+      setPlan(s.plan); setWeak(s.weak); setSeenBank(s.seenBank || {}); setMistakes(s.mistakes);
       const pf = { count: 10, exam: false, extra: 1, level: s.level || "medium", theme: "light", ...(s.prefs || {}) };
       setPrefsState(pf);
       if (pf.account) { setAccount(pf.account); setAuthDone(true); }
@@ -5041,6 +5062,24 @@ export default function UcatDrillTrainer() {
 
   const qKey = (q) => `${q.drill}|${q.stem || q.prompt}|${q.answer ?? (q.order || []).join("")}`;
 
+  /* Count each VR passage and SJT scenario as it is served, so the
+     generators can serve the least-seen first and nothing repeats until
+     the whole bank has been worked through at least once. */
+  const recordSeen = (qs) => {
+    const keys = new Set();
+    qs.forEach((q) => {
+      if (q.pid) keys.add("vr:" + q.pid);
+      else if (q.sid) keys.add("sjt:" + q.sid);
+    });
+    if (!keys.size) return;
+    setSeenBank((prev) => {
+      const next = { ...prev };
+      keys.forEach((k) => { next[k] = (next[k] || 0) + 1; });
+      setJSON("ucat:seenbank", next);
+      return next;
+    });
+  };
+
   const start = (d, isExam, count, key, sub, theme) => {
     const lvl = prefs.level;
     let qs = [];
@@ -5049,9 +5088,10 @@ export default function UcatDrillTrainer() {
     else if (d.id === "estimate") qs = makeEstimate(count, weak, lvl, sub);
     else if (d.id === "qrset") qs = makeQrSets(count, lvl);
     else if (d.id === "scan") qs = makeScan(count, weak);
-    else if (d.id === "tfc") qs = makeTfc(count, weak);
-    else if (d.id === "sjt") qs = makeSjt(count, weak, theme);
+    else if (d.id === "tfc") qs = makeTfc(count, weak, seenBank);
+    else if (d.id === "sjt") qs = makeSjt(count, weak, theme, seenBank);
     else if (d.id === "dm") qs = makeDm(count, weak, sub, lvl);
+    recordSeen(qs);
     lastRun.current = { d, isExam, count, sub, theme };
     setDrill(d);
     setMeta(null);

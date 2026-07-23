@@ -110,6 +110,24 @@ describe("generators produce answers that exist in their options", () => {
     }
   });
 
+  it("makeSjt and makeTfc serve the least-seen content first", () => {
+    /* Discover every scenario/passage id, then mark all but one as heavily
+       seen and confirm the generator serves the untouched one first. */
+    const allSids = [...new Set(makeSjt(999, {}, "all", {}).map((q) => q.sid))];
+    expect(allSids.length).toBeGreaterThan(1);
+    const targetS = allSids[allSids.length - 1];
+    const seenS = {};
+    allSids.forEach((id) => { if (id !== targetS) seenS["sjt:" + id] = 9; });
+    makeSjt(1, {}, "all", seenS).forEach((q) => expect(q.sid).toBe(targetS));
+
+    const allPids = [...new Set(makeTfc(999, {}, {}).map((q) => q.pid))];
+    expect(allPids.length).toBeGreaterThan(1);
+    const targetP = allPids[allPids.length - 1];
+    const seenP = {};
+    allPids.forEach((id) => { if (id !== targetP) seenP["vr:" + id] = 9; });
+    makeTfc(1, {}, seenP).forEach((q) => expect(q.pid).toBe(targetP));
+  });
+
   it("makeDm (every sub)", () => {
     const subs = ["mixed", "dsyll", "dvenn", "dprob", "dlogic"];
     for (const lvl of LVLS) for (const sub of subs) for (let i = 0; i < REPS; i++)

@@ -1418,10 +1418,13 @@ function Calculator() {
 
 /* ------------------------------ DRILL RUNNER ---------------------- */
 
-function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, reviewEnd, onDone, onQuit }) {
+function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, reviewEnd, level, onDone, onQuit }) {
   /* No per-question feedback when timed, or when the user chose to review
      only at the end. Feedback after each answer is the tutor default. */
   const noFeedback = exam || reviewEnd;
+  /* Easy leads with the strategy so the method is learned first; Hard
+     keeps the terse exam-style reasoning the real UCAT would give. */
+  const easyMode = level === "easy";
   const [confirmExit, setConfirmExit] = useState(false);
   const [i, setI] = useState(0);
   const [val, setVal] = useState("");
@@ -1732,8 +1735,17 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
                 ) : (
                   <>
                     <p><b>Answer: {q.kind === "rank" ? q.order.map((x) => String.fromCharCode(65 + x)).join(", ") : q.kind === "scale" ? q.options[q.answer] : q.answer}</b></p>
-                    <p>{q.why || q.working}</p>
-                    {q.improve && <p className="imp">{q.improve}</p>}
+                    {easyMode ? (
+                      <>
+                        {q.improve && <p className="imp"><b>Strategy: </b>{q.improve}</p>}
+                        <p>{q.why || q.working}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>{q.why || q.working}</p>
+                        {q.improve && <p className="imp">{q.improve}</p>}
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -1958,8 +1970,17 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
                     : `Correct answer: ${q.answer}`}
                 </strong>
               </p>
-              <p>{q.why || q.working}</p>
-              {q.improve && <p className="improve">{q.improve}</p>}
+              {easyMode ? (
+                <>
+                  {q.improve && <p className="improve"><b>Strategy: </b>{q.improve}</p>}
+                  <p>{q.why || q.working}</p>
+                </>
+              ) : (
+                <>
+                  <p>{q.why || q.working}</p>
+                  {q.improve && <p className="improve">{q.improve}</p>}
+                </>
+              )}
               <button className="ud-submit" onClick={() => advance(log)}>Continue</button>
             </div>
           )}
@@ -2194,6 +2215,10 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onD
         <button className="ud-btn" onClick={onAgain}>Do another</button>
         <button className="ud-btn ghost" onClick={onHome}>Home</button>
       </div>
+      <SiteDisclaimer />
+      <p className="ud-empty" style={{ paddingTop: 4, fontSize: 11.5, lineHeight: 1.6 }}>
+        Scores here are practice estimates for your own use, not a prediction of your UCAT result.
+      </p>
     </div>
   );
 }
@@ -5280,7 +5305,7 @@ export default function UcatDrillTrainer() {
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && !["speed", "blurt"].includes(drill.id) && (
         <DrillRunner drill={drill} questions={questions} exam={runExam} budget={runBudget}
-          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} onDone={done} onQuit={() => setView("drills")} />
+          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} level={prefs.level} onDone={done} onQuit={() => setView("drills")} />
       )}
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}

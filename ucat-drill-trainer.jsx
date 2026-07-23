@@ -736,6 +736,25 @@ function buildQrMock(week, slot, mini) {
   return { title: mini ? `QR Mini ${slot + 1}` : `QR Mock ${"ABC"[slot]}`, flat, secs: flat.length * 43, perQ: 43 };
 }
 
+const SJT_PERQ = Math.round((26 * 60) / 69);   /* 69 questions in 26:00 */
+function buildSjtMock(week, slot, mini) {
+  /* Full paper: 69 appropriateness and importance items in 26 minutes,
+     the real section's length. Ranking items are left to the practice
+     bank; the mock is single-scale so it scores cleanly on a leaderboard. */
+  const items = [];
+  SJT_SCENARIOS.forEach((sc) => (sc.items || []).forEach((it) => {
+    if (it.type === "appropriateness" || it.type === "importance") items.push({ sc, it });
+  }));
+  const flat = seeded(week * 173 + slot * 23 + 9 + (mini ? 500 : 0), () => shuffle(items)).slice(0, mini ? 5 : 69).map(({ sc, it }) => ({
+    kindm: "sjt", sjt: true, scenarioText: sc.text,
+    framing: it.type === "importance"
+      ? "How important is the following consideration for the student when deciding how to respond to the situation?"
+      : "How appropriate is the following response by the student to the situation?",
+    stem: it.stem, options: it.type === "importance" ? IMPORT : APPROP, a: it.answer, why: it.why,
+  }));
+  return { title: mini ? `SJT Mini ${slot + 1}` : `SJT Mock ${"ABC"[slot]}`, flat, secs: mini ? flat.length * SJT_PERQ : 26 * 60, perQ: SJT_PERQ };
+}
+
 /* ------------------------------ DRILLS ---------------------------- */
 
 const DRILLS = [
@@ -4781,7 +4800,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   }, [navOpen]);
 
   const startMock = (t, sl, isMini) => {
-    const m = t === "vr" ? buildVrMock(week, sl, isMini) : buildQrMock(week, sl, isMini);
+    const m = t === "vr" ? buildVrMock(week, sl, isMini) : t === "sjt" ? buildSjtMock(week, sl, isMini) : buildQrMock(week, sl, isMini);
     setType(t); setSlot(sl); setMini(!!isMini); setMock(m);
     setPhase("run"); setI(0); setAnswers(Array(m.flat.length).fill(null)); setSeen([0]); setFlags([]); setNavOpen(false); setLeft(m.secs);
     setSubmitted(false); setBoard(null);
@@ -4796,7 +4815,13 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   const toggleFlag = () => setFlags((f) => (f.includes(i) ? f.filter((x) => x !== i) : [...f, i]));
 
   const isRight = (q, given) => (q.a !== undefined ? given === q.a : given === q.answer);
-  const score = mock ? answers.filter((a, n) => isRight(mock.flat[n], a)).length : 0;
+  /* SJT scores partial marks one step away, as the real section does. */
+  const scoreOf = (q, given) => {
+    if (given === null || given === undefined) return 0;
+    if (q.sjt) { const d = Math.abs(given - q.a); return d === 0 ? 1 : d === 1 ? 0.5 : 0; }
+    return isRight(q, given) ? 1 : 0;
+  };
+  const score = mock ? mock.flat.reduce((s, q, n) => s + scoreOf(q, answers[n]), 0) : 0;
   const pct = mock ? Math.round((score / mock.flat.length) * 100) : 0;
 
   const submitScore = async () => {
@@ -4823,6 +4848,8 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
     const slots = mini ? [0, 1, 2, 3, 4] : [0, 1, 2];
     const full = type === "vr"
       ? { count: VR_MOCK_QCOUNT, mins: Math.round(VR_MOCK_SECONDS / 60), note: "Full length: 44 questions in 22 minutes, the exam's 30-second pace. Fresh passage combinations every week; everyone sits the identical paper." }
+      : type === "sjt"
+      ? { count: 69, mins: 26, note: "Full length: 69 appropriateness and importance questions in 26 minutes, matching the real section. Partial marks one step away, as the exam scores them." }
       : { count: QR_MOCK_QCOUNT, mins: 26, note: "Full length: 36 questions in 26 minutes, matching the real section. Freshly generated each week; everyone sits the identical paper." };
     const note = mini
       ? "Short papers for a spare ten minutes, at the exam's pace: five each for VR and QR, fresh every week."
@@ -4839,6 +4866,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
           <span>Section</span>
           <button className={type === "vr" ? "on" : ""} onClick={() => setType("vr")}>Verbal Reasoning</button>
           <button className={type === "qr" ? "on" : ""} onClick={() => setType("qr")}>Quantitative Reasoning</button>
+          <button className={type === "sjt" ? "on" : ""} onClick={() => setType("sjt")}>Situational Judgement</button>
         </div>
         <p className="ud-learn-intro">{note} No feedback until the end, one clock, no pausing. Your score joins this week's board, {boardGlobal ? "shared with everyone sitting it" : "kept on this device"}.</p>
         <div className="ud-subs" style={{ paddingTop: 16 }}>
@@ -4934,9 +4962,11 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
                 <text x="252" y="130" fontSize="11" fill="#5A6675" fontFamily="monospace">{q.venn.neither} neither</text>
               </svg>
             )}
+            {q.scenarioText && <p className="ud-scenario">{q.scenarioText}</p>}
+            {q.framing && <p className="ud-qs" style={{ fontWeight: 600 }}>{q.framing}</p>}
             <p className="ud-qs">{q.stem || q.prompt}</p>
             {(q.options).map((o, n) => {
-              const val = type === "vr" ? n : o;
+              const val = type === "vr" || type === "sjt" ? n : o;
               const sel = answers[i] === val;
               return (
                 <button key={n} className={`ud-opt${sel ? " sel" : ""}`} onClick={() => select(val)} aria-pressed={sel}>
@@ -5402,5 +5432,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  makeProb, makeLogic, scoreEntry, snapAnswered, buildVrMock, buildQrMock, assessMed,
+  makeProb, makeLogic, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
 };

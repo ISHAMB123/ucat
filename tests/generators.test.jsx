@@ -3,7 +3,7 @@ import {
   LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan,
   makeTfc, makeSjt, makeDm, makeVenn, makeProb, makeLogic,
-  buildVrMock, buildQrMock,
+  buildVrMock, buildQrMock, buildSjtMock,
 } from "../ucat-drill-trainer.jsx";
 
 /* Every generated question's stated answer must resolve to a real
@@ -163,6 +163,21 @@ describe("generators produce answers that exist in their options", () => {
     for (let week = 1; week < 30; week++) for (let slot = 0; slot < 5; slot++) {
       buildVrMock(week, slot, true).flat.forEach((q) => checkQuestion(q, "vrMini"));
       buildQrMock(week, slot, true).flat.forEach((q) => checkQuestion(q, "qrMini"));
+    }
+  });
+
+  it("SJT mock is full length with valid scale answers", () => {
+    for (let week = 1; week < 20; week++) for (let slot = 0; slot < 3; slot++) {
+      const full = buildSjtMock(week, slot, false);
+      expect(full.flat.length, "full SJT mock is 69 questions").toBe(69);
+      expect(full.secs).toBe(26 * 60);
+      const keys = full.flat.map((q) => q.stem);
+      expect(new Set(keys).size, "no repeated question in one mock").toBe(keys.length);
+      full.flat.forEach((q) => {
+        expect(q.options.length).toBe(4);
+        expect(Number.isInteger(q.a) && q.a >= 0 && q.a < 4, q.stem).toBe(true);
+      });
+      buildSjtMock(week, slot, true).flat.forEach((q) => expect(q.options).toContain(q.options[q.a]));
     }
   });
 });

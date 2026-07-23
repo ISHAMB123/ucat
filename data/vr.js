@@ -234,6 +234,68 @@ export const PASSAGES = [
       { q: "Flywheels are installed in modern grids to:", options: ["Store energy long term", "Mimic the inertia of old plants", "Replace batteries", "Generate power"], correct: 1 },
     ],
   },
+
+  {
+    id: "beaver",
+    title: "The return of the beaver",
+    text: `Beavers were hunted out of Britain by the sixteenth century, valued for fur, meat and castoreum, a secretion once used in medicine. Reintroduction began quietly: an enclosed trial in Kent ran from 2001, and a population discovered on the River Tay in 2009 was allowed to remain after years of argument. A licensed release in Devon followed in 2015 and was monitored for five years. Studies of that Devon site recorded a reduction in peak flood flows downstream of roughly 30 per cent, alongside sediment capture behind the dams. Farmers remain divided, since the same dams can waterlog productive fields. Scotland granted the animal protected status in 2019, which made removing a dam without a licence unlawful and shifted the argument from whether beavers should stay to who pays when they cause damage.`,
+    facts: [
+      { q: "In which year did the enclosed Kent trial begin?", a: "2001" },
+      { q: "In which year was the Devon licensed release?", a: "2015" },
+      { q: "By roughly what percentage did peak flood flows fall?", a: "30" },
+    ],
+    points: [
+      "Hunted out by the sixteenth century", "Valued for fur, meat and castoreum", "Enclosed Kent trial from 2001",
+      "Tay population found in 2009", "Allowed to remain after argument", "Licensed Devon release in 2015",
+      "Monitored for five years", "Peak flood flows down about 30 per cent", "Sediment captured behind dams",
+      "Protected status in Scotland in 2019",
+    ],
+    comprehension: [
+      { q: "Protected status changed the argument to:", options: ["Whether beavers should stay", "Who pays for damage", "Where to release them", "How many to cull"], correct: 1 },
+      { q: "Farmers are described as:", options: ["Uniformly opposed", "Divided", "Supportive", "Uninterested"], correct: 1 },
+    ],
+  },
+  {
+    id: "foreland",
+    title: "Automating the lights",
+    text: `Britain's last manned lighthouse, North Foreland in Kent, was automated in 1998, ending a profession that had existed for centuries. Automation was driven less by technology than by cost: a keeper's post required accommodation, relief crews and boat or helicopter transport, and Trinity House calculated savings across a network of more than sixty towers. The lamps themselves changed too. Rotating optics floating on mercury baths, some weighing several tonnes yet turned by a light push, were replaced by sealed beam units needing no daily maintenance. Critics argued that automation removed local knowledge of currents and casualties, and that satellite navigation had not eliminated the need for a visible light. Trinity House retained the towers as aids to navigation, and several keepers' cottages were sold or let to holidaymakers.`,
+    facts: [
+      { q: "In which year was North Foreland automated?", a: "1998" },
+      { q: "How many towers were in the network?", a: "sixty" },
+      { q: "The rotating optics floated on baths of what?", a: "mercury" },
+    ],
+    points: [
+      "North Foreland automated in 1998", "Last manned lighthouse in Britain", "Driven by cost rather than technology",
+      "Keepers needed accommodation and relief crews", "Boat or helicopter transport", "Network of more than sixty towers",
+      "Optics floated on mercury baths", "Some weighed several tonnes", "Replaced by sealed beam units",
+      "Cottages sold or let to holidaymakers",
+    ],
+    comprehension: [
+      { q: "Automation was driven mainly by:", options: ["New technology", "Cost", "Safety failures", "Falling shipping"], correct: 1 },
+      { q: "Critics argued satellite navigation had:", options: ["Replaced lights entirely", "Not removed the need for a visible light", "Made towers dangerous", "Reduced casualties to zero"], correct: 1 },
+    ],
+  },
+  {
+    id: "canal",
+    title: "The canal that carried coal",
+    text: `The Bridgewater Canal opened in 1761 to move coal from mines at Worsley to Manchester, and it halved the price of coal in the city within a year. Its engineer, James Brindley, avoided locks wherever possible by following contours, producing a route longer in distance but cheaper to operate. Underground channels extending some forty-six miles ran into the mines themselves, so boats loaded at the coalface. The commercial success prompted a wave of canal building that lasted until railways undercut it in the 1840s. Traffic did not vanish immediately: bulk cargoes tolerant of slow transit, particularly timber and grain, continued into the twentieth century. Restoration since the 1970s has been driven almost entirely by leisure use rather than freight, and several derelict arms have reopened for narrowboats.`,
+    facts: [
+      { q: "In which year did the Bridgewater Canal open?", a: "1761" },
+      { q: "How many miles of underground channels ran into the mines?", a: "forty-six" },
+      { q: "In which decade did railways undercut canals?", a: "1840s" },
+    ],
+    points: [
+      "Opened in 1761", "Carried coal from Worsley to Manchester", "Halved the price of coal within a year",
+      "Engineer James Brindley", "Followed contours to avoid locks", "Longer but cheaper to operate",
+      "Forty-six miles of underground channels", "Boats loaded at the coalface", "Railways undercut canals in the 1840s",
+      "Restoration since the 1970s driven by leisure",
+    ],
+    comprehension: [
+      { q: "Brindley's contour route was:", options: ["Shorter and cheaper", "Longer but cheaper to operate", "Shorter but expensive", "Longer and slower to build"], correct: 1 },
+      { q: "Cargoes that continued after the railways were those:", options: ["Needing speed", "Tolerant of slow transit", "Of highest value", "Carried underground"], correct: 1 },
+    ],
+  },
+
 ];
 
 export const TFC = ["True", "False", "Can't tell"];
@@ -299,4 +361,36 @@ export const TFC_SETS = {
     { t: "Moving goods across an ocean is always cheaper than moving them fifty kilometres by road.", a: 1,
       w: "The passage says often costs less, not always. Swapping a hedge for an absolute is the single most common False construction in this section." },
   ],
+
+  beaver: [
+    { t: "Beavers were extinct in Britain for more than three hundred years.", a: 0,
+      w: "Hunted out by the sixteenth century and reintroduced from 2001 onwards, which is comfortably over three hundred years. Arithmetic done from two stated points still counts as True." },
+    { t: "The Tay population was released deliberately.", a: 2,
+      w: "The passage says it was discovered and later allowed to remain. It never says how the animals got there, and the natural assumption that someone released them is exactly the gap being tested." },
+    { t: "Beaver dams reduce flooding everywhere they are built.", a: 2,
+      w: "One monitored Devon site recorded a 30 per cent reduction. Generalising a single study to everywhere is a step the passage never takes." },
+    { t: "Removing a dam in Scotland without a licence is permitted.", a: 1,
+      w: "Protected status in 2019 made exactly that unlawful, so the statement is directly contradicted." },
+  ],
+  foreland: [
+    { t: "North Foreland was automated more than twenty years ago.", a: 0,
+      w: "1998 is stated, and any current reading date puts it beyond twenty years. Time-elapsed statements built on a stated date are True." },
+    { t: "Automation happened because the old optics had become unreliable.", a: 1,
+      w: "The passage says automation was driven less by technology than by cost, and describes the optics as turned by a light push. The stated cause contradicts this." },
+    { t: "Trinity House sold all the towers after automation.", a: 1,
+      w: "It retained the towers as aids to navigation. Some cottages were sold, and the statement swaps cottages for towers, which is a classic False construction." },
+    { t: "Keepers had better knowledge of local currents than any instrument.", a: 2,
+      w: "Critics argued automation removed local knowledge, which reports an argument rather than establishing it as fact. A stated opinion is not a stated truth." },
+  ],
+  canal: [
+    { t: "The canal reduced Manchester coal prices by half within twelve months.", a: 0,
+      w: "Stated almost word for word. When a statement matches the passage's own claim without adding to it, True is safe." },
+    { t: "Brindley avoided locks because they were dangerous.", a: 2,
+      w: "The passage gives the effect, a cheaper route to operate, but never states his reason. Supplying a plausible motive the text omits is the commonest route to a wrong True." },
+    { t: "Canal freight ended completely in the 1840s.", a: 1,
+      w: "Traffic did not vanish immediately and bulk cargoes continued into the twentieth century. The passage explicitly rules out the absolute." },
+    { t: "Restoration since the 1970s has been mainly for freight.", a: 1,
+      w: "Almost entirely leisure use rather than freight. Reversing the stated comparison is a favourite False shape." },
+  ],
+
 };

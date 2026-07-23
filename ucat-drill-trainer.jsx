@@ -1421,6 +1421,50 @@ function Calculator() {
 
 /* ------------------------------ DRILL RUNNER ---------------------- */
 
+/* Score one question from a saved answer snapshot { picked, rankPicks,
+   syllPicks, val }. Used by the free-navigation banks to mark every
+   answer at the end. Mirrors the per-kind logic in the live recorder. */
+function scoreEntry(q, snap, ms) {
+  let correct = false, score = 0, givenLabel = "", picks = null;
+  if (q.kind === "syllset") {
+    picks = snap && snap.syllPicks ? snap.syllPicks : [];
+    let hits = 0;
+    q.statements.forEach((st, idx) => { const p2 = picks[idx]; if (p2 !== undefined && p2 !== null && (p2 === 1) === st.yes) hits++; });
+    score = hits / q.statements.length; correct = hits === q.statements.length;
+    givenLabel = `${hits}/${q.statements.length} conclusions right`;
+  } else if (q.kind === "rank") {
+    const rp = snap && snap.rankPicks ? snap.rankPicks : [];
+    if (rp.length !== 3) { givenLabel = "no answer"; }
+    else { let hits = 0; rp.forEach((p, idx) => { if (q.order[idx] === p) hits++; }); score = hits / 3; correct = hits === 3; givenLabel = rp.map((p) => String.fromCharCode(65 + p)).join(" then "); }
+  } else if (q.kind === "scale") {
+    const idx = snap ? snap.picked : null;
+    if (idx === null || idx === undefined) { givenLabel = "no answer"; }
+    else { const dist = Math.abs(idx - q.answer); score = dist === 0 ? 1 : dist === 1 ? 0.5 : 0; correct = dist === 0; givenLabel = q.options[idx]; }
+  } else if (q.kind === "mcq") {
+    const idx = snap ? snap.picked : null;
+    if (idx === null || idx === undefined) { givenLabel = "no answer"; }
+    else { const given = q.options[idx]; correct = given === q.answer; score = correct ? 1 : 0; givenLabel = String(given); }
+  } else {
+    const g = String((snap ? snap.val : "") ?? "").trim().toLowerCase();
+    const want = String(q.answer).trim().toLowerCase();
+    if (g !== "") {
+      if (q.tol > 0) { const gn = parseFloat(g.replace(/,/g, "")), wn = parseFloat(want); correct = !isNaN(gn) && Math.abs(gn - wn) <= Math.abs(wn) * q.tol; }
+      else correct = g.replace(/,/g, "") === want.replace(/,/g, "");
+    }
+    score = correct ? 1 : 0; givenLabel = g || "no answer";
+  }
+  return { q, correct, score, ms: ms || 0, given: givenLabel, picks };
+}
+
+/* Is a saved snapshot a complete answer for its question's kind? */
+function snapAnswered(q, snap) {
+  if (!snap) return false;
+  if (q.kind === "scale" || q.kind === "mcq") return snap.picked !== null && snap.picked !== undefined;
+  if (q.kind === "rank") return !!snap.rankPicks && snap.rankPicks.length === 3;
+  if (q.kind === "syllset") return q.statements.every((_, k) => snap.syllPicks && (snap.syllPicks[k] === 0 || snap.syllPicks[k] === 1));
+  return !!snap.val && snap.val.trim() !== "";
+}
+
 function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, reviewEnd, level, onDone, onQuit }) {
   /* No per-question feedback when timed, or when the user chose to review
      only at the end. Feedback after each answer is the tutor default. */
@@ -1466,6 +1510,47 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   }, [i, questions.length, onDone, hideStart]);
 
   const reveal = () => { setRevealed(true); start.current = Date.now(); setElapsed(0); };
+
+  /* The Pearson-style banks (SJT, DM, QR data sets) offer free navigation
+     with a Navigator and an end-of-section review, exactly like the real
+     exam, whenever feedback is deferred (timed or review-at-end). Answers
+     are held per index so a question can be revisited and changed, and the
+     whole set is marked at the finish. */
+  const examSkin = drill.section === "SJT" || drill.section === "DM" || drill.id === "qrset";
+  const navigable = noFeedback && examSkin;
+  const [answers, setAnswers] = useState([]);
+  const [navOpen, setNavOpen] = useState(false);
+  const [secLeft, setSecLeft] = useState(exam ? (budget || 0) * questions.length : 0);
+  const answersRef = useRef([]);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  const curSnap = () => ({ picked, rankPicks, syllPicks, val });
+  const navFinish = useCallback(() => {
+    const a = [...answersRef.current];
+    a[i] = { picked, rankPicks, syllPicks, val };
+    onDone(questions.map((qq, idx) => scoreEntry(qq, a[idx], 0)));
+  }, [i, picked, rankPicks, syllPicks, val, questions, onDone]);
+  const navFinishRef = useRef(navFinish);
+  useEffect(() => { navFinishRef.current = navFinish; }, [navFinish]);
+
+  const navGo = (n) => {
+    const a = [...answersRef.current];
+    a[i] = curSnap();
+    setAnswers(a); answersRef.current = a;
+    setI(n); setNavOpen(false);
+    const s = a[n];
+    setPicked(s ? s.picked : null); setRankPicks(s ? s.rankPicks : []); setSyllPicks(s ? s.syllPicks : []); setVal(s ? s.val : "");
+    setPhase("answer"); setRevealed(!hideStart);
+  };
+  const navNext = () => { if (i + 1 >= questions.length) navFinish(); else navGo(i + 1); };
+  const navPrev = () => { if (i > 0) navGo(i - 1); };
+
+  /* One section clock for the navigable banks when timed. */
+  useEffect(() => {
+    if (!(navigable && exam)) return;
+    const t = setInterval(() => setSecLeft((s) => { if (s <= 1) { clearInterval(t); navFinishRef.current(); return 0; } return s - 1; }), 1000);
+    return () => clearInterval(t);
+  }, [navigable, exam]);
 
   const record = useCallback((given) => {
     if (phaseRef.current !== "answer") return;
@@ -1530,6 +1615,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   }, [q, log, advance, noFeedback]);
 
   useEffect(() => {
+    if (navigable) return; /* navigable banks use one section clock, not per-question auto-advance */
     const t = setInterval(() => {
       if (phaseRef.current !== "answer") return;
       if (hideStart && !revealedRef.current) return; /* clock paused until Go */
@@ -1543,7 +1629,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
       }
     }, 100);
     return () => clearInterval(t);
-  }, [exam, budgetMs, record, q]);
+  }, [exam, budgetMs, record, q, navigable]);
 
   useEffect(() => { if (inputRef.current && phase === "answer" && !showCalc) inputRef.current.focus(); }, [i, phase, showCalc]);
 
@@ -1555,7 +1641,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
     if (phase !== "answer" || rankPicks.includes(idx)) return;
     const next = [...rankPicks, idx];
     setRankPicks(next);
-    if (next.length === 3) record(next);
+    if (next.length === 3 && !navigable) record(next);
   };
 
   const hasAnswer = q.kind === "scale" || q.kind === "mcq" ? picked !== null
@@ -1581,8 +1667,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
     const onKey = (e) => {
       if (!e.altKey) return;
       const k = e.key.toLowerCase();
-      if (k === "n") { e.preventDefault(); if (phaseRef.current === "answer") { if (noFeedback || hasAnswer) submitExam(); } else advance(log); }
-      if (k === "p") { e.preventDefault(); if (!exam) goBack(); }
+      if (k === "n") { e.preventDefault(); if (navigable) navNext(); else if (phaseRef.current === "answer") { if (noFeedback || hasAnswer) submitExam(); } else advance(log); }
+      if (k === "p") { e.preventDefault(); if (navigable) navPrev(); else if (!exam) goBack(); }
       if (k === "f") { e.preventDefault(); setFlagged((f) => f.includes(i) ? f.filter((x) => x !== i) : [...f, i]); }
       if (k === "c") { e.preventDefault(); setCalcOpen((o) => !o); }
     };
@@ -1591,8 +1677,6 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   });
 
   const stars = ["★", "✦", "★", "✧", "★"];
-
-  const examSkin = drill.section === "SJT" || drill.section === "DM" || drill.id === "qrset";
 
   if (examSkin) {
     const total = questions.length;
@@ -1608,6 +1692,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
             <span className="ic">◈</span> Explain Answer
           </button>
           <button className="vx-tool" onClick={() => setCalcOpen((o) => !o)}><span className="ic">▤</span> Calculator</button>
+          {navigable && <button className="vx-tool" onClick={() => setNavOpen(true)}><span className="ic">☰</span> Navigator</button>}
           <span className="vx-spacer" />
           <button className={`vx-tool${flagged.includes(i) ? " on" : ""}`} onClick={() => setFlagged((f) => f.includes(i) ? f.filter((x) => x !== i) : [...f, i])}>
             <span className="ic">⚑</span> Flag for Review
@@ -1758,10 +1843,16 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
 
         <div className="vx-foot">
           <button className="vx-nav" onClick={() => setConfirmExit(true)}>✕ End Session</button>
-          {exam && <span className="vx-clock mono">{Math.max(left / 1000, 0).toFixed(0)}s</span>}
+          {exam && <span className="vx-clock mono">{navigable ? `${Math.floor(secLeft / 60)}:${String(secLeft % 60).padStart(2, "0")}` : `${Math.max(left / 1000, 0).toFixed(0)}s`}</span>}
           <span className="vx-spacer" />
-          <span className="vx-hint">Alt+N next · Alt+F flag · Alt+C calculator</span>
-          {phase === "answer" ? (
+          <span className="vx-hint">{navigable ? "Alt+N next · Alt+P previous · Alt+F flag" : "Alt+N next · Alt+F flag · Alt+C calculator"}</span>
+          {navigable ? (
+            <>
+              <button className="vx-nav" onClick={navPrev} disabled={i === 0}>◀ Previous</button>
+              <button className="vx-nav" onClick={() => setNavOpen(true)}>Navigator</button>
+              <button className="vx-nav main" onClick={navNext}>{i + 1 >= total ? "Finish ▶" : "Next ▶"}</button>
+            </>
+          ) : phase === "answer" ? (
             <button className="vx-nav main" onClick={submitExam} disabled={!noFeedback && !hasAnswer}>
               {noFeedback ? (i + 1 >= total ? "Finish ▶" : "Next ▶") : "Submit Answer"}
             </button>
@@ -1771,6 +1862,31 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
             </button>
           )}
         </div>
+        {navOpen && (
+          <div className="ud-modal" onClick={() => setNavOpen(false)}>
+            <div className="nav-dialog" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Question navigator">
+              <div className="nav-head"><b>Navigator</b><span>select a question to go to it</span></div>
+              <div className="nav-grid">
+                <div className="nav-row nav-hd"><span>Question</span><span>Status</span><span>Flag</span></div>
+                {questions.map((qq, n) => {
+                  const snap = n === i ? curSnap() : answersRef.current[n];
+                  const answered = snapAnswered(qq, snap);
+                  return (
+                    <button key={n} className={`nav-row${n === i ? " cur" : ""}`} onClick={() => navGo(n)}>
+                      <span>Question {n + 1}</span>
+                      <span style={{ color: answered ? "#1E8E5A" : "#B4661E", fontWeight: 600 }}>{answered ? "Answered" : "Skipped"}</span>
+                      <span>{flagged.includes(n) ? "⚑" : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="nav-foot">
+                <button className="ud-btn ghost" onClick={() => setNavOpen(false)}>Keep going</button>
+                <button className="ud-btn" onClick={navFinish}>End review and mark all</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -5327,5 +5443,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  makeProb, makeLogic, buildVrMock, buildQrMock, buildDmMock, assessMed,
+  makeProb, makeLogic, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildDmMock, assessMed,
 };

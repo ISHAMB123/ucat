@@ -2827,6 +2827,51 @@ function ScoreChart({ series }) {
   );
 }
 
+function StreakCalendar({ history }) {
+  const key = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const counts = {};
+  history.forEach((h) => { const k = key(new Date(h.ts)); counts[k] = (counts[k] || 0) + 1; });
+  const active = new Set(Object.keys(counts));
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let current = 0;
+  { const d = new Date(today); if (!active.has(key(d))) d.setDate(d.getDate() - 1); while (active.has(key(d))) { current++; d.setDate(d.getDate() - 1); } }
+  let longest = 0;
+  { const ts = [...active].map((k) => { const [y, m, dd] = k.split("-").map(Number); return new Date(y, m, dd).getTime(); }).sort((a, b) => a - b);
+    let run = 0, prev = null;
+    ts.forEach((t) => { run = (prev !== null && t - prev === 86400000) ? run + 1 : 1; longest = Math.max(longest, run); prev = t; }); }
+  const activeDays = active.size;
+
+  const WEEKS = 26;
+  const gridEnd = new Date(today); gridEnd.setDate(gridEnd.getDate() + (6 - ((gridEnd.getDay() + 6) % 7)));
+  const cells = [];
+  for (let i = WEEKS * 7 - 1; i >= 0; i--) { const d = new Date(gridEnd); d.setDate(gridEnd.getDate() - i); cells.push({ future: d > today, count: counts[key(d)] || 0, d }); }
+  const weeks = [];
+  for (let w = 0; w < WEEKS; w++) weeks.push(cells.slice(w * 7, w * 7 + 7));
+  const lvl = (c) => (c <= 0 ? 0 : c === 1 ? 1 : c === 2 ? 2 : 3);
+
+  return (
+    <div className="ud-trend" style={{ padding: 18 }}>
+      <div className="streak-head">
+        <div className="streak-stat"><b><span className="fl" aria-hidden="true">🔥</span>{current}</b><span>day streak</span></div>
+        <div className="streak-stat"><b>{longest}</b><span>longest streak</span></div>
+        <div className="streak-stat"><b>{activeDays}</b><span>days practised</span></div>
+      </div>
+      <div className="cal">
+        {weeks.map((wk, wi) => (
+          <div className="cal-col" key={wi}>
+            {wk.map((c, di) => (
+              <span key={di} className={`cal-cell l${c.future ? "f" : lvl(c.count)}`}
+                title={c.future ? "" : `${c.d.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}: ${c.count} session${c.count === 1 ? "" : "s"}`} />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="cal-legend"><span>Less</span><i className="l0" /><i className="l1" /><i className="l2" /><i className="l3" /><span>More</span></div>
+    </div>
+  );
+}
+
 function ProgressView({ history, weak }) {
   const weakTop = Object.entries(weak).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 10);
   const [ivMarks, setIvMarks] = useState([]);
@@ -2844,7 +2889,9 @@ function ProgressView({ history, weak }) {
 
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>score over time</span></div>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Streak</h2><i /><span>keep the run going</span></div>
+      <StreakCalendar history={history} />
+      <div className="ud-sec"><h2>Progress</h2><i /><span>score over time</span></div>
       {series.length === 0 ? (
         <p className="ud-empty">Nothing here yet. Finish a drill and your scores start plotting from the next run, one coloured line per section.</p>
       ) : (

@@ -783,4 +783,21 @@ button.nav-row:hover { background:var(--signal)14; }
 .sc-legend .k { display:inline-flex; align-items:center; gap:7px; }
 .sc-legend .k i { width:15px; height:3px; border-radius:2px; }
 .sc-legend .k b { color:var(--ink); }
+
+/* Progress: activity-streak heatmap */
+.streak-head { display:flex; gap:28px; flex-wrap:wrap; margin-bottom:16px; }
+.streak-stat { display:flex; flex-direction:column; }
+.streak-stat b { font-family:'JetBrains Mono',monospace; font-size:24px; font-weight:700; color:var(--ink); line-height:1; display:flex; align-items:center; gap:6px; }
+.streak-stat span { font-size:11.5px; color:var(--mute); margin-top:5px; }
+.streak-stat .fl { font-size:17px; }
+.cal { display:flex; gap:3px; overflow-x:auto; padding-bottom:6px; }
+.cal-col { display:flex; flex-direction:column; gap:3px; }
+.cal-cell { width:13px; height:13px; border-radius:3px; flex:none; }
+.cal-cell.l0, .cal-legend .l0 { background:color-mix(in srgb, var(--mute) 16%, transparent); }
+.cal-cell.l1, .cal-legend .l1 { background:color-mix(in srgb, var(--signal) 38%, transparent); }
+.cal-cell.l2, .cal-legend .l2 { background:color-mix(in srgb, var(--signal) 66%, transparent); }
+.cal-cell.l3, .cal-legend .l3 { background:var(--signal); }
+.cal-cell.lf { background:transparent; }
+.cal-legend { display:flex; align-items:center; gap:5px; margin-top:9px; font-size:10.5px; color:var(--mute); }
+.cal-legend i { width:12px; height:12px; border-radius:3px; }
 `;

@@ -5697,6 +5697,154 @@ function ScoreConverter() {
   );
 }
 
+/* Keep one row per name (their best), sorted high to low, earliest wins
+   ties. Guards against malformed rows so one bad entry cannot break the
+   board. */
+function dedupeBest(entries) {
+  const byName = new Map();
+  for (const e of entries || []) {
+    if (!e || typeof e.name !== "string" || typeof e.pct !== "number" || typeof e.ts !== "number") continue;
+    const cur = byName.get(e.name);
+    if (!cur || e.pct > cur.pct || (e.pct === cur.pct && e.ts < cur.ts)) byName.set(e.name, e);
+  }
+  return [...byName.values()].sort((a, b) => b.pct - a.pct || a.ts - b.ts);
+}
+const nameHue = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const MEDAL_COL = ["#E8B923", "#AEB4BD", "#C6884E"];
+
+function Avatar({ name, size = 34, place }) {
+  const initial = (String(name).trim()[0] || "?").toUpperCase();
+  const h = nameHue(name);
+  const ring = place && place <= 3 ? MEDAL_COL[place - 1] : "transparent";
+  return (
+    <span className="lb-ava" style={{ width: size, height: size, fontSize: size * 0.42, background: `hsl(${h} 42% 42%)`, boxShadow: place && place <= 3 ? `0 0 0 2px var(--card), 0 0 0 4px ${ring}` : "none" }}>{initial}</span>
+  );
+}
+
+function Laurel({ size = 64, color = "#E8B923" }) {
+  const leaf = (cx, cy, rot) => <ellipse cx={cx} cy={cy} rx="3.2" ry="1.6" fill={color} opacity="0.9" transform={`rotate(${rot} ${cx} ${cy})`} />;
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true">
+      <path d="M22 56 C9 49 8 29 19 16" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M42 56 C55 49 56 29 45 16" fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      {[[18, 20, 40], [15, 27, 25], [13, 35, 8], [14, 43, -8], [18, 50, -28]].map(([x, y, r], i) => <g key={"l" + i}>{leaf(x, y, r)}</g>)}
+      {[[46, 20, 140], [49, 27, 155], [51, 35, 172], [50, 43, 188], [46, 50, 208]].map(([x, y, r], i) => <g key={"r" + i}>{leaf(x, y, r)}</g>)}
+    </svg>
+  );
+}
+
+/* The full mock leaderboard: a champion podium, a your-standing panel with
+   percentile, a ranked list that pins your row when you fall outside the
+   top, a score distribution, and honest device-only vs global labelling. */
+function MockLeaderboard({ entries, you, boardGlobal }) {
+  const list = dedupeBest(entries);
+  const N = list.length;
+  if (N === 0) {
+    return (
+      <>
+        <div className="ud-sec"><h2>This week's board</h2><i /><span>empty</span></div>
+        <div className="lb-empty"><Laurel size={44} /><p>No scores yet this week. Post one and you set the bar for everyone who sits it after you.</p></div>
+      </>
+    );
+  }
+  const youIdx = you ? list.findIndex((e) => e.name === you.name && e.pct === you.pct) : -1;
+  const youRank = youIdx >= 0 ? youIdx + 1 : null;
+  const avg = Math.round(list.reduce((a, e) => a + e.pct, 0) / N);
+  const scaledOf = (p) => marksToScale(p, 100);
+  const topPct = youRank ? Math.max(1, Math.round((youRank / N) * 100)) : null;
+  const ahead = youRank && N > 1 ? Math.round(((N - youRank) / (N - 1)) * 100) : null;
+
+  const podium = list.slice(0, 3);
+  const podOrder = [podium[1], podium[0], podium[2]].map((e, k) => (e ? { e, place: [2, 1, 3][k] } : null)).filter(Boolean);
+  const rows = list.slice(0, 12);
+  const youOutside = youRank && youRank > 12;
+
+  const bins = Array.from({ length: 10 }, () => 0);
+  list.forEach((e) => { bins[Math.min(9, Math.floor(e.pct / 10))]++; });
+  const maxBin = Math.max(...bins, 1);
+  const youBin = you ? Math.min(9, Math.floor(you.pct / 10)) : -1;
+  const avgBin = Math.min(9, Math.floor(avg / 10));
+
+  const RankCell = (place) => place <= 3
+    ? <span className="lb-medal" style={{ color: MEDAL_COL[place - 1] }} aria-label={`Rank ${place}`}><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8.5 2l1.8 5M15.5 2l-1.8 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><circle cx="12" cy="15" r="6.4" fill="currentColor" opacity="0.16" stroke="currentColor" strokeWidth="1.5" /><text x="12" y="18" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="monospace">{place}</text></svg></span>
+    : <span className="lb-rank mono">{place}</span>;
+
+  const Row = (e, place) => {
+    const mine = you && e.name === you.name && e.pct === you.pct;
+    return (
+      <div className={`lb-row${mine ? " me" : ""}`} key={`${e.name}-${e.ts}`}>
+        {RankCell(place)}
+        <Avatar name={e.name} place={place} />
+        <span className="lb-name">{e.name}{mine && <em>you</em>}</span>
+        <span className="lb-bar"><i style={{ width: `${e.pct}%`, background: place <= 3 ? MEDAL_COL[place - 1] : "var(--signal)" }} /></span>
+        <span className="lb-pct mono">{e.pct}%</span>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="ud-sec"><h2>This week's board</h2><i /><span>{N} {N === 1 ? "entry" : "entries"}</span></div>
+
+      {you && youRank && (
+        <div className={`lb-standing r${Math.min(youRank, 4)}`}>
+          {youRank === 1 && <div className="lb-crown"><Laurel size={58} /></div>}
+          <div className="lb-stand-rank"><b className="mono">#{youRank}</b><span>of {N}</span></div>
+          <div className="lb-stand-mid">
+            <b>{youRank === 1 ? "Top of the board" : `Top ${topPct}% this week`}</b>
+            <span>{N === 1 ? "First to post. You set the pace." : youRank === 1 ? "Nobody has beaten you yet." : `Ahead of ${ahead}% of everyone who has sat it.`}</span>
+          </div>
+          <div className="lb-stand-score"><b className="mono">{you.pct}%</b><span>~{scaledOf(you.pct)} scaled est.</span></div>
+        </div>
+      )}
+
+      {podOrder.length > 0 && (
+        <div className="lb-podium">
+          {podOrder.map(({ e, place }) => {
+            const mine = you && e.name === you.name && e.pct === you.pct;
+            return (
+              <div className={`lb-pod p${place}${mine ? " me" : ""}`} key={`${e.name}-${e.ts}`}>
+                {place === 1 && <div className="lb-pod-crown"><Laurel size={40} /></div>}
+                <Avatar name={e.name} size={place === 1 ? 52 : 42} place={place} />
+                <span className="lb-pod-name">{e.name}</span>
+                <span className="lb-pod-pct mono">{e.pct}%</span>
+                <div className="lb-pod-base" style={{ background: MEDAL_COL[place - 1] }}><span>{place}</span></div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="lb-list">
+        {rows.map((e, n) => Row(e, n + 1))}
+        {youOutside && (
+          <>
+            <div className="lb-gap">· · ·</div>
+            {Row(list[youIdx], youRank)}
+          </>
+        )}
+      </div>
+
+      <div className="lb-dist">
+        <div className="lb-dist-head"><span>Score spread</span><span className="mono">avg {avg}%</span></div>
+        <div className="lb-bins">
+          {bins.map((c, b) => (
+            <div key={b} className={`lb-bin${b === youBin ? " you" : ""}${b === avgBin ? " avg" : ""}`} title={`${b * 10}-${b * 10 + 9}%: ${c}`}>
+              <i style={{ height: `${(c / maxBin) * 100}%` }} />
+            </div>
+          ))}
+        </div>
+        <div className="lb-bins-x"><span>0%</span><span>50%</span><span>100%</span></div>
+        {you && <div className="lb-dist-key"><span className="k you">your score</span><span className="k avg">average</span></div>}
+      </div>
+
+      <p className="lb-foot">{boardGlobal
+        ? "Best score per name, ranked. The board is shared across everyone sitting this mock and resets weekly."
+        : "Best score per name, ranked. Saved on this device for now, so you are racing your own past attempts. A shared board across everyone arrives with accounts. Resets weekly."}</p>
+    </>
+  );
+}
+
 function MockCentre({ unlocked, prefs, setPrefs }) {
   const week = weekNumber();
   const [type, setType] = useState("vr");
@@ -5797,9 +5945,6 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
     } catch (e) { /* leaderboard unavailable; keep local result */ }
   };
 
-  const sorted = (board || []).slice().sort((a, b) => b.pct - a.pct || a.ts - b.ts);
-  const avg = sorted.length ? Math.round(sorted.reduce((a, b) => a + b.pct, 0) / sorted.length) : null;
-  const rank = submitted && sorted.length ? sorted.findIndex((e) => e.name === cleanName(name) && e.pct === Math.round(Number(pct) || 0)) + 1 : null;
 
   /* ---------- idle: chooser ---------- */
   if (phase === "idle") {
@@ -6000,8 +6145,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
       <p className="ud-score">{pct}<small>%</small></p>
       <div className="ud-stats" style={{ marginTop: 18 }}>
         <div className="ud-stat"><b className="mono">{score}/{mock.flat.length}</b><span>Correct</span></div>
-        {avg !== null && <div className="ud-stat"><b className="mono">{avg}%</b><span>Average, this mock</span></div>}
-        {rank && <div className="ud-stat"><b className="mono">#{rank}</b><span>Your rank</span></div>}
+        <div className="ud-stat"><b className="mono">~{marksToScale(pct, 100)}</b><span>Scaled estimate</span></div>
       </div>
 
       <div className="ud-sec"><h2>Review screen</h2><i /><span>green right, red wrong, grey skipped</span></div>
@@ -6032,18 +6176,11 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
         </div>
       )}
 
-      {sorted.length > 0 && (
-        <>
-          <div className="ud-sec"><h2>This week's board</h2><i /><span>{sorted.length} entries</span></div>
-          {sorted.slice(0, 10).map((e, n) => (
-            <div className="ud-mrow" key={n}>
-              <span className="sec mono">#{n + 1}</span>
-              <span className="txt">{e.name}</span>
-              <span className="mono" style={{ color: n === 0 ? "var(--signal)" : "var(--paper)", fontSize: 13 }}>{e.pct}%</span>
-            </div>
-          ))}
-        </>
-      )}
+      <MockLeaderboard
+        entries={board || []}
+        you={submitted ? { name: cleanName(name), pct: Math.max(0, Math.min(100, Math.round(Number(pct) || 0))) } : null}
+        boardGlobal={boardGlobal}
+      />
 
       {wrong.length > 0 && (
         <>
@@ -6481,5 +6618,5 @@ export {
   makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
   predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ,
   generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
-  marksToScale, old3600to2700, ScoreConverter,
+  marksToScale, old3600to2700, ScoreConverter, dedupeBest, MockLeaderboard,
 };

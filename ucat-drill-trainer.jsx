@@ -2897,7 +2897,7 @@ function LearnView({ unlocked, best, onStart, onUnlock }) {
 
 /* ------------------------------ PLAN VIEW ------------------------- */
 
-function PlanView({ unlocked, plan, onStart }) {
+function PlanView({ unlocked, plan, onStart, prefs, setPrefs }) {
   const nextKey = PLAN_KEYS.find((k) => !plan[k]);
   const doneCount = PLAN_KEYS.filter((k) => plan[k]).length;
   let nextInfo = null;
@@ -2910,9 +2910,69 @@ function PlanView({ unlocked, plan, onStart }) {
   /* One week open at a time so the whole plan stays compact. Default to
      the week that holds the next unfinished session. */
   const [openWeek, setOpenWeek] = useState(nextInfo ? nextInfo.w : 1);
+  const [mode, setMode] = useState("guided");
+
+  /* Custom plan: the student's own list of sessions, stored in prefs so it
+     persists. Completion reuses the same plan map, keyed cust:<id>, so a
+     custom session ticks off exactly like a guided one when finished. */
+  const customPlan = prefs.customPlan || [];
+  const [pickDrill, setPickDrill] = useState("estimate");
+  const [pickExam, setPickExam] = useState(false);
+  const custDone = customPlan.filter((x) => plan[`cust:${x.id}`]).length;
+  const addCustom = () => {
+    const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
+    setPrefs({ ...prefs, customPlan: [...customPlan, { id, drill: pickDrill, exam: pickExam }] });
+  };
+  const removeCustom = (id) => setPrefs({ ...prefs, customPlan: customPlan.filter((x) => x.id !== id) });
+
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Six week plan</h2><i /><span>{doneCount}/{PLAN_KEYS.length} sessions done</span></div>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Study plan</h2><i /><span>{mode === "guided" ? `${doneCount}/${PLAN_KEYS.length} guided done` : `${custDone}/${customPlan.length} custom done`}</span></div>
+      <div className="ud-mode" style={{ paddingTop: 12 }}>
+        <span>Plan</span>
+        <button className={mode === "guided" ? "on" : ""} onClick={() => setMode("guided")}>Six week plan</button>
+        <button className={mode === "custom" ? "on" : ""} onClick={() => setMode("custom")}>My own plan</button>
+      </div>
+
+      {mode === "custom" ? (
+        <>
+          <p className="ud-learn-intro">Build a plan that fits your own schedule. Pick any drill, choose timed or untimed, and add it. Tick sessions off as you finish them. Everything saves on this device.</p>
+          <div className="plan-build">
+            <h3>Add a session</h3>
+            <div className="pb-row">
+              <select value={pickDrill} onChange={(e) => setPickDrill(e.target.value)} aria-label="Drill">
+                {DRILLS.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.section})</option>)}
+              </select>
+              <label className="pb-timed"><input type="checkbox" checked={pickExam} onChange={(e) => setPickExam(e.target.checked)} /> Timed</label>
+              <button className="ud-btn" onClick={addCustom}>Add to plan</button>
+            </div>
+          </div>
+          {customPlan.length === 0 ? (
+            <p className="ud-empty" style={{ paddingTop: 18 }}>No sessions yet. Add a few above and they will appear here as a checklist you can work through.</p>
+          ) : (
+            <div className="cust-list">
+              {customPlan.map((item, i) => {
+                const dr = DRILL_BY_ID[item.drill];
+                const key = `cust:${item.id}`;
+                const locked = !unlocked && !dr.free;
+                return (
+                  <div className="cust-row" key={item.id}>
+                    <button className="cust-start" disabled={locked} onClick={() => onStart(dr, item.exam, dr.def, key, null, null)}>
+                      <span className={`ud-tick${plan[key] ? " done" : ""}`}>{plan[key] ? "✓" : ""}</span>
+                      <span className="n mono">{i + 1}</span>
+                      <span className="nm">{dr.name}</span>
+                      <span className="meta">{locked ? "locked" : item.exam ? "timed" : "untimed"}</span>
+                    </button>
+                    <button className="cust-del" onClick={() => removeCustom(item.id)} aria-label={`Remove ${dr.name}`}>×</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ height: 50 }} />
+        </>
+      ) : (
+      <>
       {nextInfo ? (
         <div className="ud-nextup">
           <div>
@@ -2961,6 +3021,8 @@ function PlanView({ unlocked, plan, onStart }) {
         );
       })}
       <div style={{ height: 50 }} />
+      </>
+      )}
     </div>
   );
 }
@@ -6021,7 +6083,7 @@ export default function UcatDrillTrainer() {
       {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} email={account ? account.email : ""} /></>)}
       {view === "legal" && (<><Header /><LegalView account={account} prefs={prefs} setPrefs={setPrefs} onDeleteAccount={deleteAccount} /></>)}
       {view === "ps" && (<><Header /><PsBuilder unlocked={unlocked} onUnlock={() => setView("billing")} /></>)}
-      {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} /></>)}
+      {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} prefs={prefs} setPrefs={setPrefs} /></>)}
       {view === "progress" && !unlocked && (<><Header /><div className="ud-wrap"><div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>locked</span></div>
         <Locked onUnlock={() => setView("billing")} label="Progress tracking with access">
           <div className="ud-trend" style={{ padding: 20, minHeight: 200 }}><h3>Sparklines, weak tags and score history</h3>

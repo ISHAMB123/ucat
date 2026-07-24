@@ -4084,7 +4084,14 @@ function CountdownStrip({ prefs, setPrefs }) {
   const [val, setVal] = useState(prefs.examDate || "");
   const d = daysUntil(prefs.examDate);
 
-  const save = () => { setPrefs({ ...prefs, examDate: val }); setEditing(false); };
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const maxD = new Date(); maxD.setFullYear(maxD.getFullYear() + 6);
+  const maxStr = maxD.toISOString().slice(0, 10);
+  /* A native date field lets the year field accept five or more digits.
+     Keep it to a real four-digit year within a sensible window. */
+  const validDate = (s) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && s >= todayStr && s <= maxStr;
+
+  const save = () => { if (!validDate(val)) return; setPrefs({ ...prefs, examDate: val }); setEditing(false); };
 
   if (!prefs.examDate || editing) {
     return (
@@ -4095,8 +4102,8 @@ function CountdownStrip({ prefs, setPrefs }) {
           <span className="d">Everything paces itself around this date.</span>
         </div>
         <div className="cd-in">
-          <input type="date" value={val} onChange={(e) => setVal(e.target.value)} aria-label="Your UCAT test date" />
-          <button className="ud-btn" onClick={save} disabled={!val}>Set</button>
+          <input type="date" value={val} min={todayStr} max={maxStr} onChange={(e) => setVal(e.target.value)} aria-label="Your UCAT test date" />
+          <button className="ud-btn" onClick={save} disabled={!validDate(val)}>Set</button>
         </div>
       </div>
     );

@@ -52,3 +52,19 @@ export function fiveOptions(correct, spread, unit) {
 
 /* Count words in a block of user text. */
 export function wordCount(t) { return (t || "").trim().split(/\s+/).filter(Boolean).length; }
+
+/* Sanitise a user-supplied display name before it is shared to the
+   leaderboard: normalise, strip control, zero-width and bidi-override
+   characters (which can spoof or hide text), collapse whitespace and cap
+   the length. React already escapes on render, so this is about keeping
+   the shared store clean, not about XSS. The character class is built
+   from escapes via RegExp so no literal control bytes live in source. */
+const NAME_STRIP = new RegExp("[\\u0000-\\u001F\\u007F-\\u009F\\u200B-\\u200F\\u202A-\\u202E\\uFEFF]", "g");
+export function cleanName(s) {
+  return (s || "")
+    .normalize("NFC")
+    .replace(NAME_STRIP, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 12);
+}

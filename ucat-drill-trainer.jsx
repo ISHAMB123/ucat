@@ -6,7 +6,7 @@ import {
   MARKING_DISCLOSURE, fillLegal, legalPlaceholdersPending,
 } from "./legalContent.js";
 import { CSS } from "./styles.js";
-import { seeded, rnd, pick, shuffle, fmt, median, weightedPick, LEVELS, fiveOptions, wordCount } from "./utils.js";
+import { seeded, rnd, pick, shuffle, fmt, median, weightedPick, LEVELS, fiveOptions, wordCount, cleanName } from "./utils.js";
 import { PASSAGES, TFC, TFC_SETS } from "./data/vr.js";
 import { APPROP, IMPORT, SJT_THEMES, SJT_TYPES, SJT_SCENARIOS, SJT_LESSONS } from "./data/sjt.js";
 import { DM_QUESTIONS, VCTX, SYLL_SETS } from "./data/dm.js";
@@ -5069,23 +5069,27 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   const pct = mock ? Math.round((score / mock.flat.length) * 100) : 0;
 
   const submitScore = async () => {
-    const nm = name.trim().slice(0, 12);
+    if (submitted) return; /* one submission per result, no double-post */
+    const nm = cleanName(name);
     if (nm.length < 2) return;
+    const safePct = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+    setSubmitted(true);
     setPrefs({ ...prefs, name: nm });
     try {
       let list = await getSharedJSON(lbKey, []);
       if (!Array.isArray(list)) list = [];
-      list.push({ name: nm, pct, ts: Date.now() });
+      /* Only keep well-formed rows, so one bad entry cannot poison the board. */
+      list = list.filter((e) => e && typeof e.name === "string" && typeof e.pct === "number" && typeof e.ts === "number");
+      list.push({ name: nm, pct: safePct, ts: Date.now() });
       list = list.slice(-200);
       await setSharedJSON(lbKey, list);
       setBoard(list);
     } catch (e) { /* leaderboard unavailable; keep local result */ }
-    setSubmitted(true);
   };
 
   const sorted = (board || []).slice().sort((a, b) => b.pct - a.pct || a.ts - b.ts);
   const avg = sorted.length ? Math.round(sorted.reduce((a, b) => a + b.pct, 0) / sorted.length) : null;
-  const rank = submitted && sorted.length ? sorted.findIndex((e) => e.name === name.trim().slice(0, 12) && e.pct === pct) + 1 : null;
+  const rank = submitted && sorted.length ? sorted.findIndex((e) => e.name === cleanName(name) && e.pct === Math.round(Number(pct) || 0)) + 1 : null;
 
   /* ---------- idle: chooser ---------- */
   if (phase === "idle") {

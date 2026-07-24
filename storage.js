@@ -137,9 +137,23 @@ export async function getSharedJSON(key, fallback) {
   }
 }
 
+/* Hard limits on shared writes. The shared store is the only thing that
+   leaves the device, so it is where abuse and runaway loops would land.
+   A single row is capped in size, and writes to the same key are
+   throttled so a bug or a script cannot hammer the backend. */
+const MAX_SHARED_BYTES = 100000;
+const SHARED_MIN_INTERVAL_MS = 800;
+const lastSharedWrite = new Map();
+
 export async function setSharedJSON(key, value) {
   const driver = sharedDriver || localDriver;
-  try { await driver.set(key, JSON.stringify(value)); } catch (e) { /* never throw */ }
+  let json;
+  try { json = JSON.stringify(value); } catch (e) { return; }
+  if (typeof json !== "string" || json.length > MAX_SHARED_BYTES) return;
+  const now = Date.now();
+  if (now - (lastSharedWrite.get(key) || 0) < SHARED_MIN_INTERVAL_MS) return;
+  lastSharedWrite.set(key, now);
+  try { await driver.set(key, json); } catch (e) { /* never throw */ }
 }
 
 /* Which per-device driver won, for diagnostics and the storage notice. */

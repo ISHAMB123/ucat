@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS } from "../ucat-drill-trainer.jsx";
+import { predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ } from "../ucat-drill-trainer.jsx";
+import { MED_SCHOOLS } from "../data/medicine.js";
+import { UNIS } from "../data/universities.js";
 
 const S = (...pairs) => pairs.map(([subj, grade]) => ({ subj, grade }));
 
@@ -34,8 +36,20 @@ describe("evalSubjReq honours each school's real pattern", () => {
     expect(evalSubjReq(S(["Chemistry", "A"], ["Maths", "A"], ["History", "A"]), "cb1").ok).toBe(true);
     expect(evalSubjReq(S(["Biology", "A"], ["History", "A"], ["English", "A"]), "cb1").ok).toBe(false);
   });
+  it("chemonly needs only Chemistry, no second science", () => {
+    expect(evalSubjReq(S(["Chemistry", "A"], ["History", "A"], ["English", "A"]), "chemonly").ok).toBe(true);
+    expect(evalSubjReq(S(["Biology", "A"], ["History", "A"], ["English", "A"]), "chemonly").ok).toBe(false);
+  });
+  it("cbonly needs only one of Chemistry or Biology", () => {
+    expect(evalSubjReq(S(["Biology", "A"], ["History", "A"], ["English", "A"]), "cbonly").ok).toBe(true);
+    expect(evalSubjReq(S(["Physics", "A"], ["History", "A"], ["English", "A"]), "cbonly").ok).toBe(false);
+  });
+  it("any passes every combination (graduate entry)", () => {
+    expect(evalSubjReq(S(["History", "A"], ["English", "A"], ["Art", "A"]), "any").ok).toBe(true);
+  });
   it("General Studies never counts toward a requirement", () => {
     expect(evalSubjReq(S(["Chemistry", "A"], ["General Studies", "A"], ["History", "A"]), "chem1").ok).toBe(false);
+    expect(evalSubjReq(S(["Chemistry", "A"], ["Biology", "A"], ["General Studies", "A"]), "chembio").ok).toBe(true);
   });
 });
 
@@ -48,13 +62,33 @@ describe("subjPresetFor routes schools to the right pattern", () => {
   it("medicine defaults to Chemistry plus a second science, with known exceptions", () => {
     expect(subjPresetFor("med", "aberdeen")).toBe("chem1");
     expect(subjPresetFor("med", "ucl")).toBe("chembio");
+    expect(subjPresetFor("med", "imperial")).toBe("chembio");
     expect(subjPresetFor("med", "uea")).toBe("bio1");
+    expect(subjPresetFor("med", "plymouth")).toBe("bio1");
     expect(subjPresetFor("med", "sheffield")).toBe("cb1psy");
+    expect(subjPresetFor("med", "newcastle")).toBe("chemonly");
+    expect(subjPresetFor("med", "buckingham")).toBe("cbonly");
+    expect(subjPresetFor("med", "surrey")).toBe("any");
   });
-  it("every preset key referenced actually exists", () => {
-    for (const key of ["chembio", "chem1", "chem1psy", "bio1", "cb1", "cb1psy"]) {
-      expect(SUBJ_PRESETS[key]).toBeTruthy();
-      expect(typeof SUBJ_PRESETS[key].label).toBe("string");
+  it("dentistry Bristol and Plymouth deviate from Chem+Bio", () => {
+    expect(subjPresetFor("dent", "bristol")).toBe("chem1");
+    expect(subjPresetFor("dent", "plymouth")).toBe("bio1");
+  });
+  it("every school resolves to a preset that exists", () => {
+    for (const u of MED_SCHOOLS) expect(SUBJ_PRESETS[subjPresetFor("med", u.id)], u.id).toBeTruthy();
+    for (const u of UNIS.filter((x) => !x.id.startsWith("a_") && !x.id.startsWith("am_"))) {
+      expect(SUBJ_PRESETS[subjPresetFor("dent", u.id)], u.id).toBeTruthy();
+    }
+  });
+  it("no override points at a school id that does not exist (typo guard)", () => {
+    const medIds = new Set(MED_SCHOOLS.map((u) => u.id));
+    for (const id of Object.keys(MED_SUBJ)) expect(medIds.has(id), `MED_SUBJ.${id}`).toBe(true);
+    const dentIds = new Set(UNIS.map((u) => u.id));
+    for (const id of Object.keys(DENT_SUBJ)) expect(dentIds.has(id), `DENT_SUBJ.${id}`).toBe(true);
+  });
+  it("every override value is a defined preset", () => {
+    for (const key of [...Object.values(MED_SUBJ), ...Object.values(DENT_SUBJ)]) {
+      expect(SUBJ_PRESETS[key], key).toBeTruthy();
     }
   });
 });

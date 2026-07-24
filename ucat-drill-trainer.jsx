@@ -3951,25 +3951,50 @@ function predFromSubjects(subjects) {
 const EXCLUDED_SUBJ = ["general studies", "critical thinking"];
 const SUBJ_PRESETS = {
   chembio: { all: ["chemistry", "biology"], label: "Chemistry and Biology" },
-  chem1: { need: "chemistry", from: ["biology", "physics", "maths"], label: "Chemistry, plus a second science from Biology, Physics or Maths" },
-  chem1psy: { need: "chemistry", from: ["biology", "physics", "maths", "psychology"], label: "Chemistry, plus a second science from Biology, Physics, Maths or Psychology" },
-  bio1: { need: "biology", from: ["chemistry", "physics", "maths", "psychology"], label: "Biology, plus a second science from Chemistry, Physics, Maths or Psychology" },
-  cb1: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology", "physics", "maths"], label: "Chemistry or Biology, plus a second science from the other, Physics or Maths" },
-  cb1psy: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology", "physics", "maths", "psychology"], label: "Chemistry or Biology, plus a second science from the other, Physics, Maths or Psychology" },
+  chemonly: { need: "chemistry", from: [], min: 0, label: "Chemistry (a second science is recommended but not compulsory)" },
+  chem1: { need: "chemistry", from: ["biology", "physics", "maths"], min: 1, label: "Chemistry, plus a second science from Biology, Physics or Maths" },
+  chem1psy: { need: "chemistry", from: ["biology", "physics", "maths", "psychology"], min: 1, label: "Chemistry, plus a second science from Biology, Physics, Maths or Psychology" },
+  bio1: { need: "biology", from: ["chemistry", "physics", "maths", "psychology"], min: 1, label: "Biology, plus a second science from Chemistry, Physics, Maths or Psychology" },
+  cbonly: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology"], min: 0, label: "Chemistry or Biology" },
+  cb1: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology", "physics", "maths"], min: 1, label: "Chemistry or Biology, plus a second science from the other, Physics or Maths" },
+  cb1psy: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology", "physics", "maths", "psychology"], min: 1, label: "Chemistry or Biology, plus a second science from the other, Physics, Maths or Psychology" },
+  any: { any: true, label: "no specific A-level subjects (graduate entry or flexible)" },
 };
-/* Dentistry is Chem+Bio almost everywhere; the two exceptions accept one
-   science plus a second. Anything not listed uses the default. */
+/* Dentistry is Chemistry and Biology almost everywhere. Exceptions:
+   Bristol takes Chemistry plus a second science; Plymouth (Peninsula) is
+   Biology-led; Queen Mary and King's accept one science plus a second.
+   Anything not listed uses the default. Sourced from the Dental Schools
+   Council 2026 listing and the schools' own pages. */
 const DENT_SUBJ_DEFAULT = "chembio";
-const DENT_SUBJ = { kcl: "cb1psy", qmul: "cb1" };
-/* Medicine defaults to Chemistry plus a second science; the overrides are
-   the schools known to differ (both sciences, Biology-led, or Psychology
-   accepted). Confirm on the school's own page before relying on it. */
+const DENT_SUBJ = { bristol: "chem1", plymouth: "bio1", qmul: "cb1", kcl: "cb1psy" };
+/* Medicine varies more, so most schools are set explicitly below from the
+   Medical Schools Council listing and each school's own page (2026-2027
+   entry). The default is Chemistry plus a second science. Requirements
+   change yearly, so the UI always tells applicants to confirm on the
+   school's own page. */
 const MED_SUBJ_DEFAULT = "chem1";
 const MED_SUBJ = {
+  /* both Chemistry and Biology */
   cardiff: "chembio", nottingham: "chembio", sgul: "chembio", ucl: "chembio", lincoln: "chembio",
-  sheffield: "cb1psy", barts: "cb1",
-  uea: "bio1", soton: "bio1",
+  imperial: "chembio", hyms: "chembio", exeter: "chembio", leeds: "chembio", kcl: "chembio",
+  aston: "chembio", edgehill: "chembio",
+  /* Biology required, Chemistry optional */
+  uea: "bio1", soton: "bio1", plymouth: "bio1",
+  /* one of Chemistry/Biology plus a second science */
+  barts: "cb1", brunel: "cb1", anglia: "cb1", sunderland: "cb1", gtrmanchester: "cb1", bsms: "cb1",
+  /* ...with Psychology accepted as the second science */
+  sheffield: "cb1psy", lancaster: "cb1psy", kmms: "cb1psy",
+  /* Chemistry plus a second science, Psychology accepted */
   keele: "chem1psy", leicester: "chem1psy", manchester: "chem1psy",
+  /* Chemistry required, second science not compulsory */
+  newcastle: "chemonly",
+  /* one science (Chemistry or Biology) is enough at A-level */
+  buckingham: "cbonly",
+  /* graduate entry, no A-level subject rule */
+  surrey: "any", worcester: "any",
+  /* remaining schools use the Chemistry-plus-a-second-science default:
+     aberdeen, birmingham, bristol, cambridge, dundee, edinburgh, glasgow,
+     liverpool, oxford, qub, standrews, uclan */
 };
 
 const normSubj = (s) => (s || "").toLowerCase().trim();
@@ -3981,22 +4006,26 @@ const hasSubj = (held, key) => held.some((n) => n.includes(key === "maths" ? "ma
 /* Evaluate a subject list against one school's preset. Returns whether it
    is met and a short reason. Deliberately does not hard-block the mapping,
    since applicants often enter predicted info while still choosing
-   subjects; it surfaces the gap instead. */
+   subjects; it surfaces the gap instead.
+     all      every listed subject required
+     need     one named subject required, plus `min` more from `from`
+     oneOf    one of the named subjects, plus enough from `from` for `min`
+     any      no subject rule (graduate entry)                            */
 function evalSubjReq(subjects, presetKey) {
   const p = SUBJ_PRESETS[presetKey] || SUBJ_PRESETS.chem1;
+  if (p.any) return { ok: true, label: p.label };
   const held = heldSubjects(subjects);
   if (p.all) {
-    const missing = p.all.filter((k) => !hasSubj(held, k));
-    return { ok: missing.length === 0, label: p.label };
+    return { ok: p.all.every((k) => hasSubj(held, k)), label: p.label };
   }
   if (p.need) {
-    const core = hasSubj(held, p.need);
+    if (!hasSubj(held, p.need)) return { ok: false, label: p.label };
     const seconds = p.from.filter((k) => k !== p.need && hasSubj(held, k)).length;
-    return { ok: core && seconds >= 1, label: p.label };
+    return { ok: seconds >= (p.min ?? 1), label: p.label };
   }
-  const coreHeld = p.oneOf.filter((k) => hasSubj(held, k)).length;
-  const fromHeld = p.from.filter((k) => hasSubj(held, k)).length;
-  return { ok: coreHeld >= 1 && fromHeld >= 2, label: p.label };
+  const coreOk = p.oneOf.some((k) => hasSubj(held, k));
+  const fromCount = p.from.filter((k) => hasSubj(held, k)).length;
+  return { ok: coreOk && fromCount >= (p.min ?? 1) + 1, label: p.label };
 }
 
 function subjPresetFor(track, id) {
@@ -5948,5 +5977,5 @@ export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
   makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
-  predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS,
+  predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ,
 };

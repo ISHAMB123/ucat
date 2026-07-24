@@ -881,4 +881,5 @@ button.nav-row:hover { background:var(--signal)14; }
 .fit-go { border-left:3px solid var(--go); background:color-mix(in srgb, var(--go) 8%, transparent); }
 .fit-warn { border-left:3px solid var(--signal); background:color-mix(in srgb, var(--signal) 9%, transparent); }
 .fit-stop { border-left:3px solid var(--stop); background:color-mix(in srgb, var(--stop) 9%, transparent); }
+.uni-subjflag { margin:6px 0 0; padding:8px 11px; font-size:12.5px; line-height:1.55; color:var(--paper); background:color-mix(in srgb, var(--stop) 10%, transparent); border-left:3px solid var(--stop); border-radius:4px; }
 `;

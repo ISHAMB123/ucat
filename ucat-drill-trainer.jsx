@@ -3934,19 +3934,98 @@ function predFromSubjects(subjects) {
   return "Other";
 }
 
-/* Check the subject combination against the near-universal UK rule:
-   Chemistry required almost everywhere, a second science preferred.
-   Deliberately cautious, since exact requirements vary by school. */
-function subjectFit(subjects, track) {
-  const names = (subjects || []).map((s) => (s.subj || "").toLowerCase());
-  const has = (kw) => names.some((n) => n.includes(kw));
-  const chem = has("chem"), bio = has("bio"), phys = has("phys"), maths = has("math");
-  const course = track === "med" ? "medical" : "dental";
-  const field = track === "med" ? "medicine" : "dentistry";
-  if (!chem && !bio) return { tone: "stop", text: `Almost every UK ${course} school requires Chemistry or Biology at A-level, and most require Chemistry specifically. Your subjects list neither, which would rule out the large majority of these schools. Check each course's exact requirement.` };
-  if (!chem) return { tone: "warn", text: `Most UK ${course} schools want Chemistry at A-level specifically. You have Biology but not Chemistry, so check each school: a minority accept Biology instead, but many do not.` };
-  if (!(bio || phys || maths)) return { tone: "warn", text: `You have Chemistry, which nearly every ${course} school needs, but no clear second science. Most want a second from Biology, Physics or Maths, with Biology the safest for ${field}.` };
-  return { tone: "go", text: `Chemistry plus a second science: this meets the standard A-level subject requirement at essentially every UK ${course} school. Individual grade requirements still apply.` };
+/* Per-school A-level subject rules. UK medicine and dentistry set these
+   individually, so a blanket rule is wrong. Requirements are drawn from
+   the Dental Schools Council and Medical Schools Council listings and the
+   universities' own pages (2025-2026 entry) and grouped into the handful
+   of real patterns below. General Studies and Critical Thinking are
+   excluded everywhere, so they never count toward a requirement.
+
+   Presets:
+     chembio   both Chemistry and Biology required
+     chem1     Chemistry plus a second science (Biology, Physics or Maths)
+     chem1psy  as chem1 but Psychology counts as the second science
+     bio1      Biology required, second science from a wide list (Chem optional)
+     cb1       Chemistry OR Biology, plus a second science
+     cb1psy    as cb1 but Psychology counts as the second science           */
+const EXCLUDED_SUBJ = ["general studies", "critical thinking"];
+const SUBJ_PRESETS = {
+  chembio: { all: ["chemistry", "biology"], label: "Chemistry and Biology" },
+  chem1: { need: "chemistry", from: ["biology", "physics", "maths"], label: "Chemistry, plus a second science from Biology, Physics or Maths" },
+  chem1psy: { need: "chemistry", from: ["biology", "physics", "maths", "psychology"], label: "Chemistry, plus a second science from Biology, Physics, Maths or Psychology" },
+  bio1: { need: "biology", from: ["chemistry", "physics", "maths", "psychology"], label: "Biology, plus a second science from Chemistry, Physics, Maths or Psychology" },
+  cb1: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology", "physics", "maths"], label: "Chemistry or Biology, plus a second science from the other, Physics or Maths" },
+  cb1psy: { oneOf: ["chemistry", "biology"], from: ["chemistry", "biology", "physics", "maths", "psychology"], label: "Chemistry or Biology, plus a second science from the other, Physics, Maths or Psychology" },
+};
+/* Dentistry is Chem+Bio almost everywhere; the two exceptions accept one
+   science plus a second. Anything not listed uses the default. */
+const DENT_SUBJ_DEFAULT = "chembio";
+const DENT_SUBJ = { kcl: "cb1psy", qmul: "cb1" };
+/* Medicine defaults to Chemistry plus a second science; the overrides are
+   the schools known to differ (both sciences, Biology-led, or Psychology
+   accepted). Confirm on the school's own page before relying on it. */
+const MED_SUBJ_DEFAULT = "chem1";
+const MED_SUBJ = {
+  cardiff: "chembio", nottingham: "chembio", sgul: "chembio", ucl: "chembio", lincoln: "chembio",
+  sheffield: "cb1psy", barts: "cb1",
+  uea: "bio1", soton: "bio1",
+  keele: "chem1psy", leicester: "chem1psy", manchester: "chem1psy",
+};
+
+const normSubj = (s) => (s || "").toLowerCase().trim();
+function heldSubjects(subjects) {
+  return (subjects || []).map((x) => normSubj(x.subj)).filter((n) => n && !EXCLUDED_SUBJ.some((x) => n.includes(x)));
+}
+const hasSubj = (held, key) => held.some((n) => n.includes(key === "maths" ? "math" : key));
+
+/* Evaluate a subject list against one school's preset. Returns whether it
+   is met and a short reason. Deliberately does not hard-block the mapping,
+   since applicants often enter predicted info while still choosing
+   subjects; it surfaces the gap instead. */
+function evalSubjReq(subjects, presetKey) {
+  const p = SUBJ_PRESETS[presetKey] || SUBJ_PRESETS.chem1;
+  const held = heldSubjects(subjects);
+  if (p.all) {
+    const missing = p.all.filter((k) => !hasSubj(held, k));
+    return { ok: missing.length === 0, label: p.label };
+  }
+  if (p.need) {
+    const core = hasSubj(held, p.need);
+    const seconds = p.from.filter((k) => k !== p.need && hasSubj(held, k)).length;
+    return { ok: core && seconds >= 1, label: p.label };
+  }
+  const coreHeld = p.oneOf.filter((k) => hasSubj(held, k)).length;
+  const fromHeld = p.from.filter((k) => hasSubj(held, k)).length;
+  return { ok: coreHeld >= 1 && fromHeld >= 2, label: p.label };
+}
+
+function subjPresetFor(track, id) {
+  return track === "med" ? (MED_SUBJ[id] || MED_SUBJ_DEFAULT) : (DENT_SUBJ[id] || DENT_SUBJ_DEFAULT);
+}
+
+/* Summary line above the results: how many of the mapped schools the typed
+   subjects satisfy, and which they fall short of. */
+function subjectSummary(subjects, track, ids) {
+  const results = ids.map((id) => ({ id, ...evalSubjReq(subjects, subjPresetFor(track, id)) }));
+  const short = results.filter((r) => !r.ok);
+  const named = heldSubjects(subjects);
+  const chem = hasSubj(named, "chemistry"), bio = hasSubj(named, "biology");
+  const list = subjects.filter((s) => normSubj(s.subj)).map((s) => `${s.subj} (${s.grade})`).join(", ") || "none entered";
+  let tone = "go", text;
+  const field = track === "med" ? "medical" : "dental";
+  if (!chem && !bio) {
+    tone = "stop";
+    text = `You list neither Chemistry nor Biology. Essentially every UK ${field} school requires at least one, so this combination would not meet any of them. General Studies and Critical Thinking never count.`;
+  } else if (short.length === 0) {
+    text = `This meets the A-level subject requirement at all ${results.length} schools shown. Grade requirements still apply separately.`;
+  } else if (short.length <= results.length / 2) {
+    tone = "warn";
+    text = `This meets the subject requirement at ${results.length - short.length} of ${results.length} schools. It falls short where a stricter combination is asked for; those schools are flagged in red below.`;
+  } else {
+    tone = "stop";
+    text = `This meets the subject requirement at only ${results.length - short.length} of ${results.length} schools. Most here want a combination you are not taking; the shortfalls are flagged in red below.`;
+  }
+  return { tone, text, list };
 }
 
 function ALevelEntry({ subjects, onChange }) {
@@ -3972,9 +4051,17 @@ function ALevelEntry({ subjects, onChange }) {
 function FitBanner({ fit }) {
   return (
     <div className={`fit-banner fit-${fit.tone}`}>
-      <b>A-level subjects.</b> {fit.text}
+      <b>A-level subjects:</b> {fit.list}. {fit.text}
     </div>
   );
+}
+
+/* One red line inside a university row when the typed subjects miss that
+   school's specific requirement. */
+function SubjectFlag({ subjects, track, id }) {
+  const r = evalSubjReq(subjects, subjPresetFor(track, id));
+  if (r.ok) return null;
+  return <p className="uni-subjflag">Subjects: this course asks for {r.label}. Your current A-levels do not meet that. Confirm on the school's own page.</p>;
 }
 
 function MedSelector() {
@@ -3985,7 +4072,7 @@ function MedSelector() {
   const [ctx, setCtx] = useState(false);
   const [ran, setRan] = useState(false);
   const pred = predFromSubjects(subjects);
-  const fit = subjectFit(subjects, "med");
+  const fit = subjectSummary(subjects, "med", MED_SCHOOLS.map((u) => u.id));
   const results = MED_SCHOOLS.map((u) => ({ u, r: assessMed(u, { ucat, band, pred, g9: g79, g8: 0, g7: 0, ctx }) }));
   const order = { strong: 0, range: 1, aspire: 2, out: 3, block: 4 };
   results.sort((a, b) => order[a.r.status] - order[b.r.status] || (b.u.low || 0) - (a.u.low || 0));
@@ -4030,6 +4117,7 @@ function MedSelector() {
             {u.low && <span className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>~{u.low} bar</span>}
           </header>
           <p className="why">{r.reasons.join(" ")}</p>
+          <SubjectFlag subjects={subjects} track="med" id={u.id} />
           <p className="why" style={{ color: "var(--mute)" }}>
             <b style={{ color: "var(--paper)" }}>UCAT:</b> {u.ucatW}. <b style={{ color: "var(--paper)" }}>Predicted grades:</b> {MED_PRED_LABEL[u.pred]}. <b style={{ color: "var(--paper)" }}>GCSEs:</b> {u.gcse === "none" ? "not scored" : u.gcse === "scored" ? "scored" : "threshold only"}. {u.note}
           </p>
@@ -4129,7 +4217,7 @@ function UniSelector({ track, prefs, setPrefs }) {
   }
 
   const pred = predFromSubjects(f.subjects);
-  const fit = subjectFit(f.subjects, "dent");
+  const fit = subjectSummary(f.subjects, "dent", UNIS.map((u) => u.id));
   const uf = { ...f, ...counts, pred };
   const results = UNIS.map((u) => ({ u, r: assessUni(u, uf) }));
   const order = { strong: 0, range: 1, aspire: 2, out: 3, block: 4 };
@@ -4218,6 +4306,7 @@ function UniSelector({ track, prefs, setPrefs }) {
               </header>
               <p className="why">{u.weight} {u.gcse.msg}</p>
               <p className="why">{r.reasons.join(" ")} {u.note}</p>
+              <SubjectFlag subjects={f.subjects} track="dent" id={u.id} />
               {u.cutNote && <p className="why" style={{ color: "var(--mute)" }}>*{u.cutNote}.</p>}
               <div className="uni-pi">
                 <i style={{ width: `${(f.scottish && u.piScot ? u.piScot : u.pi) * 2.4}px` }} />
@@ -5859,4 +5948,5 @@ export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
   makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
+  predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS,
 };

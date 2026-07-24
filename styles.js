@@ -851,4 +851,34 @@ button.nav-row:hover { background:var(--signal)14; }
 .learn-detailhead h2 { margin:0; }
 .learn-count { font-family:var(--mono); font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--mute); }
 @media (min-width:640px) { .learn-grid { grid-template-columns:repeat(3,1fr); } .learn-card { flex-direction:column; align-items:flex-start; text-align:left; } }
+
+/* Learn detail: numbered technique cards */
+.learn-tech { display:grid; grid-template-columns:1fr; gap:10px; margin:18px 0 0; }
+.tech-card { display:flex; gap:14px; padding:16px 18px; background:var(--card); border:1px solid var(--line); border-left:3px solid var(--signal); border-radius:4px; }
+.tech-card.tech-note { border-left-color:var(--line); background:transparent; }
+.tech-num { flex:none; font-family:var(--mono); font-size:13px; font-weight:600; color:var(--signal); line-height:1.4; min-width:20px; }
+.tech-note .tech-num { color:var(--mute); }
+.tech-body { flex:1; min-width:0; }
+.tech-body h4 { margin:0 0 5px; font-family:var(--display); font-size:15.5px; font-weight:700; color:var(--paper); letter-spacing:-.01em; }
+.tech-body p { margin:0; font-size:13.5px; line-height:1.62; color:var(--body); }
+.tech-drill { margin-top:11px; padding:6px 12px; background:none; border:1px solid var(--line); border-radius:4px; color:var(--signal); font-family:var(--mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; cursor:pointer; transition:border-color .15s, background .15s; }
+.tech-drill:hover:not(:disabled) { border-color:var(--signal); background:color-mix(in srgb, var(--signal) 10%, transparent); }
+.tech-drill:disabled { color:var(--mute); cursor:not-allowed; }
+@media (min-width:720px) { .learn-tech { grid-template-columns:1fr 1fr; } }
+
+/* A-level custom entry and subject-fit banner */
+.al-entry { display:flex; flex-direction:column; gap:8px; margin-top:7px; }
+.al-row { display:flex; gap:8px; align-items:center; }
+.al-subj { flex:1; min-width:0; }
+.al-grade { width:74px; flex:none; }
+.al-drop { flex:none; width:34px; height:34px; border:1px solid var(--line); background:var(--card); color:var(--mute); border-radius:4px; font-size:17px; line-height:1; cursor:pointer; transition:color .15s, border-color .15s; }
+.al-drop:hover:not(:disabled) { color:var(--stop); border-color:var(--stop); }
+.al-drop:disabled { opacity:.4; cursor:not-allowed; }
+.al-add { align-self:flex-start; padding:6px 12px; background:none; border:1px dashed var(--line); border-radius:4px; color:var(--body); font-size:12.5px; cursor:pointer; transition:border-color .15s, color .15s; }
+.al-add:hover { border-color:var(--signal); color:var(--paper); }
+.fit-banner { margin:16px 0 4px; padding:13px 16px; border-radius:5px; font-size:13px; line-height:1.6; border:1px solid var(--line); }
+.fit-banner b { color:var(--paper); }
+.fit-go { border-left:3px solid var(--go); background:color-mix(in srgb, var(--go) 8%, transparent); }
+.fit-warn { border-left:3px solid var(--signal); background:color-mix(in srgb, var(--signal) 9%, transparent); }
+.fit-stop { border-left:3px solid var(--stop); background:color-mix(in srgb, var(--stop) 9%, transparent); }
 `;

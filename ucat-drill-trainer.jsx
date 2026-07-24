@@ -2793,31 +2793,38 @@ function LearnView({ unlocked, best, onStart, onUnlock }) {
           </div>
         </div>
         <p className="ud-learn-intro">{sec.intro}</p>
-        <div className="ud-lgrid">
+        <div className="learn-tech">
           {sec.cards.map((c, n) => (
-            <div className="ud-lcard" key={n}>
-              <h4>{c.h}</h4>
-              {unlocked ? <p>{c.p}</p> : (
-                <Locked onUnlock={onUnlock} label="Full technique with access">
-                  <p>{c.p}</p>
-                </Locked>
-              )}
-              {c.drill && (
-                <button
-                  onClick={() => onStart(DRILL_BY_ID[c.drill], false, DRILL_BY_ID[c.drill].def, null, c.sub || null, c.theme || null)}
-                  disabled={!unlocked && !DRILL_BY_ID[c.drill].free}
-                >
-                  {!unlocked && !DRILL_BY_ID[c.drill].free ? "LOCKED" : "DRILL THIS"}
-                </button>
-              )}
+            <div className="tech-card" key={n}>
+              <span className="tech-num">{String(n + 1).padStart(2, "0")}</span>
+              <div className="tech-body">
+                <h4>{c.h}</h4>
+                {unlocked ? <p>{c.p}</p> : (
+                  <Locked onUnlock={onUnlock} label="Full technique with access">
+                    <p>{c.p}</p>
+                  </Locked>
+                )}
+                {c.drill && (
+                  <button
+                    className="tech-drill"
+                    onClick={() => onStart(DRILL_BY_ID[c.drill], false, DRILL_BY_ID[c.drill].def, null, c.sub || null, c.theme || null)}
+                    disabled={!unlocked && !DRILL_BY_ID[c.drill].free}
+                  >
+                    {!unlocked && !DRILL_BY_ID[c.drill].free ? "Locked" : "Drill this →"}
+                  </button>
+                )}
+              </div>
             </div>
           ))}
           {sec.extra && sec.extra.map((c, n) => (
-            <div className="ud-lcard" key={"x" + n}>
-              <h4>{c.h}</h4>
-              {unlocked ? <p>{c.p}</p> : (
-                <Locked onUnlock={onUnlock} label="Full technique with access"><p>{c.p}</p></Locked>
-              )}
+            <div className="tech-card tech-note" key={"x" + n}>
+              <span className="tech-num">·</span>
+              <div className="tech-body">
+                <h4>{c.h}</h4>
+                {unlocked ? <p>{c.p}</p> : (
+                  <Locked onUnlock={onUnlock} label="Full technique with access"><p>{c.p}</p></Locked>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -3908,13 +3915,77 @@ function AuSelector({ track }) {
   );
 }
 
+/* Custom A-level entry. Students type their own subjects and grades
+   rather than picking a fixed grade string, so subject requirements can
+   be checked and the profile reads as their own. */
+const ALEVEL_GRADES = ["A*", "A", "B", "C", "D", "E"];
+const GRADE_RANK = { "A*": 6, "A": 5, "B": 4, "C": 3, "D": 2, "E": 1 };
+const DEFAULT_ALEVELS = [{ subj: "Chemistry", grade: "A" }, { subj: "Biology", grade: "A" }, { subj: "Maths", grade: "A" }];
+
+/* Collapse the typed subjects into the grade string the threshold logic
+   already understands, using the best three grades. */
+function predFromSubjects(subjects) {
+  const ranks = (subjects || []).map((s) => GRADE_RANK[s.grade] || 0).sort((a, b) => b - a).slice(0, 3);
+  while (ranks.length < 3) ranks.push(0);
+  const [a, b, c] = ranks;
+  if (a >= 6 && b >= 5 && c >= 5) return "A*AA";
+  if (a >= 5 && b >= 5 && c >= 5) return "AAA";
+  if (a >= 5 && b >= 5 && c >= 4) return "AAB";
+  return "Other";
+}
+
+/* Check the subject combination against the near-universal UK rule:
+   Chemistry required almost everywhere, a second science preferred.
+   Deliberately cautious, since exact requirements vary by school. */
+function subjectFit(subjects, track) {
+  const names = (subjects || []).map((s) => (s.subj || "").toLowerCase());
+  const has = (kw) => names.some((n) => n.includes(kw));
+  const chem = has("chem"), bio = has("bio"), phys = has("phys"), maths = has("math");
+  const course = track === "med" ? "medical" : "dental";
+  const field = track === "med" ? "medicine" : "dentistry";
+  if (!chem && !bio) return { tone: "stop", text: `Almost every UK ${course} school requires Chemistry or Biology at A-level, and most require Chemistry specifically. Your subjects list neither, which would rule out the large majority of these schools. Check each course's exact requirement.` };
+  if (!chem) return { tone: "warn", text: `Most UK ${course} schools want Chemistry at A-level specifically. You have Biology but not Chemistry, so check each school: a minority accept Biology instead, but many do not.` };
+  if (!(bio || phys || maths)) return { tone: "warn", text: `You have Chemistry, which nearly every ${course} school needs, but no clear second science. Most want a second from Biology, Physics or Maths, with Biology the safest for ${field}.` };
+  return { tone: "go", text: `Chemistry plus a second science: this meets the standard A-level subject requirement at essentially every UK ${course} school. Individual grade requirements still apply.` };
+}
+
+function ALevelEntry({ subjects, onChange }) {
+  const set = (i, patch) => onChange(subjects.map((s, n) => (n === i ? { ...s, ...patch } : s)));
+  const add = () => onChange([...subjects, { subj: "", grade: "A" }].slice(0, 5));
+  const drop = (i) => onChange(subjects.filter((_, n) => n !== i));
+  return (
+    <div className="al-entry">
+      {subjects.map((s, i) => (
+        <div className="al-row" key={i}>
+          <input className="al-subj" placeholder="Subject, e.g. Chemistry" value={s.subj} maxLength={24} onChange={(e) => set(i, { subj: e.target.value })} />
+          <select className="al-grade" value={s.grade} onChange={(e) => set(i, { grade: e.target.value })}>
+            {ALEVEL_GRADES.map((g) => <option key={g} value={g}>{g}</option>)}
+          </select>
+          <button className="al-drop" type="button" onClick={() => drop(i)} aria-label="Remove subject" disabled={subjects.length <= 1}>×</button>
+        </div>
+      ))}
+      {subjects.length < 5 && <button className="al-add" type="button" onClick={add}>+ Add subject</button>}
+    </div>
+  );
+}
+
+function FitBanner({ fit }) {
+  return (
+    <div className={`fit-banner fit-${fit.tone}`}>
+      <b>A-level subjects.</b> {fit.text}
+    </div>
+  );
+}
+
 function MedSelector() {
   const [ucat, setUcat] = useState(2000);
   const [band, setBand] = useState(2);
-  const [pred, setPred] = useState("AAA");
+  const [subjects, setSubjects] = useState(DEFAULT_ALEVELS);
   const [g79, setG79] = useState(7);
   const [ctx, setCtx] = useState(false);
   const [ran, setRan] = useState(false);
+  const pred = predFromSubjects(subjects);
+  const fit = subjectFit(subjects, "med");
   const results = MED_SCHOOLS.map((u) => ({ u, r: assessMed(u, { ucat, band, pred, g9: g79, g8: 0, g7: 0, ctx }) }));
   const order = { strong: 0, range: 1, aspire: 2, out: 3, block: 4 };
   results.sort((a, b) => order[a.r.status] - order[b.r.status] || (b.u.low || 0) - (a.u.low || 0));
@@ -3934,21 +4005,21 @@ function MedSelector() {
             {[1, 2, 3, 4].map((b) => <option key={b} value={b}>Band {b}</option>)}
           </select>
         </label>
-        <label>Predicted A-levels
-          <select value={pred} onChange={(e) => setPred(e.target.value)}>
-            {["A*AA", "AAA", "AAB", "Other"].map((p) => <option key={p}>{p}</option>)}
-          </select>
-        </label>
         <label>GCSEs at grade 7 or above
           <input type="number" min="0" max="12" value={g79} onChange={(e) => setG79(Number(e.target.value))} />
         </label>
         <label style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <input type="checkbox" checked={ctx} onChange={(e) => setCtx(e.target.checked)} style={{ width: "auto" }} /> Contextual / widening participation
         </label>
-        <label style={{ justifyContent: "flex-end" }}>
+        <label style={{ gridColumn: "1 / -1" }}>Your A-level subjects and predicted grades
+          <ALevelEntry subjects={subjects} onChange={setSubjects} />
+        </label>
+        <label style={{ gridColumn: "1 / -1", justifyContent: "flex-end", alignItems: "flex-start" }}>
           <button className="ud-btn" onClick={() => setRan(true)}>Map my options</button>
         </label>
       </div>
+
+      {ran && <FitBanner fit={fit} />}
 
       {ran && results.map(({ u, r }, n) => (
         <div className="uni-row" key={u.id} style={{ animationDelay: `${n * 25}ms` }}>
@@ -3983,7 +4054,7 @@ function UniSelector({ track, prefs, setPrefs }) {
     ucat: saved.ucat || 2000, band: saved.band || 2,
     grades: saved.grades || [9, 9, 9, 8, 8, 8, 7, 7],
     maths: saved.maths || 7, eng: saved.eng || 7,
-    pred: saved.pred || "AAA", scottish: saved.scottish || false, ctx: saved.ctx || false,
+    subjects: saved.subjects || DEFAULT_ALEVELS, scottish: saved.scottish || false, ctx: saved.ctx || false,
   });
   const [ran, setRan] = useState(false);
   const [openMore, setOpenMore] = useState(null);
@@ -4057,7 +4128,9 @@ function UniSelector({ track, prefs, setPrefs }) {
     );
   }
 
-  const uf = { ...f, ...counts };
+  const pred = predFromSubjects(f.subjects);
+  const fit = subjectFit(f.subjects, "dent");
+  const uf = { ...f, ...counts, pred };
   const results = UNIS.map((u) => ({ u, r: assessUni(u, uf) }));
   const order = { strong: 0, range: 1, aspire: 2, out: 3, block: 4 };
   results.sort((a, b) => order[a.r.status] - order[b.r.status] || b.u.pi - a.u.pi);
@@ -4106,22 +4179,23 @@ function UniSelector({ track, prefs, setPrefs }) {
         <label>English GCSE
           <select value={f.eng} onChange={(e) => setF({ ...f, eng: Number(e.target.value) })}>{[9, 8, 7, 6, 5, 4].map((g) => <option key={g} value={g}>{g}</option>)}</select>
         </label>
-        <label>Predicted A-levels
-          <select value={f.pred} onChange={(e) => setF({ ...f, pred: e.target.value })}>{["A*AA", "AAA", "AAB", "Other"].map((g) => <option key={g} value={g}>{g}</option>)}</select>
-        </label>
         <label>Scottish applicant
           <select value={f.scottish ? "yes" : "no"} onChange={(e) => setF({ ...f, scottish: e.target.value === "yes" })}><option value="no">No</option><option value="yes">Yes</option></select>
         </label>
         <label>Contextual applicant
           <select value={f.ctx ? "yes" : "no"} onChange={(e) => setF({ ...f, ctx: e.target.value === "yes" })}><option value="no">No</option><option value="yes">Yes</option></select>
         </label>
-        <label style={{ justifyContent: "flex-end" }}>
+        <label style={{ gridColumn: "1 / -1" }}>Your A-level subjects and predicted grades
+          <ALevelEntry subjects={f.subjects} onChange={(subjects) => setF({ ...f, subjects })} />
+        </label>
+        <label style={{ gridColumn: "1 / -1", justifyContent: "flex-end", alignItems: "flex-start" }}>
           <button className="ud-btn" onClick={run}>Map my choices</button>
         </label>
       </div>
 
       {ran && (
         <>
+          <FitBanner fit={fit} />
           {picks.length > 0 && (
             <div className="ud-nextup" style={{ marginTop: 18 }}>
               <div>
@@ -5422,14 +5496,15 @@ const NAV_ICON = {
   billing: (<svg {...svgProps}><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2 20 3M16 5l3 3M14 7l3 3" /></svg>),
 };
 
-/* Original subtest icons for the Learn overview. Drawn here rather than
-   borrowed from any bank: an open book (VR), a rising bar chart (QR) and
-   a balance beam (SJT). Thicker stroke so they read at circle size. */
-const learnIco = { ...svgProps, strokeWidth: 1.7 };
+/* Original subtest icons for the Learn overview, drawn here rather than
+   borrowed from any bank. VR is a magnifier over text lines (search, not
+   read); QR is a rising bar chart with a trend tick; SJT is a balance
+   beam. Slightly thinner stroke reads cleaner at circle size. */
+const learnIco = { ...svgProps, strokeWidth: 1.6 };
 const SUBTEST_ICON = {
-  vr: (<svg {...learnIco}><path d="M12 6c-1.8-1.2-4.2-1.8-7-1.5v12c2.8-.3 5.2.3 7 1.5 1.8-1.2 4.2-1.8 7-1.5v-12c-2.8-.3-5.2.3-7 1.5z" /><path d="M12 6v12" /><path d="M7.5 9h1.5M7.5 12h1.5M15 9h1.5M15 12h1.5" /></svg>),
-  qr: (<svg {...learnIco}><path d="M4 20h16" /><rect x="5" y="13" width="3.4" height="5" rx="0.5" /><rect x="10.3" y="9" width="3.4" height="9" rx="0.5" /><rect x="15.6" y="5" width="3.4" height="13" rx="0.5" /></svg>),
-  sjt: (<svg {...learnIco}><path d="M12 4v15" /><path d="M7 19h10" /><path d="M5 7h14" /><path d="M8 4.5 5 7l-2.3 4c1.5 1.3 3.1 1.3 4.6 0z" /><path d="M16 4.5 19 7l2.3 4c-1.5 1.3-3.1 1.3-4.6 0z" /></svg>),
+  vr: (<svg {...learnIco}><path d="M4 6h9M4 10h7M4 14h5" /><circle cx="15.5" cy="14.5" r="4" /><path d="M18.4 17.4 21.5 20.5" /></svg>),
+  qr: (<svg {...learnIco}><path d="M4 4v16h16" /><rect x="7" y="12" width="2.6" height="5" rx=".4" /><rect x="11.7" y="9" width="2.6" height="8" rx=".4" /><rect x="16.4" y="6" width="2.6" height="11" rx=".4" /><path d="M7 10.5 12 7l3 2 4-3.5" /></svg>),
+  sjt: (<svg {...learnIco}><path d="M12 3v16" /><path d="M7 19h10" /><path d="M4.5 7h15l-.5-.2M12 5.5 5 7M12 5.5 19 7" /><path d="M8 7 5.4 12c1.7 1.2 3.5 1.2 5.2 0z" /><path d="M16 7 13.4 12c1.7 1.2 3.5 1.2 5.2 0z" /></svg>),
 };
 
 /* One honest line per subtest for the overview cards. */

@@ -100,6 +100,8 @@
   .clock { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(3.6rem, 9vw, 5.2rem); font-weight: 700; line-height: 1; letter-spacing: -0.04em; margin: 14px 0 2px; display: flex; align-items: baseline; gap: 8px; }
   .clock .u { font-size: 1.1rem; color: var(--soft); font-weight: 500; letter-spacing: 0; }
   .clock-sub { font-size: 13.5px; color: var(--soft); }
+  .bignum { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(4.2rem, 11vw, 6.4rem); font-weight: 800; line-height: 1; letter-spacing: -0.05em; margin: 16px 0 4px; color: var(--ink); }
+  .bignum .plus { color: var(--accent); }
   .track { height: 6px; border-radius: 4px; background: var(--line-2); margin-top: 20px; overflow: hidden; }
   .track i { display: block; height: 100%; background: var(--accent-fill); width: 100%; transform-origin: left; }
   .ticks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
@@ -350,15 +352,14 @@
     </div>
     <p class="microtrust">
       <b>£25 once.</b> No subscription. Runs in your browser, nothing to download.<br>
-      <b>Over 500</b> users. Preview with code <b>UCAT25</b>.
+      Independent, original content. Preview with code <b>UCAT25</b>.
     </p>
   </div>
 
-  <div class="instrument" aria-hidden="true">
-    <div class="clock-lab"><span>Section clock</span><span class="dot"><i></i>live</span></div>
-    <div class="clock"><span class="sectick">22</span><span class="u">s</span></div>
-    <div class="clock-sub">seconds a question — the exam's real pace</div>
-    <div class="track"><i id="bar"></i></div>
+  <div class="instrument">
+    <div class="clock-lab"><span>Students on Tempo</span><span class="dot"><i></i>growing</span></div>
+    <div class="bignum">500<span class="plus">+</span></div>
+    <div class="clock-sub" style="font-weight:600;color:var(--ink)">Over 500 users, and counting.</div>
     <div class="ticks">
       <div class="tick"><div class="n">44</div><div class="l">VR questions</div></div>
       <div class="tick"><div class="n">36</div><div class="l">QR questions</div></div>
@@ -607,8 +608,8 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="kicker">Reviews</span>
-      <div class="rev-clock"><span class="big"><span class="sectick">22</span><span class="u">s</span></span><div class="cap">seconds a question — the clock every one of these students learned to beat</div></div>
-      <p style="margin-top:18px">Content checked by doctors, dentists and medical students.</p>
+      <h2>What students say.</h2>
+      <p>Content checked by doctors, dentists and medical students.</p>
     </div>
   </div>
   <div class="marquee">
@@ -766,25 +767,5 @@
     </div>
   </div>
 </footer>
-
-<script>
-  (function () {
-    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var ticks = document.querySelectorAll(".sectick");
-    var barEl = document.getElementById("bar");
-    if (!ticks.length || reduce) return;
-    var total = 22, t = total;
-    function step() {
-      t -= 1;
-      if (t < 0) t = total;
-      for (var i = 0; i < ticks.length; i++) ticks[i].textContent = t;
-      if (barEl) {
-        barEl.style.transition = t === total ? "none" : "transform 1s linear";
-        barEl.style.transform = "scaleX(" + (t / total) + ")";
-      }
-    }
-    setInterval(step, 1000);
-  })();
-</script>
 </body>
 </html>

@@ -2270,7 +2270,14 @@ function diagnoseVR(log, exam, budget) {
 
 /* ------------------------------ RESULTS --------------------------- */
 
-function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onDiagDrill }) {
+const EST_SUB_OF = { qratio: "ratio", qgraph: "graph", qrate: "rate", qpct: "pct", qinfer: "infer", qunit: "unit" };
+function launchForGroup(g, fallbackDrill) {
+  if (g.drill === "estimate") return { id: "estimate", sub: EST_SUB_OF[g.tag] || "mixed" };
+  return { id: DRILL_BY_ID[g.drill] ? g.drill : fallbackDrill, sub: null };
+}
+
+function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, budget, onDiagDrill }) {
+  const [showReview, setShowReview] = useState(false);
   const vrDiag = diagnoseVR(log, exam, budget);
   const points = log.reduce((a, l) => a + l.score, 0);
   const pct = log.length ? Math.round((points / log.length) * 100) : 0;
@@ -2281,6 +2288,23 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onD
   const lastPct = prior.length ? prior[prior.length - 1].pct : null;
   const delta = lastPct === null ? null : pct - lastPct;
   const isSjt = drill.id === "sjt";
+
+  /* Break the run down by question type so the weakest one can be named
+     and practised directly. Partial marks count toward the type's score. */
+  const groups = {};
+  log.forEach((l) => {
+    const key = l.q.typeName || weakLabel(l.q.tag) || l.q.section || "General";
+    if (!groups[key]) groups[key] = { correct: 0, total: 0, tag: l.q.tag, drill: l.q.drill };
+    groups[key].total++;
+    groups[key].correct += l.correct ? 1 : (l.score || 0);
+  });
+  const groupList = Object.entries(groups)
+    .map(([label, g]) => ({ label, pct: Math.round((g.correct / g.total) * 100), tag: g.tag, drill: g.drill }))
+    .sort((a, b) => a.pct - b.pct);
+  const worst = groupList.length > 1 ? groupList[0] : null;
+  const revAnswer = (q) => q.kind === "rank" ? q.order.map((x) => String.fromCharCode(65 + x)).join(", ")
+    : q.kind === "scale" ? q.options[q.answer] : q.answer;
+
   return (
     <div className="ud-wrap ud-res">
       <div className="ud-eyebrow">{drill.section} · {drill.name}{exam ? " · timed" : ""}</div>
@@ -2314,6 +2338,32 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onD
           </>
         );
       })()}
+      {groupList.length > 1 && (
+        <>
+          <div className="ud-sec"><h2>How you did by type</h2><i /><span>weakest first</span></div>
+          <div className="res-bars">
+            {groupList.map((g) => (
+              <div className="res-bar" key={g.label}>
+                <span className="rb-l">{g.label}</span>
+                <div className="rb-track"><i style={{ width: `${Math.max(g.pct, 3)}%`, background: g.pct < 50 ? "var(--stop)" : g.pct < 75 ? "var(--signal)" : "var(--go)" }} /></div>
+                <span className="rb-n mono">{g.pct}%</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {worst && worst.pct < 90 && (
+        <div className="res-weak">
+          <span className="k">Revise this next</span>
+          <h3>Weakest: {worst.label} ({worst.pct}%)</h3>
+          <p>{worst.pct < 50
+            ? "This is costing you real marks. Slow the clock down and get the method right before you speed it back up."
+            : "Close, but not automatic yet. A focused set of these will tidy it up."}</p>
+          {onType && (() => { const L = launchForGroup(worst, drill.id); return (
+            <button className="ud-btn" onClick={() => onType(L.id, L.sub)}>Practise {worst.label.toLowerCase()}</button>
+          ); })()}
+        </div>
+      )}
       {vrDiag && (
         <div className={`vr-diag ${vrDiag.tone}`}>
           <span className="k">Diagnosis</span>
@@ -2325,9 +2375,32 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, budget, onD
       )}
       <p className="ud-tip">{TIPS[drill.id] || TIPS.mistakes}</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button className="ud-btn" onClick={onAgain}>Do another</button>
+        <button className="ud-btn" onClick={onAgain}>Try more questions of this type</button>
+        <button className="ud-btn ghost" onClick={() => setShowReview((s) => !s)}>{showReview ? "Hide review" : "Review answers"}</button>
         <button className="ud-btn ghost" onClick={onHome}>Home</button>
       </div>
+      {showReview && (
+        <div className="res-review">
+          {log.map((l, i) => {
+            const q = l.q;
+            return (
+              <div className={`rev-item ${l.correct ? "ok" : ""}`} key={i}>
+                <p className="rev-q"><b>{i + 1}.</b> {q.stem || q.prompt}</p>
+                {q.kind === "syllset" ? (
+                  <div className="rev-syl">{q.statements.map((st, n) => (
+                    <p key={n}><b style={{ color: st.yes ? "var(--go)" : "var(--stop)" }}>{st.yes ? "Yes" : "No"}</b> {st.t} <i>{st.why}</i></p>
+                  ))}</div>
+                ) : (
+                  <>
+                    <p className="rev-a"><span className="you">You: {l.given}</span><span className="corr">Answer: {revAnswer(q)}</span></p>
+                    {(q.why || q.working) && <p className="rev-w">{q.why || q.working}</p>}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <SiteDisclaimer />
       <p className="ud-empty" style={{ paddingTop: 4, fontSize: 11.5, lineHeight: 1.6 }}>
         Scores here are practice estimates for your own use, not a prediction of your UCAT result.
@@ -3747,11 +3820,20 @@ function UniSelector({ track, prefs, setPrefs }) {
     </div>
   );
 
+  const TrackBar = () => (
+    <div className="ud-mode" style={{ paddingTop: 12 }}>
+      <span>Course</span>
+      <button className={track !== "med" ? "on" : ""} onClick={() => setPrefs({ ...prefs, track: "dent" })}>Dentistry</button>
+      <button className={track === "med" ? "on" : ""} onClick={() => setPrefs({ ...prefs, track: "med" })}>Medicine</button>
+    </div>
+  );
+
   if (region === "au") {
     return (
       <div className="ud-wrap">
         <div className="ud-sec" style={{ paddingTop: 32 }}><h2>University selector</h2><i /><span>Australia, direct entry</span></div>
         <RegionBar />
+        <TrackBar />
         <SiteDisclaimer />
         <AuSelector track={track} />
       </div>
@@ -3763,6 +3845,7 @@ function UniSelector({ track, prefs, setPrefs }) {
       <div className="ud-wrap">
         <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Strategic university selector</h2><i /><span>medicine · {MED_SCHOOLS.length} UK schools</span></div>
         <RegionBar />
+        <TrackBar />
         <SiteDisclaimer />
         <MedSelector />
         <div className="ud-trend" style={{ padding: 20 }}>
@@ -3788,6 +3871,7 @@ function UniSelector({ track, prefs, setPrefs }) {
     <div className="ud-wrap">
       <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Strategic university selector</h2><i /><span>14 UK dental schools</span></div>
       <RegionBar />
+      <TrackBar />
         <SiteDisclaimer />
       <p className="ud-learn-intro">
         Type your actual grades, mark contextual status if any widening participation scheme applies to you, and the tool maps you against
@@ -5418,6 +5502,7 @@ export default function UcatDrillTrainer() {
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}
           onHome={() => setView("drills")} onAgain={rerun} budget={runBudget}
+          onType={(id, sub) => start(DRILL_BY_ID[id], false, DRILL_BY_ID[id].def, null, sub, null)}
           onDiagDrill={(id) => start(DRILL_BY_ID[id], false, DRILL_BY_ID[id].def, null, null, null)} />
       </>)}
     </div>

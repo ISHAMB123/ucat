@@ -5597,6 +5597,92 @@ function highlightEvidence(text, evidence) {
   );
 }
 
+/* Approximate raw-marks to scaled-score conversion. The UCAT is equated by
+   Pearson each year and no official table is published, so this is a
+   transparent piecewise estimate through sensible anchor points, not an
+   exact figure. Scaled scores run 300 to 900 per cognitive subtest. */
+const SCALE_ANCHORS = [
+  [0.00, 300], [0.15, 380], [0.25, 440], [0.35, 500], [0.45, 560],
+  [0.55, 610], [0.65, 660], [0.75, 720], [0.85, 790], [0.95, 870], [1.00, 900],
+];
+function marksToScale(marks, outOf) {
+  if (!(outOf > 0)) return null;
+  const m = Math.max(0, Math.min(Number(marks) || 0, outOf));
+  const f = m / outOf;
+  for (let i = 1; i < SCALE_ANCHORS.length; i++) {
+    const [f0, s0] = SCALE_ANCHORS[i - 1];
+    const [f1, s1] = SCALE_ANCHORS[i];
+    if (f <= f1) return Math.round((s0 + ((f - f0) / (f1 - f0)) * (s1 - s0)) / 10) * 10;
+  }
+  return 900;
+}
+/* Old four-subtest total (out of 3600, when Abstract Reasoning existed)
+   to the current three-subtest total (out of 2700). Dropping one subtest
+   that scored the average of the others scales the whole total by 3/4,
+   which maps 3600 to 2700 and 1200 to 900 exactly. */
+function old3600to2700(v) {
+  const t = Number(v);
+  if (!isFinite(t) || t <= 0) return null;
+  return Math.round((Math.max(1200, Math.min(3600, t)) * 0.75) / 10) * 10;
+}
+
+function ScoreConverter() {
+  const [rows, setRows] = useState([
+    { key: "vr", name: "Verbal Reasoning", out: 44, marks: "" },
+    { key: "dm", name: "Decision Making", out: 35, marks: "" },
+    { key: "qr", name: "Quantitative Reasoning", out: 36, marks: "" },
+  ]);
+  const [old, setOld] = useState("");
+  const setRow = (k, patch) => setRows((rs) => rs.map((r) => (r.key === k ? { ...r, ...patch } : r)));
+  const scaled = rows.map((r) => ({ ...r, s: r.marks === "" ? null : marksToScale(r.marks, Number(r.out) || 0) }));
+  const allIn = scaled.every((r) => r.s !== null);
+  const total = allIn ? scaled.reduce((a, r) => a + r.s, 0) : null;
+  const conv = old3600to2700(old);
+
+  return (
+    <div className="sconv">
+      <div className="sconv-head">
+        <h3>UCAT score converter</h3>
+        <p>Turn mock marks into an estimated scaled score, and old out-of-3600 totals into today's out-of-2700 scale.</p>
+      </div>
+      <div className="sconv-cols">
+        <div className="sconv-tool">
+          <div className="sconv-t">Marks to scaled score</div>
+          <div className="sconv-grid">
+            <span className="sc-h" />
+            <span className="sc-h">Marks</span>
+            <span className="sc-h">Out of</span>
+            <span className="sc-h">Score</span>
+            {scaled.map((r) => (
+              <React.Fragment key={r.key}>
+                <span className="sc-name">{r.name}</span>
+                <input type="number" min="0" max={r.out} value={r.marks} onChange={(e) => setRow(r.key, { marks: e.target.value })} aria-label={`${r.name} marks`} />
+                <input type="number" min="1" max="120" value={r.out} onChange={(e) => setRow(r.key, { out: e.target.value })} aria-label={`${r.name} out of`} />
+                <span className="sc-out">{r.s == null ? "–" : r.s}</span>
+              </React.Fragment>
+            ))}
+          </div>
+          <div className="sconv-total">
+            <span>Estimated total</span>
+            <b>{total == null ? "enter all three" : `${total} / 2700`}</b>
+          </div>
+          <p className="sconv-mini">Situational Judgement is banded 1 to 4 and is not part of this total. Decision Making has some two-mark items, so set its "out of" to your mock's maximum.</p>
+        </div>
+        <div className="sconv-tool">
+          <div className="sconv-t">Old /3600 to /2700</div>
+          <p className="sconv-mini" style={{ marginTop: 0 }}>Before 2024 the UCAT had a fourth subtest (Abstract Reasoning) and totals ran to 3600. Enter an old total to see the equivalent on today's scale.</p>
+          <div className="sconv-old">
+            <input type="number" min="1200" max="3600" value={old} placeholder="e.g. 2600" onChange={(e) => setOld(e.target.value)} aria-label="Old total out of 3600" />
+            <span className="sconv-arrow">→</span>
+            <b>{conv == null ? "– / 2700" : `${conv} / 2700`}</b>
+          </div>
+        </div>
+      </div>
+      <p className="sconv-note">Estimate only. Pearson scales the UCAT with a different equating table every year and publishes none of them, so treat these as a guide for pacing your practice, never as your real score.</p>
+    </div>
+  );
+}
+
 function MockCentre({ unlocked, prefs, setPrefs }) {
   const week = weekNumber();
   const [type, setType] = useState("vr");
@@ -5735,6 +5821,9 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
             </button>
           ))}
         </div>
+
+        <ScoreConverter />
+
         <p className="ud-empty" style={{ paddingTop: 12 }}>
           {boardGlobal
             ? "Leaderboard names and scores are visible to everyone using this app, so use initials or a nickname if you prefer. Boards are per mock, per week."
@@ -6378,4 +6467,5 @@ export {
   makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
   predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ,
   generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
+  marksToScale, old3600to2700,
 };

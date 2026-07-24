@@ -993,4 +993,27 @@ button.nav-row:hover { background:var(--signal)14; }
 .pl-edit .pl-ce { flex-direction:row; align-items:center; gap:7px; text-transform:none; letter-spacing:0; font-size:13px; color:var(--body); }
 .pl-edit .pl-ce input { width:auto; }
 @media (max-width:560px) { .pl-stats { grid-template-columns:repeat(2,1fr); } .pl-row { grid-template-columns:auto 1fr; } .pl-actions { grid-column:2; justify-content:flex-start; margin-top:6px; } }
+
+/* ---- UCAT score converter (mock centre) ---- */
+.sconv { margin-top:22px; border:1px solid var(--line); border-radius:6px; padding:20px; background:var(--slate); }
+.sconv-head h3 { margin:0 0 5px; font-family:'Bricolage Grotesque',sans-serif; font-size:17px; letter-spacing:-0.01em; }
+.sconv-head p { margin:0 0 16px; font-size:13px; color:var(--body); line-height:1.55; }
+.sconv-cols { display:grid; grid-template-columns:1fr; gap:16px; }
+.sconv-tool { border:1px solid var(--line); border-radius:5px; padding:15px; background:var(--card); }
+.sconv-t { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--signal); margin-bottom:12px; }
+.sconv-grid { display:grid; grid-template-columns:1fr 68px 68px 52px; gap:8px 8px; align-items:center; }
+.sconv-grid .sc-h { font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.05em; text-transform:uppercase; color:var(--mute); }
+.sconv-grid .sc-name { font-size:12.5px; }
+.sconv-grid input { width:100%; padding:7px 8px; text-align:center; }
+.sconv-grid .sc-out { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600; color:var(--signal); text-align:center; }
+.sconv-total { display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.sconv-total span { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:0.05em; }
+.sconv-total b { font-family:'Bricolage Grotesque',sans-serif; font-size:20px; letter-spacing:-0.02em; }
+.sconv-mini { margin:12px 0 0; font-size:11.5px; color:var(--mute); line-height:1.5; }
+.sconv-old { display:flex; align-items:center; gap:12px; margin-top:12px; }
+.sconv-old input { width:130px; padding:9px 10px; text-align:center; }
+.sconv-arrow { color:var(--mute); font-size:16px; }
+.sconv-old b { font-family:'Bricolage Grotesque',sans-serif; font-size:20px; letter-spacing:-0.02em; }
+.sconv-note { margin:14px 0 0; font-size:11px; color:var(--mute); line-height:1.5; }
+@media (min-width:680px) { .sconv-cols { grid-template-columns:1.35fr 1fr; } }
 `;

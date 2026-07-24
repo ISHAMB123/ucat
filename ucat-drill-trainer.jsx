@@ -5296,12 +5296,33 @@ function LegalView({ account, prefs, setPrefs, onDeleteAccount }) {
 }
 
 /* ------------------------------ AUTH AND BILLING ------------------ */
-/* Wire STRIPE_LINK to a Stripe Payment Link and billing is live.     */
 
-/* Stripe Payment Link. Set VITE_STRIPE_LINK in .env (e.g.
-   https://buy.stripe.com/xxxxx) and checkout goes live with no code
-   change. Empty means checkout is not connected yet. */
-const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || "";
+/* =================================================================== */
+/*  STRIPE PAYMENT LINK  --  PASTE YOUR LINK BETWEEN THE QUOTES BELOW  */
+/*                                                                     */
+/*  1. In the Stripe dashboard: Products -> Payment Links -> create a  */
+/*     link for the full-access product (one-off, your launch price).  */
+/*  2. Under "After payment", choose "Redirect to your website" and    */
+/*     set the URL to:   https://YOUR-DOMAIN/app/?checkout=success     */
+/*     (that query string is what unlocks the app on return).          */
+/*  3. Paste the buy.stripe.com link below and redeploy. Done.         */
+/*                                                                     */
+/*  Setting VITE_STRIPE_LINK in the environment overrides this, so you */
+/*  can keep the real link out of the repo if you prefer. Empty leaves */
+/*  the access-code flow in place.                                     */
+/* =================================================================== */
+const STRIPE_PAYMENT_LINK = ""; /* e.g. "https://buy.stripe.com/8x0abc123" */
+
+const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || STRIPE_PAYMENT_LINK;
+
+/* True when Stripe redirects back with ?checkout=success after a completed
+   Payment Link, which unlocks the app on return. This trusts the client
+   as a launch-time interim; the real control is a Stripe webhook writing a
+   server-verified entitlement to Supabase, which will replace this. */
+const CHECKOUT_RETURN = (() => {
+  try { return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success"; }
+  catch (e) { return false; }
+})();
 /* Launch sale: £25 until 18 August, then the standard £39. The code
    UCAT18 unlocks during the launch. saleLive() is date driven so the
    copy and price switch on their own when the sale ends. */
@@ -5498,7 +5519,9 @@ function BillingView({ unlocked, onUnlock, email }) {
     else setErr("That code is not recognised.");
   };
   const checkout = () => {
-    if (STRIPE_LINK) window.open(STRIPE_LINK, "_blank", "noopener");
+    /* Navigate in the same tab so Stripe's after-payment redirect lands
+       back on the app (…/app/?checkout=success) and unlocks it. */
+    if (STRIPE_LINK) window.location.assign(STRIPE_LINK);
     else setErr(`Checkout is not connected yet. Use the access code ${ACCESS_CODE} to unlock everything for now.`);
   };
 
@@ -6320,15 +6343,23 @@ export default function UcatDrillTrainer() {
 
   useEffect(() => {
     loadState().then((s) => {
-      setUnlocked(s.unlocked); setBest(s.best); setHistory(s.history);
+      const paid = s.unlocked || CHECKOUT_RETURN;
+      setUnlocked(paid); setBest(s.best); setHistory(s.history);
       setPlan(s.plan); setWeak(s.weak); setSeenBank(s.seenBank || {}); setMistakes(s.mistakes);
       const pf = { count: 10, exam: false, extra: 1, level: s.level || "hard", theme: "light", ...(s.prefs || {}) };
       if (!LEVELS[pf.level]) pf.level = "hard";
       setPrefsState(pf);
       if (pf.account) { setAccount(pf.account); setAuthDone(true); }
       if (pf.skippedAuth) setAuthDone(true);
+      /* Persist and confirm a fresh unlock arriving back from Stripe, then
+         tidy the query string so a refresh does not re-trigger it. */
+      if (CHECKOUT_RETURN && !s.unlocked) {
+        setJSON("ucat:unlocked", true);
+        try { window.history.replaceState({}, "", window.location.pathname); } catch (e) { /* ignore */ }
+        setView("billing");
+      }
       /* Show the feature tour once to anyone already unlocked who has not seen it. */
-      if (s.unlocked && !pf.tourSeen) setShowTour(true);
+      if (paid && !pf.tourSeen) setShowTour(true);
       setReady(true);
     });
   }, []);

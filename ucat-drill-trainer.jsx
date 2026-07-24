@@ -764,12 +764,13 @@ const DRILLS = [
   { id: "estimate", section: "QR", name: "Estimation", blurb: "Five options, one right. Ratios, graphs, rates, percentages and inference.", free: false, max: 25, def: 10, budget: 40, sub: true },
   { id: "speed", section: "VR", name: "Pacing", blurb: "Words at a fixed rate, then comprehension. Trains you to stop re-reading.", free: false, max: 1, def: 1, budget: 0 },
   { id: "tfc", section: "VR", name: "True, false, can't tell", blurb: "The signature VR format. Can't tell is the most-missed answer in the exam, and this drills exactly why.", free: false, max: 25, def: 12, budget: 22 },
+  { id: "infer", section: "VR", name: "Reading comprehension", blurb: "Four-option questions on a passage: inference, main idea and what is actually supported. The other half of Verbal Reasoning.", free: false, max: 25, def: 8, budget: 30 },
   { id: "scan", section: "VR", name: "Scanning", blurb: "Find one fact in a passage against the clock. The core VR skill.", free: false, max: 25, def: 9, budget: 22 },
   { id: "blurt", section: "VR", name: "Blurting", blurb: "Read, hide, recall. Shows how little of a passage you actually keep.", free: false, max: 1, def: 1, budget: 0 },
   { id: "sjt", section: "SJT", name: "Situational Judgement", blurb: "All three official formats, a written reason for every answer, band estimate at the end.", free: false, max: 25, def: 12, budget: 22 },
 ];
 const DRILL_BY_ID = Object.fromEntries(DRILLS.map((d) => [d.id, d]));
-const TIMED = ["tables", "calc", "estimate", "scan", "sjt", "tfc", "qrset"];
+const TIMED = ["tables", "calc", "estimate", "scan", "sjt", "tfc", "qrset", "infer"];
 
 const EST_SUBS = [
   { id: "mixed", name: "Mixed", desc: "Every family, shuffled. Closest to the exam." },
@@ -1225,7 +1226,58 @@ function makeSjt(n, weak, theme, seen) {
   return out;
 }
 
+/* ---- VR reading comprehension: four-option inference on a passage. ----
+   The other half of Verbal Reasoning alongside true/false/can't tell.
+   Drawn from the mock passage bank, which carries the reasoning and the
+   exact evidence line for each answer. Strict no-repeat by question. */
+function makeInfer(n, weak, seen) {
+  const all = [];
+  MOCK_BANK.forEach((set) => {
+    const p = mockPassage(set.pid);
+    if (!p) return;
+    set.questions.forEach((q, idx) => all.push({ key: `vr:infer:${set.pid}#${idx}`, p, q }));
+  });
+  if (!all.length) return [];
+  const { chosen, cycled } = pickUnseen(all, seen, n);
+  const out = chosen.map(({ key, p, q }) => ({
+    kind: "mcq", passageText: p.text, passageTitle: p.title,
+    stem: q.stem, options: q.options, answer: q.options[q.a],
+    tag: "cinfer", seenKey: key, section: "VR", drill: "infer",
+    why: q.why, evidence: q.evidence,
+    improve: "Comprehension is not recall. Work out what the question is really asking, then find the one line that settles it. If the passage never says it, it is not the answer, however true it sounds.",
+  }));
+  out.cycled = cycled;
+  return out;
+}
+
+/* ---- Fix my weak spots: a mixed set pulled from the tags you miss most,
+   proactively rather than waiting for the mistake bank. ---- */
+function genForTag(tag, count, weak, seen) {
+  if (/^f/.test(tag)) return makeTables(count, weak, "hard");
+  if (["cpct", "cdiv", "cmul"].includes(tag)) return makeCalc(count, weak, "hard");
+  if (["qratio", "qgraph", "qrate", "qpct", "qinfer", "qunit"].includes(tag)) return makeEstimate(count, weak, "hard", { qratio: "ratio", qgraph: "graph", qrate: "rate", qpct: "pct", qinfer: "infer", qunit: "unit" }[tag]);
+  if (tag === "qset") return makeQrSets(count, "hard");
+  if (tag === "cinfer") return makeInfer(count, weak, seen);
+  if (/^t/.test(tag)) return makeTfc(count, weak, seen);
+  if (/^j/.test(tag)) return makeSjt(count, weak, "all", seen);
+  return null;
+}
+function makeWeakSpots(n, weak, seen) {
+  const tags = Object.entries(weak || {}).filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]).map(([t]) => t);
+  const out = [];
+  const per = Math.max(2, Math.ceil(n / Math.max(Math.min(tags.length, 5), 1)));
+  for (const tag of tags) {
+    if (out.length >= n * 1.5) break;
+    const g = genForTag(tag, per, weak, seen);
+    if (g && g.length) out.push(...g);
+  }
+  /* Not enough weakness data yet: fall back to a broad mix. */
+  if (out.length < n) out.push(...makeTfc(n, weak, seen), ...makeCalc(n, weak, "hard"), ...makeSjt(n, weak, "all", seen));
+  return shuffle(out).slice(0, n);
+}
+
 const WEAK_LABEL = {
+  cinfer: "Reading comprehension",
   cpct: "Percentages (calculator)", cdiv: "Long division", cmul: "Long multiplication",
   qset: "QR data sets", qratio: "Ratios", qgraph: "Graphs", qrate: "Rates and time", qpct: "Percentages", qinfer: "Inference",
   jappropriateness: "SJT appropriateness", jimportance: "SJT importance", jrank: "SJT ranking",
@@ -2441,7 +2493,7 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
 
 /* ------------------------------ HOME ------------------------------ */
 
-function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onLearnSjt, onGoto, planNext }) {
+function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext }) {
   const bestBars = Object.entries(best || {}).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const weakTop = Object.entries(weak || {}).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 6);
   const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
@@ -2457,9 +2509,12 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
 
   const tryCode = () => { if (code.trim().toUpperCase() === "UCAT25") { setErr(""); onUnlock(); } else setErr("That code isn't recognised."); };
 
+  const sjtThemes = [...new Set(SJT_SCENARIOS.map((s) => s.theme))];
+
   const startDrill = (d, sub) => {
     if (d.id === "estimate" && !sub) { setEstOpen((o) => !o); return; }
     if (d.id === "sjt" && !sub) { setSjtOpen((o) => !o); return; }
+    if (d.id === "sjt") { onStart(d, prefs.exam, Math.min(prefs.count, d.max), null, null, sub === "practice" ? "all" : sub); return; }
     onStart(d, prefs.exam, Math.min(prefs.count, d.max), null, sub === "practice" ? null : sub || null, null);
   };
 
@@ -2532,6 +2587,11 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
           <span className="k">Rematch</span>
           <b>{mistakesCount > 0 ? `${mistakesCount} due` : "Bank clear"}</b>
           <span className="d">{mistakesCount > 0 ? "Questions that beat you, waiting" : "Exactly how you want it"}</span>
+        </button>
+        <button className="ud-tcard" onClick={() => (unlocked ? onWeakSpots() : onGoto("billing"))}>
+          <span className="k">Targeted</span>
+          <b>Fix weak spots</b>
+          <span className="d">{weakTop.length ? "A mixed set built from your weakest skills" : "Practise, then this targets your gaps"}</span>
         </button>
         <button className="ud-tcard" onClick={() => onGoto("learn")}>
           <span className="k">Learn</span>
@@ -2646,8 +2706,13 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
                 <b>Learn the SJT</b><span>An interactive course: timings, bands, the three formats, scoring, principles and traps. Quick checks as you go, nothing to memorise passively.</span>
               </button>
               <button className="ud-sub" onClick={() => startDrill(DRILL_BY_ID.sjt, "practice")}>
-                <b>Practice questions</b><span>All three official formats with a written reason for every answer and a band estimate at the end.</span>
+                <b>Mixed practice</b><span>All themes and all three official formats with a written reason for every answer and a band estimate at the end.</span>
               </button>
+              {sjtThemes.map((th) => (
+                <button key={th} className="ud-sub" onClick={() => startDrill(DRILL_BY_ID.sjt, th)}>
+                  <b>{SJT_THEMES[th].name}</b><span>{SJT_THEMES[th].rule}</span>
+                </button>
+              ))}
             </div>
           )}
         </React.Fragment>
@@ -5281,6 +5346,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
 /* ------------------------------ APP ------------------------------- */
 
 const MISTAKE_DRILL = { id: "mistakes", section: "MIX", name: "Mistake rematch", budget: 30 };
+const WEAKSPOTS_DRILL = { id: "weakspots", section: "MIX", name: "Fix my weak spots", budget: 40 };
 
 /* First-payment walkthrough of the main features, shown once after
    unlocking. Advancing navigates the app to the feature being described. */
@@ -5404,6 +5470,7 @@ export default function UcatDrillTrainer() {
     else if (d.id === "qrset") qs = makeQrSets(count, lvl);
     else if (d.id === "scan") qs = makeScan(count, weak);
     else if (d.id === "tfc") qs = makeTfc(count, weak, seenBank);
+    else if (d.id === "infer") qs = makeInfer(count, weak, seenBank);
     else if (d.id === "sjt") qs = makeSjt(count, weak, theme, seenBank);
     recordSeen(qs);
     lastRun.current = { d, isExam, count, sub, theme };
@@ -5435,9 +5502,23 @@ export default function UcatDrillTrainer() {
     setView("run");
   };
 
+  const startWeakSpots = () => {
+    const qs = makeWeakSpots(prefs.count || 10, weak, seenBank);
+    recordSeen(qs);
+    lastRun.current = { weakspots: true };
+    setDrill(WEAKSPOTS_DRILL);
+    setMeta(null);
+    setRunExam(false);
+    setRunBudget(Math.round(WEAKSPOTS_DRILL.budget * LEVELS[prefs.level].budget * (prefs.extra || 1)));
+    setPlanKey(null);
+    setQuestions(qs);
+    setView("run");
+  };
+
   const rerun = () => {
     const r = lastRun.current;
     if (!r) { setView("drills"); return; }
+    if (r.weakspots) { startWeakSpots(); return; }
     if (r.mistakes) startMistakes();
     else start(r.d, r.isExam, r.count, null, r.sub, r.theme);
   };
@@ -5561,7 +5642,7 @@ export default function UcatDrillTrainer() {
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
-      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
+      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
       {view === "sjtlearn" && (<><Header /><SjtLearn onBack={() => setView("drills")} onPractice={() => start(DRILL_BY_ID.sjt, prefs.exam, Math.min(prefs.count, 25), null, null, null)} /></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}
@@ -5612,5 +5693,5 @@ export default function UcatDrillTrainer() {
 export {
   PASSAGES, TFC_SETS, MOCK_BANK, mockPassage, DRILLS, VENN_GENS, LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
-  makeProb, makeLogic, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
+  makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
 };

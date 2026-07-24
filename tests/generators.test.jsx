@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   LEVELS,
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan,
-  makeTfc, makeSjt, makeDm, makeVenn, makeProb, makeLogic,
+  makeTfc, makeSjt, makeDm, makeVenn, makeProb, makeLogic, makeInfer, makeWeakSpots,
   buildVrMock, buildQrMock, buildSjtMock,
 } from "../ucat-drill-trainer.jsx";
 
@@ -127,6 +127,23 @@ describe("generators produce answers that exist in their options", () => {
     const allSeen = {};
     makeTfc(9999, {}, {}).forEach((q) => { allSeen[q.seenKey] = 1; });
     expect(makeTfc(5, {}, allSeen).cycled).toBe(true);
+  });
+
+  it("makeInfer (VR comprehension) with evidence in the passage", () => {
+    const qs = makeInfer(999, {}, {});
+    expect(qs.length).toBeGreaterThan(5);
+    qs.forEach((q) => {
+      checkQuestion(q, "makeInfer");
+      expect(q.options.length).toBe(4);
+      if (q.evidence) expect(q.passageText.includes(q.evidence), q.stem).toBe(true);
+    });
+  });
+
+  it("makeWeakSpots returns a non-empty mixed set", () => {
+    const withWeak = makeWeakSpots(10, { cpct: 3, tbeaver: 2, jappropriateness: 2, cinfer: 1 }, {});
+    expect(withWeak.length).toBeGreaterThan(0);
+    withWeak.forEach((q) => checkQuestion(q, "makeWeakSpots"));
+    expect(makeWeakSpots(10, {}, {}).length).toBeGreaterThan(0);
   });
 
   it("makeDm (every sub)", () => {

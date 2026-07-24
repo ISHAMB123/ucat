@@ -805,4 +805,31 @@ button.nav-row:hover { background:var(--signal)14; }
 .ud-herorow { display:grid; grid-template-columns:1.35fr 1fr; gap:22px; align-items:start; }
 .ud-herostreak { display:flex; flex-direction:column; gap:14px; }
 @media (max-width: 860px) { .ud-herorow { grid-template-columns:1fr; } }
+
+/* ---- Left icon sidebar navigation ---- */
+.ud-hasside { padding-left:214px; }
+.ud-side { position:fixed; left:0; top:0; bottom:0; width:214px; background:var(--slate); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:16px 12px; z-index:30; overflow-y:auto; }
+.ud-side .ud-markbtn { background:transparent; padding:6px 8px 14px; margin-bottom:4px; border-bottom:1px solid var(--line); text-align:left; }
+.ud-side .ud-mark { display:flex; align-items:baseline; gap:8px; }
+.ud-side-nav { display:flex; flex-direction:column; gap:2px; margin-top:12px; flex:1; }
+.ud-side-nav button { display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:transparent; color:var(--body); font-family:'Inter',system-ui,sans-serif; font-size:13.5px; font-weight:500; padding:9px 11px; border-radius:8px; position:relative; transition:background .15s, color .15s; }
+.ud-side-nav button svg { width:18px; height:18px; flex:none; color:var(--mute); transition:color .15s; }
+.ud-side-nav button:hover { background:color-mix(in srgb, var(--signal) 10%, transparent); color:var(--paper); }
+.ud-side-nav button:hover svg { color:var(--signal); }
+.ud-side-nav button.on { background:color-mix(in srgb, var(--signal) 16%, transparent); color:var(--paper); font-weight:600; }
+.ud-side-nav button.on svg { color:var(--signal); }
+.ud-side-nav button.on::before { content:""; position:absolute; left:-12px; top:8px; bottom:8px; width:3px; border-radius:0 3px 3px 0; background:var(--signal); }
+.ud-side-nav .dot { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:7px; height:7px; border-radius:50%; background:var(--stop); }
+.ud-side-foot { border-top:1px solid var(--line); padding-top:12px; margin-top:10px; display:flex; align-items:center; gap:8px; }
+.ud-side-foot .ud-badge { flex:1; text-align:center; padding:7px 6px; }
+@media (max-width:820px) {
+  .ud-hasside { padding-left:60px; }
+  .ud-side { width:60px; padding:14px 8px; align-items:center; }
+  .ud-side .lbl, .ud-side .ud-mark span.txt, .ud-side-foot .ud-badge .txt { display:none; }
+  .ud-side .ud-mark b { font-size:15px; }
+  .ud-side-nav button { justify-content:center; gap:0; padding:11px 0; }
+  .ud-side-nav button.on::before { left:-8px; }
+  .ud-side-nav .dot { right:6px; top:6px; transform:none; }
+  .ud-side-foot { flex-direction:column; }
+}
 `;

@@ -5352,6 +5352,23 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
 const MISTAKE_DRILL = { id: "mistakes", section: "MIX", name: "Mistake rematch", budget: 30 };
 const WEAKSPOTS_DRILL = { id: "weakspots", section: "MIX", name: "Fix my weak spots", budget: 40 };
 
+/* Line icons for the sidebar navigation, one per section. Stroke only,
+   inherit colour, so they light up with the active accent. */
+const svgProps = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+const NAV_ICON = {
+  drills: (<svg {...svgProps}><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>),
+  learn: (<svg {...svgProps}><path d="M12 6.5C10.5 5 8 4.5 4 5v13c4-.5 6.5 0 8 1.5 1.5-1.5 4-2 8-1.5V5c-4-.5-6.5 0-8 1.5z" /><path d="M12 6.5v13" /></svg>),
+  mock: (<svg {...svgProps}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>),
+  interview: (<svg {...svgProps}><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z" /></svg>),
+  unis: (<svg {...svgProps}><path d="M22 10 12 5 2 10l10 5 10-5z" /><path d="M6 12v5c0 1 2.7 3 6 3s6-2 6-3v-5" /></svg>),
+  ps: (<svg {...svgProps}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>),
+  plan: (<svg {...svgProps}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>),
+  progress: (<svg {...svgProps}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></svg>),
+  mistakes: (<svg {...svgProps}><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5" /></svg>),
+  legal: (<svg {...svgProps}><path d="M12 2 4 5v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V5z" /></svg>),
+  billing: (<svg {...svgProps}><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2 20 3M16 5l3 3M14 7l3 3" /></svg>),
+};
+
 /* First-payment walkthrough of the main features, shown once after
    unlocking. Advancing navigates the app to the feature being described. */
 const FEATURE_TOUR = [
@@ -5591,34 +5608,33 @@ export default function UcatDrillTrainer() {
   };
 
   const Header = () => (
-    <div className="ud-wrap">
-      <div className="ud-top">
-        <button className="ud-markbtn" onClick={() => setView("drills")} aria-label="Go to home">
-          <span className="ud-mark"><b>Tempo</b><span>UCAT trainer</span></span>
-        </button>
-        <div className="ud-nav">
-          {[["drills", "Drills"], ["learn", "Learn"], ["mock", "Mock"], ["interview", "Interview"], ["unis", "Unis"], ["ps", "Statement"], ["plan", "Plan"], ["progress", "Progress"], ["mistakes", "Mistakes"], ["legal", "Legal"], ["billing", unlocked ? "Access" : "Unlock"]].map(([k, label]) => (
-            <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>
-              {label}
-              {k === "mistakes" && activeMistakes.length > 0 && <span className="dot" />}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button className="ud-theme" aria-label="Switch between light and dark mode"
-            onClick={() => setPrefs({ ...prefs, theme: prefs.theme === "light" ? "dark" : "light" })}>
-            {prefs.theme === "light" ? (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-            )}
+    <nav className="ud-side" aria-label="Main navigation">
+      <button className="ud-markbtn" onClick={() => setView("drills")} aria-label="Tempo home">
+        <span className="ud-mark"><b>Tempo</b><span className="txt">UCAT</span></span>
+      </button>
+      <div className="ud-side-nav">
+        {[["drills", "Drills"], ["learn", "Learn"], ["mock", "Mock"], ["interview", "Interview"], ["unis", "University"], ["ps", "Statement"], ["plan", "Plan"], ["progress", "Progress"], ["mistakes", "Mistakes"], ["legal", "Legal"], ["billing", unlocked ? "Access" : "Unlock"]].map(([k, label]) => (
+          <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)} aria-current={view === k ? "page" : undefined} title={label}>
+            {NAV_ICON[k]}
+            <span className="lbl">{label}</span>
+            {k === "mistakes" && activeMistakes.length > 0 && <span className="dot" />}
           </button>
-          <button className={`ud-badge${unlocked ? " on" : ""}`} onClick={() => setView("billing")} title={account ? account.email : "Not signed in"}>
-            {unlocked ? "Full access" : "Free drill only"}
-          </button>
-        </div>
+        ))}
       </div>
-    </div>
+      <div className="ud-side-foot">
+        <button className="ud-theme" aria-label="Switch between light and dark mode"
+          onClick={() => setPrefs({ ...prefs, theme: prefs.theme === "light" ? "dark" : "light" })}>
+          {prefs.theme === "light" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          )}
+        </button>
+        <button className={`ud-badge${unlocked ? " on" : ""}`} onClick={() => setView("billing")} title={account ? account.email : "Not signed in"}>
+          <span className="txt">{unlocked ? "Full access" : "Free only"}</span>
+        </button>
+      </div>
+    </nav>
   );
 
   if (!ready) {
@@ -5632,7 +5648,7 @@ export default function UcatDrillTrainer() {
   }
 
   return (
-    <div className={`ud${prefs.theme === "light" ? " light" : ""}`}>
+    <div className={`ud${prefs.theme === "light" ? " light" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}`}>
       <style>{CSS}</style>
       {!authDone && (
         <AuthScreen

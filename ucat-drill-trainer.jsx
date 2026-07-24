@@ -5633,7 +5633,21 @@ function ScoreConverter() {
     { key: "qr", name: "Quantitative Reasoning", out: 36, marks: "" },
   ]);
   const [old, setOld] = useState("");
-  const setRow = (k, patch) => setRows((rs) => rs.map((r) => (r.key === k ? { ...r, ...patch } : r)));
+  /* Marks can never exceed the paper's maximum, so clamp on entry rather
+     than only inside the score maths, or the box shows an impossible mark. */
+  const setMarks = (k, v) => setRows((rs) => rs.map((r) => {
+    if (r.key !== k) return r;
+    if (v === "") return { ...r, marks: "" };
+    const out = Math.max(0, Number(r.out) || 0);
+    const n = Math.max(0, Math.min(Math.floor(Number(v) || 0), out));
+    return { ...r, marks: String(n) };
+  }));
+  const setOut = (k, v) => setRows((rs) => rs.map((r) => {
+    if (r.key !== k) return r;
+    const out = Math.max(1, Math.min(Math.floor(Number(v) || 1), 200));
+    const marks = r.marks !== "" && Number(r.marks) > out ? String(out) : r.marks;
+    return { ...r, out, marks };
+  }));
   const scaled = rows.map((r) => ({ ...r, s: r.marks === "" ? null : marksToScale(r.marks, Number(r.out) || 0) }));
   const allIn = scaled.every((r) => r.s !== null);
   const total = allIn ? scaled.reduce((a, r) => a + r.s, 0) : null;
@@ -5656,8 +5670,8 @@ function ScoreConverter() {
             {scaled.map((r) => (
               <React.Fragment key={r.key}>
                 <span className="sc-name">{r.name}</span>
-                <input type="number" min="0" max={r.out} value={r.marks} onChange={(e) => setRow(r.key, { marks: e.target.value })} aria-label={`${r.name} marks`} />
-                <input type="number" min="1" max="120" value={r.out} onChange={(e) => setRow(r.key, { out: e.target.value })} aria-label={`${r.name} out of`} />
+                <input type="number" min="0" max={r.out} value={r.marks} onChange={(e) => setMarks(r.key, e.target.value)} aria-label={`${r.name} marks`} />
+                <input type="number" min="1" max="200" value={r.out} onChange={(e) => setOut(r.key, e.target.value)} aria-label={`${r.name} out of`} />
                 <span className="sc-out">{r.s == null ? "–" : r.s}</span>
               </React.Fragment>
             ))}
@@ -6467,5 +6481,5 @@ export {
   makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
   predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ,
   generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
-  marksToScale, old3600to2700,
+  marksToScale, old3600to2700, ScoreConverter,
 };

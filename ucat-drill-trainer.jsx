@@ -2897,7 +2897,60 @@ function LearnView({ unlocked, best, onStart, onUnlock }) {
 
 /* ------------------------------ PLAN VIEW ------------------------- */
 
-function PlanView({ unlocked, plan, onStart, prefs, setPrefs }) {
+/* ---- Planner helpers: local-date maths, streaks, plan generation ---- */
+const ymd = (dt) => { const x = new Date(dt); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+const parseYmd = (s) => { if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null; const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const addDays = (dt, n) => { const x = new Date(dt); x.setDate(x.getDate() + n); return x; };
+const humanDate = (s) => { const d = parseYmd(s); return d ? d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : ""; };
+let PLAN_UID = 0;
+const planUid = () => `${Date.now().toString(36)}${(PLAN_UID++).toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`;
+
+function currentStreak(history) {
+  const key = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  const active = new Set((history || []).map((h) => key(new Date(h.ts))));
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  let c = 0; const d = new Date(t);
+  if (!active.has(key(d))) d.setDate(d.getDate() - 1);
+  while (active.has(key(d))) { c++; d.setDate(d.getDate() - 1); }
+  return c;
+}
+
+const PHASE_LABEL = { found: "Foundations", tech: "Technique", timed: "Timed conditions", taper: "Taper" };
+const GEN_POOLS = {
+  found: { QR: ["tables", "calc"], VR: ["scan", "speed"], SJT: ["sjt"] },
+  tech: { QR: ["estimate", "qrset"], VR: ["tfc", "infer", "scan"], SJT: ["sjt"] },
+  timed: { QR: ["estimate", "qrset", "calc"], VR: ["tfc", "infer", "scan"], SJT: ["sjt"] },
+  taper: { QR: ["estimate"], VR: ["scan", "blurt"], SJT: ["sjt"] },
+};
+
+/* Build a dated, progressive plan from a start and end date. Study days
+   are spread across the week; the phase ramps foundations to technique to
+   timed conditions, then tapers in the final week. */
+function generatePlan({ startYmd, endYmd, perWeek, focus }) {
+  const foc = focus && focus.length ? focus : ["QR", "VR", "SJT"];
+  const start = parseYmd(startYmd), end = parseYmd(endYmd);
+  if (!start || !end || end <= start) return [];
+  const order = [1, 3, 5, 2, 4, 6, 0];
+  const studyDays = new Set(order.slice(0, Math.max(1, Math.min(7, perWeek))));
+  const totalMs = end - start;
+  const out = [];
+  let k = 0;
+  for (let d = new Date(start); d <= end && out.length < 160; d = addDays(d, 1)) {
+    if (!studyDays.has(d.getDay())) continue;
+    const daysLeft = Math.round((end - d) / 86400000);
+    const frac = totalMs > 0 ? 1 - (end - d) / totalMs : 1;
+    const phase = daysLeft <= 7 ? "taper" : frac < 0.3 ? "found" : frac < 0.66 ? "tech" : "timed";
+    const sec = foc[k % foc.length];
+    const pool = (GEN_POOLS[phase][sec] && GEN_POOLS[phase][sec].length) ? GEN_POOLS[phase][sec] : (GEN_POOLS.tech[sec] || ["estimate"]);
+    const drill = pool[Math.floor(k / foc.length) % pool.length];
+    const exam = phase === "timed" && TIMED.includes(drill);
+    out.push({ id: planUid(), drill, exam, count: DRILL_BY_ID[drill].def, date: ymd(d), note: PHASE_LABEL[phase] });
+    k++;
+  }
+  return out;
+}
+
+function PlanView({ unlocked, plan, onStart, prefs, setPrefs, setPlanDone, best, history }) {
   const nextKey = PLAN_KEYS.find((k) => !plan[k]);
   const doneCount = PLAN_KEYS.filter((k) => plan[k]).length;
   let nextInfo = null;
@@ -2912,18 +2965,10 @@ function PlanView({ unlocked, plan, onStart, prefs, setPrefs }) {
   const [openWeek, setOpenWeek] = useState(nextInfo ? nextInfo.w : 1);
   const [mode, setMode] = useState("guided");
 
-  /* Custom plan: the student's own list of sessions, stored in prefs so it
-     persists. Completion reuses the same plan map, keyed cust:<id>, so a
-     custom session ticks off exactly like a guided one when finished. */
+  /* Custom plan lives in prefs.customPlan; completion reuses the plan map
+     keyed cust:<id>. The full planner UI is in PlannerPanel. */
   const customPlan = prefs.customPlan || [];
-  const [pickDrill, setPickDrill] = useState("estimate");
-  const [pickExam, setPickExam] = useState(false);
   const custDone = customPlan.filter((x) => plan[`cust:${x.id}`]).length;
-  const addCustom = () => {
-    const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
-    setPrefs({ ...prefs, customPlan: [...customPlan, { id, drill: pickDrill, exam: pickExam }] });
-  };
-  const removeCustom = (id) => setPrefs({ ...prefs, customPlan: customPlan.filter((x) => x.id !== id) });
 
   return (
     <div className="ud-wrap">
@@ -2935,42 +2980,7 @@ function PlanView({ unlocked, plan, onStart, prefs, setPrefs }) {
       </div>
 
       {mode === "custom" ? (
-        <>
-          <p className="ud-learn-intro">Build a plan that fits your own schedule. Pick any drill, choose timed or untimed, and add it. Tick sessions off as you finish them. Everything saves on this device.</p>
-          <div className="plan-build">
-            <h3>Add a session</h3>
-            <div className="pb-row">
-              <select value={pickDrill} onChange={(e) => setPickDrill(e.target.value)} aria-label="Drill">
-                {DRILLS.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.section})</option>)}
-              </select>
-              <label className="pb-timed"><input type="checkbox" checked={pickExam} onChange={(e) => setPickExam(e.target.checked)} /> Timed</label>
-              <button className="ud-btn" onClick={addCustom}>Add to plan</button>
-            </div>
-          </div>
-          {customPlan.length === 0 ? (
-            <p className="ud-empty" style={{ paddingTop: 18 }}>No sessions yet. Add a few above and they will appear here as a checklist you can work through.</p>
-          ) : (
-            <div className="cust-list">
-              {customPlan.map((item, i) => {
-                const dr = DRILL_BY_ID[item.drill];
-                const key = `cust:${item.id}`;
-                const locked = !unlocked && !dr.free;
-                return (
-                  <div className="cust-row" key={item.id}>
-                    <button className="cust-start" disabled={locked} onClick={() => onStart(dr, item.exam, dr.def, key, null, null)}>
-                      <span className={`ud-tick${plan[key] ? " done" : ""}`}>{plan[key] ? "✓" : ""}</span>
-                      <span className="n mono">{i + 1}</span>
-                      <span className="nm">{dr.name}</span>
-                      <span className="meta">{locked ? "locked" : item.exam ? "timed" : "untimed"}</span>
-                    </button>
-                    <button className="cust-del" onClick={() => removeCustom(item.id)} aria-label={`Remove ${dr.name}`}>×</button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div style={{ height: 50 }} />
-        </>
+        <PlannerPanel unlocked={unlocked} plan={plan} onStart={onStart} prefs={prefs} setPrefs={setPrefs} setPlanDone={setPlanDone} best={best} history={history} />
       ) : (
       <>
       {nextInfo ? (
@@ -3024,6 +3034,245 @@ function PlanView({ unlocked, plan, onStart, prefs, setPrefs }) {
       </>
       )}
     </div>
+  );
+}
+
+/* Full custom planner: test-date countdown, an auto plan generator with
+   templates, per-session scheduling and editing, live stats, and a
+   schedule grouped by when each session is due. */
+function PlannerPanel({ unlocked, plan, onStart, prefs, setPrefs, setPlanDone, best, history }) {
+  const sessions = prefs.customPlan || [];
+  const today = ymd(new Date());
+  const examDate = prefs.examDate || null;
+  const dLeft = daysUntil(examDate);
+  const todayStr = today;
+  const maxD = new Date(); maxD.setFullYear(maxD.getFullYear() + 3);
+  const maxStr = ymd(maxD);
+
+  const isDone = (s) => !!plan[`cust:${s.id}`];
+  const doneCount = sessions.filter(isDone).length;
+
+  const [addOpen, setAddOpen] = useState(sessions.length === 0);
+  const [pickDrill, setPickDrill] = useState("estimate");
+  const [pickExam, setPickExam] = useState(false);
+  const [pickCount, setPickCount] = useState(DRILL_BY_ID.estimate.def);
+  const [pickDate, setPickDate] = useState(today);
+  const [pickNote, setPickNote] = useState("");
+  const [editId, setEditId] = useState(null);
+  const [genOpen, setGenOpen] = useState(false);
+  const [perWeek, setPerWeek] = useState(5);
+  const [focus, setFocus] = useState(["QR", "VR", "SJT"]);
+  const [genWeeks, setGenWeeks] = useState(6);
+  const [pending, setPending] = useState(null);
+  const [showDone, setShowDone] = useState(false);
+  const [dateVal, setDateVal] = useState(examDate || "");
+  const [dateEdit, setDateEdit] = useState(false);
+
+  const persist = (arr) => setPrefs({ ...prefs, customPlan: arr });
+  const changeDrill = (id) => { setPickDrill(id); setPickCount(DRILL_BY_ID[id].def); if (!TIMED.includes(id)) setPickExam(false); };
+  const add = () => {
+    const dr = DRILL_BY_ID[pickDrill];
+    const cnt = Math.max(1, Math.min(Number(pickCount) || dr.def, dr.max));
+    persist([...sessions, { id: planUid(), drill: pickDrill, exam: pickExam && TIMED.includes(pickDrill), count: cnt, date: pickDate || null, note: pickNote.trim().slice(0, 60) }]);
+    setPickNote("");
+  };
+  const remove = (id) => { setPlanDone(`cust:${id}`, false); persist(sessions.filter((s) => s.id !== id)); };
+  const update = (id, patch) => persist(sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  const toggleDone = (s) => setPlanDone(`cust:${s.id}`, !isDone(s));
+  const clearDone = () => { sessions.filter(isDone).forEach((s) => setPlanDone(`cust:${s.id}`, false)); persist(sessions.filter((s) => !isDone(s))); };
+
+  const toggleFocus = (f) => setFocus((cur) => (cur.includes(f) ? cur.filter((x) => x !== f) : [...cur, f]));
+  const buildWith = (params) => {
+    const end = examDate || ymd(addDays(new Date(), (params.weeks || genWeeks) * 7));
+    const gen = generatePlan({ startYmd: today, endYmd: end, perWeek: params.perWeek, focus: params.focus });
+    if (!gen.length) return;
+    sessions.forEach((s) => setPlanDone(`cust:${s.id}`, false));
+    persist(gen);
+    setPending(null); setGenOpen(false);
+  };
+  const requestBuild = (params) => { if (sessions.length) setPending(params); else buildWith(params); };
+  const weakestSection = () => {
+    const order = ["VR", "QR", "SJT"];
+    const scored = order.map((sec) => {
+      const ids = DRILLS.filter((d) => d.section === sec).map((d) => d.id);
+      const vals = ids.map((id) => best && best[id] && best[id].pct).filter((p) => typeof p === "number");
+      return { sec, pct: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 999 };
+    });
+    scored.sort((a, b) => a.pct - b.pct);
+    return scored[0].pct === 999 ? ["QR", "VR", "SJT"] : [scored[0].sec];
+  };
+
+  const saveDate = () => { if (dateVal && dateVal >= todayStr && dateVal <= maxStr) { setPrefs({ ...prefs, examDate: dateVal }); setDateEdit(false); } };
+
+  /* Stats */
+  const streak = currentStreak(history);
+  const weekEnd = ymd(addDays(new Date(), 7));
+  const dueSoon = sessions.filter((s) => s.date && s.date >= today && s.date <= weekEnd);
+  const dueSoonDone = dueSoon.filter(isDone).length;
+  const pctDone = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0;
+
+  /* Grouped schedule (outstanding only; completed listed separately) */
+  const pend = sessions.filter((s) => !isDone(s));
+  const bucket = (s) => (!s.date ? "none" : s.date < today ? "overdue" : s.date === today ? "today" : s.date <= weekEnd ? "week" : "later");
+  const GROUPS = [
+    { key: "overdue", label: "Overdue" },
+    { key: "today", label: "Today" },
+    { key: "week", label: "Next 7 days" },
+    { key: "later", label: "Later" },
+    { key: "none", label: "No date set" },
+  ];
+  const grouped = GROUPS.map((g) => ({ ...g, items: pend.filter((s) => bucket(s) === g.key).sort((a, b) => (a.date || "9").localeCompare(b.date || "9")) })).filter((g) => g.items.length);
+  const doneList = sessions.filter(isDone);
+
+  const Row = (s) => {
+    const dr = DRILL_BY_ID[s.drill];
+    const key = `cust:${s.id}`;
+    const locked = !unlocked && !dr.free;
+    const done = isDone(s);
+    const overdue = !done && s.date && s.date < today;
+    return (
+      <div className={`pl-row${done ? " done" : ""}${editId === s.id ? " editing" : ""}`} key={s.id}>
+        <button className="pl-check" onClick={() => toggleDone(s)} aria-label={done ? "Mark not done" : "Mark done"}>
+          <span className={`ud-tick${done ? " done" : ""}`}>{done ? "✓" : ""}</span>
+        </button>
+        <div className="pl-main">
+          <div className="pl-l1">
+            <span className={`pl-sec s-${dr.section}`}>{dr.section}</span>
+            <b>{dr.name}</b>
+          </div>
+          <div className="pl-l2">
+            {s.date && <span className={overdue ? "pl-over" : ""}>{humanDate(s.date)}</span>}
+            <span>{s.exam ? "timed" : "untimed"}</span>
+            <span>{s.count || dr.def}Q</span>
+            {s.note && <span className="pl-note">{s.note}</span>}
+          </div>
+        </div>
+        <div className="pl-actions">
+          <button className="pl-go" disabled={locked} onClick={() => onStart(dr, s.exam, s.count || dr.def, key, null, null)}>{locked ? "Locked" : "Start"}</button>
+          <button className="pl-ic" onClick={() => setEditId(editId === s.id ? null : s.id)} aria-label="Edit session">✎</button>
+          <button className="pl-ic" onClick={() => remove(s.id)} aria-label="Remove session">×</button>
+        </div>
+        {editId === s.id && (
+          <div className="pl-edit">
+            <label>Date<input type="date" value={s.date || ""} min={todayStr} max={maxStr} onChange={(e) => update(s.id, { date: e.target.value || null })} /></label>
+            <label>Questions<input type="number" min="1" max={dr.max} value={s.count || dr.def} onChange={(e) => update(s.id, { count: Math.max(1, Math.min(Number(e.target.value) || dr.def, dr.max)) })} /></label>
+            <label className="pl-ce"><input type="checkbox" checked={!!s.exam} disabled={!TIMED.includes(s.drill)} onChange={(e) => update(s.id, { exam: e.target.checked })} /> Timed</label>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* Test date */}
+      {!examDate || dateEdit ? (
+        <div className="pl-datebar set">
+          <div><b>When do you sit the UCAT?</b><span>The generator paces your plan around this date.</span></div>
+          <div className="pl-datein">
+            <input type="date" value={dateVal} min={todayStr} max={maxStr} onChange={(e) => setDateVal(e.target.value)} aria-label="UCAT test date" />
+            <button className="ud-btn" onClick={saveDate} disabled={!(dateVal && dateVal >= todayStr && dateVal <= maxStr)}>Set date</button>
+          </div>
+        </div>
+      ) : (
+        <div className="pl-datebar">
+          <div className="pl-dnum"><b className="mono">{dLeft < 0 ? 0 : dLeft}</b><span>{dLeft === 1 ? "day to your UCAT" : dLeft < 0 ? "test day passed" : "days to your UCAT"}</span></div>
+          <span className="pl-ddate">{humanDate(examDate)}</span>
+          <button className="ud-quit" onClick={() => { setDateVal(examDate); setDateEdit(true); }}>change</button>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="pl-stats">
+        <div className="pl-stat"><b>{sessions.length}</b><span>sessions</span></div>
+        <div className="pl-stat"><b>{pctDone}%</b><span>complete</span></div>
+        <div className="pl-stat"><b>{dueSoonDone}/{dueSoon.length}</b><span>next 7 days</span></div>
+        <div className="pl-stat"><b>{streak}</b><span>day streak</span></div>
+      </div>
+
+      {/* Toolbar */}
+      <div className="pl-tools">
+        <button className={`pl-tbtn${genOpen ? " on" : ""}`} onClick={() => setGenOpen((o) => !o)}>Auto-build plan</button>
+        <button className={`pl-tbtn${addOpen ? " on" : ""}`} onClick={() => setAddOpen((o) => !o)}>Add a session</button>
+        <span className="pl-spacer" />
+        {doneCount > 0 && <button className="pl-tbtn ghost" onClick={() => setShowDone((o) => !o)}>{showDone ? "Hide" : "Show"} completed ({doneCount})</button>}
+        {doneCount > 0 && <button className="pl-tbtn ghost" onClick={clearDone}>Clear completed</button>}
+      </div>
+
+      {/* Generator */}
+      {genOpen && (
+        <div className="pl-gen">
+          <h3>Auto-build a plan</h3>
+          <p>A dated schedule that ramps from foundations to timed conditions, then tapers before test day{examDate ? "" : " (set a test date above for exact pacing)"}.</p>
+          <div className="pl-genrow">
+            <div className="pl-field"><span>Days a week</span>
+              <div className="pl-seg">{[3, 4, 5, 6].map((n) => <button key={n} className={perWeek === n ? "on" : ""} onClick={() => setPerWeek(n)}>{n}</button>)}</div>
+            </div>
+            <div className="pl-field"><span>Focus</span>
+              <div className="pl-seg">{["QR", "VR", "SJT"].map((f) => <button key={f} className={focus.includes(f) ? "on" : ""} onClick={() => toggleFocus(f)}>{f}</button>)}</div>
+            </div>
+            {!examDate && (
+              <div className="pl-field"><span>Weeks</span>
+                <div className="pl-seg">{[2, 3, 4, 6, 8].map((n) => <button key={n} className={genWeeks === n ? "on" : ""} onClick={() => setGenWeeks(n)}>{n}</button>)}</div>
+              </div>
+            )}
+          </div>
+          <div className="pl-templates">
+            <span>Quick start:</span>
+            <button onClick={() => requestBuild({ perWeek: 5, focus: ["QR", "VR", "SJT"], weeks: 6 })}>Balanced · 6 wk</button>
+            <button onClick={() => requestBuild({ perWeek: 6, focus: ["QR", "VR", "SJT"], weeks: 3 })}>Intensive · 3 wk</button>
+            <button onClick={() => requestBuild({ perWeek: 6, focus: ["QR", "VR", "SJT"], weeks: 2 })}>Crash · 2 wk</button>
+            <button onClick={() => requestBuild({ perWeek: 5, focus: weakestSection(), weeks: 4 })}>Weak spot</button>
+          </div>
+          {pending ? (
+            <div className="pl-confirm">Replace your {sessions.length} current sessions? <button className="ud-btn" onClick={() => buildWith(pending)}>Yes, replace</button><button className="pl-tbtn ghost" onClick={() => setPending(null)}>Cancel</button></div>
+          ) : (
+            <button className="ud-btn" onClick={() => requestBuild({ perWeek, focus, weeks: genWeeks })} disabled={!focus.length}>Generate plan</button>
+          )}
+        </div>
+      )}
+
+      {/* Add session */}
+      {addOpen && (
+        <div className="plan-build">
+          <h3>Add a session</h3>
+          <div className="pb-row">
+            <select value={pickDrill} onChange={(e) => changeDrill(e.target.value)} aria-label="Drill">
+              {DRILLS.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.section})</option>)}
+            </select>
+            <input className="pb-count" type="number" min="1" max={DRILL_BY_ID[pickDrill].max} value={pickCount} onChange={(e) => setPickCount(e.target.value)} aria-label="Questions" />
+            <label className="pb-timed"><input type="checkbox" checked={pickExam} disabled={!TIMED.includes(pickDrill)} onChange={(e) => setPickExam(e.target.checked)} /> Timed</label>
+            <input className="pb-date" type="date" value={pickDate} min={todayStr} max={maxStr} onChange={(e) => setPickDate(e.target.value)} aria-label="Date" />
+          </div>
+          <div className="pb-row">
+            <input className="pb-note" type="text" maxLength={60} value={pickNote} placeholder="Note (optional)" onChange={(e) => setPickNote(e.target.value)} />
+            <button className="ud-btn" onClick={add}>Add to plan</button>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule */}
+      {sessions.length === 0 ? (
+        <p className="ud-empty" style={{ paddingTop: 20 }}>No sessions yet. Auto-build a plan from your test date, or add your own sessions above.</p>
+      ) : (
+        <>
+          {grouped.map((g) => (
+            <div className="pl-group" key={g.key}>
+              <div className={`pl-ghead${g.key === "overdue" ? " over" : ""}`}>{g.label}<span>{g.items.length}</span></div>
+              {g.items.map(Row)}
+            </div>
+          ))}
+          {grouped.length === 0 && <p className="ud-empty" style={{ paddingTop: 16 }}>Everything is ticked off. {doneCount > 0 && "Nice work."}</p>}
+          {showDone && doneList.length > 0 && (
+            <div className="pl-group">
+              <div className="pl-ghead done">Completed<span>{doneList.length}</span></div>
+              {doneList.map(Row)}
+            </div>
+          )}
+        </>
+      )}
+      <div style={{ height: 50 }} />
+    </>
   );
 }
 
@@ -5906,6 +6155,17 @@ export default function UcatDrillTrainer() {
     setView("run");
   };
 
+  /* Manual done toggle for planner sessions. Completing a drill already
+     writes plan[cust:id]; this lets a student tick or untick one by hand. */
+  const setPlanDone = (key, val) => {
+    setPlan((p) => {
+      const n = { ...p };
+      if (val) n[key] = Date.now(); else delete n[key];
+      setJSON("ucat:plan", n);
+      return n;
+    });
+  };
+
   const activeMistakes = mistakes.filter((m) => m.misses > 0 || (m.dueTs && m.dueTs <= Date.now()));
   const nextPlanKey = PLAN_KEYS.find((k) => !plan[k]);
   const planNextName = nextPlanKey
@@ -6083,7 +6343,7 @@ export default function UcatDrillTrainer() {
       {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} email={account ? account.email : ""} /></>)}
       {view === "legal" && (<><Header /><LegalView account={account} prefs={prefs} setPrefs={setPrefs} onDeleteAccount={deleteAccount} /></>)}
       {view === "ps" && (<><Header /><PsBuilder unlocked={unlocked} onUnlock={() => setView("billing")} /></>)}
-      {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} prefs={prefs} setPrefs={setPrefs} /></>)}
+      {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} prefs={prefs} setPrefs={setPrefs} setPlanDone={setPlanDone} weak={weak} best={best} history={history} /></>)}
       {view === "progress" && !unlocked && (<><Header /><div className="ud-wrap"><div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>locked</span></div>
         <Locked onUnlock={() => setView("billing")} label="Progress tracking with access">
           <div className="ud-trend" style={{ padding: 20, minHeight: 200 }}><h3>Sparklines, weak tags and score history</h3>
@@ -6117,4 +6377,5 @@ export {
   makeTables, makeCalc, makeEstimate, makeQrSets, makeScan, makeTfc, makeSjt, makeDm, makeVenn,
   makeProb, makeLogic, makeInfer, makeWeakSpots, scoreEntry, snapAnswered, buildVrMock, buildQrMock, buildSjtMock, assessMed,
   predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ,
+  generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
 };

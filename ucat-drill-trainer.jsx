@@ -2268,6 +2268,27 @@ function diagnoseVR(log, exam, budget) {
   };
 }
 
+/* General timing-versus-accuracy read for any section, so every results
+   screen says what to do next: are you slow, inaccurate, both or neither. */
+function diagnoseTiming(log, budget, drill) {
+  const timed = log.filter((l) => l.ms > 0);
+  if (timed.length < 3) return null;
+  const med = median(timed.map((l) => l.ms)) / 1000;
+  const acc = log.reduce((a, l) => a + (l.correct ? 1 : 0), 0) / log.length;
+  const target = budget && budget > 0 ? budget : 40;
+  const slow = med > target * 0.95;
+  const accurate = acc >= 0.7;
+  const sec = drill.section;
+  const fix = sec === "QR" ? "the Estimation and calculator drills"
+    : sec === "SJT" ? "the SJT Learn page and a few more scenarios"
+    : "the core drills for this section";
+  const pctl = Math.round(acc * 100);
+  if (slow && accurate) return { tone: "time", title: "Right answers, slow clock.", body: `A median of ${med.toFixed(1)}s against a target near ${target}s. You know how to do these, so this is pure pace. Keep the accuracy and shave the time: run a set with a stricter clock and force a one-second estimate before you commit.` };
+  if (!slow && !accurate) return { tone: "acc", title: "Fast, but off target.", body: `On pace at ${med.toFixed(1)}s, but only ${pctl}% are landing. Slow down a touch and get the method right. Work through ${fix}, and check the reasoning on every wrong answer before you move on.` };
+  if (slow && !accurate) return { tone: "both", title: "Slow and inaccurate. Method first.", body: `${med.toFixed(1)}s at ${pctl}%. Take the clock off for a few sets and rebuild the technique with ${fix}, then bring the timer back once accuracy holds above 70%.` };
+  return { tone: "good", title: "Pace and accuracy both holding.", body: `${med.toFixed(1)}s at ${pctl}%. This is where you want to be. Move to a full mock and let the mistake bank chase the stragglers.` };
+}
+
 /* ------------------------------ RESULTS --------------------------- */
 
 const EST_SUB_OF = { qratio: "ratio", qgraph: "graph", qrate: "rate", qpct: "pct", qinfer: "infer", qunit: "unit" };
@@ -2364,7 +2385,7 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
           ); })()}
         </div>
       )}
-      {vrDiag && (
+      {vrDiag ? (
         <div className={`vr-diag ${vrDiag.tone}`}>
           <span className="k">Diagnosis</span>
           <h3>{vrDiag.title}</h3>
@@ -2372,7 +2393,16 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
           <ul>{vrDiag.todo.map((t, n) => <li key={n}>{t}</li>)}</ul>
           {onDiagDrill && <button className="ud-btn" onClick={() => onDiagDrill(vrDiag.drill)}>Start the {DRILL_BY_ID[vrDiag.drill].name} drill</button>}
         </div>
-      )}
+      ) : (() => {
+        const dg = diagnoseTiming(log, budget, drill);
+        return dg ? (
+          <div className={`vr-diag ${dg.tone}`}>
+            <span className="k">Diagnosis</span>
+            <h3>{dg.title}</h3>
+            <p>{dg.body}</p>
+          </div>
+        ) : null;
+      })()}
       <p className="ud-tip">{TIPS[drill.id] || TIPS.mistakes}</p>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button className="ud-btn" onClick={onAgain}>Try more questions of this type</button>
@@ -2538,7 +2568,7 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
                   <div className="ud-weak strong">{strongDrills.map((n) => <b key={n}>{n}</b>)}</div>
                 </>
               )}
-              {mistakesCount > 0 && <button className="ud-btn ghost" style={{ marginTop: 14 }} onClick={onMistakes}>Rematch {mistakesCount} mistake{mistakesCount === 1 ? "" : "s"}</button>}
+              {mistakesCount > 0 && <button className="ud-btn ghost" style={{ marginTop: 14 }} onClick={onMistakes}>Try {mistakesCount} more question{mistakesCount === 1 ? "" : "s"}</button>}
             </div>
           </div>
         </>
@@ -2764,59 +2794,69 @@ function PlanView({ unlocked, plan, onStart }) {
 
 /* ------------------------------ PROGRESS / MISTAKES --------------- */
 
+const PROG_SECTIONS = [
+  { key: "VR", label: "Verbal", color: "#F5A524" },
+  { key: "QR", label: "Quant", color: "#4C8DD1" },
+  { key: "SJT", label: "Situational", color: "#3ECF8E" },
+];
+
+function ScoreChart({ series }) {
+  const all = series.flatMap((s) => s.points);
+  const W = 640, H = 240, padL = 28, padR = 12, padT = 14, padB = 26;
+  const minT = Math.min(...all.map((p) => p.t)), maxT = Math.max(...all.map((p) => p.t));
+  const xOf = (t) => padL + (maxT === minT ? 0.5 : (t - minT) / (maxT - minT)) * (W - padL - padR);
+  const yOf = (v) => padT + (1 - Math.max(Math.min(v, 100), 0) / 100) * (H - padT - padB);
+  const fmtD = (t) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="score-chart" role="img" aria-label="Scores over time by section">
+      {[0, 25, 50, 75, 100].map((g) => (
+        <g key={g}>
+          <line x1={padL} y1={yOf(g)} x2={W - padR} y2={yOf(g)} stroke="var(--line)" strokeWidth="1" />
+          <text x={padL - 5} y={yOf(g) + 3} textAnchor="end" className="sc-axis">{g}</text>
+        </g>
+      ))}
+      <text x={padL} y={H - 6} textAnchor="start" className="sc-axis">{fmtD(minT)}</text>
+      <text x={W - padR} y={H - 6} textAnchor="end" className="sc-axis">{fmtD(maxT)}</text>
+      {series.map((s) => (
+        <g key={s.key}>
+          {s.points.length > 1 && <path d={s.points.map((p, i) => `${i === 0 ? "M" : "L"}${xOf(p.t).toFixed(1)},${yOf(p.pct).toFixed(1)}`).join(" ")} fill="none" stroke={s.color} strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" />}
+          {s.points.map((p, i) => <circle key={i} cx={xOf(p.t)} cy={yOf(p.pct)} r="3" fill={s.color} />)}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function ProgressView({ history, weak }) {
-  const byDrill = {};
-  history.forEach((h) => { (byDrill[h.drill] = byDrill[h.drill] || []).push(h); });
-  const ids = Object.keys(byDrill);
   const weakTop = Object.entries(weak).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 10);
   const [ivMarks, setIvMarks] = useState([]);
   useEffect(() => { getJSON("ucat:ivmarks", []).then((a) => setIvMarks(Array.isArray(a) ? a : [])); }, []);
   const ivRecent = ivMarks.slice(-12);
   const ivAvg = ivMarks.length ? (ivMarks.reduce((a, m) => a + (m.out10 || 0), 0) / ivMarks.length).toFixed(1) : null;
-  const [chart, setChart] = useState("bar");
 
-  const LineSpark = ({ pts, height = 90 }) => {
-    const n = pts.length;
-    if (n === 0) return null;
-    const coords = pts.map((p, i) => [n === 1 ? 50 : (i / (n - 1)) * 100, 100 - Math.max(Math.min(p, 100), 2)]);
-    const dPath = coords.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-    return (
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: "100%", height, display: "block" }}>
-        <path d={dPath} fill="none" stroke="var(--signal)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-        {coords.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="1.7" fill="var(--signal)" vectorEffect="non-scaling-stroke" />)}
-      </svg>
-    );
-  };
+  const series = PROG_SECTIONS.map((s) => ({
+    ...s,
+    points: history
+      .filter((h) => (DRILL_BY_ID[h.drill] || {}).section === s.key)
+      .map((h) => ({ t: h.ts, pct: h.pct }))
+      .sort((a, b) => a.t - b.t),
+  })).filter((s) => s.points.length);
 
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i />
-        <span className="ud-charttoggle">
-          <button className={chart === "bar" ? "on" : ""} onClick={() => setChart("bar")}>Bars</button>
-          <button className={chart === "line" ? "on" : ""} onClick={() => setChart("line")}>Line</button>
-        </span>
-      </div>
-      {ids.length === 0 && (
-        <p className="ud-empty">Nothing here yet. Finish a drill and your accuracy starts plotting from the next run. Green bars are timed runs.</p>
-      )}
-      {ids.map((id) => {
-        const runs = byDrill[id].slice(-12);
-        const d = DRILL_BY_ID[id] || { name: id };
-        const first = runs[0], last = runs[runs.length - 1];
-        const trend = runs.length > 1 ? last.pct - first.pct : null;
-        return (
-          <div className="ud-trend" key={id}>
-            <header>
-              <h3>{d.name}</h3>
-              <span className="sum">{runs.length} runs · latest {last.pct}% · median {fmt(last.med)}{trend !== null && ` · ${trend >= 0 ? "+" : ""}${trend} pts`}</span>
-            </header>
-            {chart === "bar"
-              ? <div className="ud-spark">{runs.map((r, i) => <div key={i} className={r.exam ? "exam" : ""} style={{ height: `${Math.max(r.pct, 3)}%` }} title={`${r.pct}%`} />)}</div>
-              : <LineSpark pts={runs.map((r) => r.pct)} />}
-            <div className="ud-axis"><span>oldest</span><span>latest</span></div>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>score over time</span></div>
+      {series.length === 0 ? (
+        <p className="ud-empty">Nothing here yet. Finish a drill and your scores start plotting from the next run, one coloured line per section.</p>
+      ) : (
+        <div className="ud-trend" style={{ padding: 18 }}>
+          <div className="sc-legend">
+            {series.map((s) => (
+              <span key={s.key} className="k"><i style={{ background: s.color }} />{s.label} <b>{s.points[s.points.length - 1].pct}%</b></span>
+            ))}
           </div>
-        );
-      })}
+          <ScoreChart series={series} />
+        </div>
+      )}
       {ivMarks.length > 0 && (<>
         <div className="ud-sec"><h2>Interview practice</h2><i /><span>{ivMarks.length} answers marked</span></div>
         <div className="ud-trend">
@@ -2848,7 +2888,7 @@ function MistakesView({ mistakes, active, onRetry, onClear }) {
       ) : (<>
         <p className="ud-learn-intro">Every question you got wrong, on a spaced schedule. Beat one and it returns in 3 days, then 7, then 21 before retiring. Miss it again at any point and the clock resets.</p>
         <div style={{ display: "flex", gap: 10, margin: "16px 0 6px" }}>
-          <button className="ud-btn" onClick={onRetry} disabled={active.length === 0}>Retry the {active.length} due now</button>
+          <button className="ud-btn" onClick={onRetry} disabled={active.length === 0}>Try {active.length} more questions</button>
           <button className="ud-btn ghost" onClick={onClear}>Clear the bank</button>
         </div>
         {active.map((m, i) => (

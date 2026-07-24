@@ -775,4 +775,12 @@ button.nav-row:hover { background:var(--signal)14; }
 .rev-a .corr { color:var(--go); }
 .rev-w { font-size:13px; color:var(--body); line-height:1.6; margin:0; }
 .rev-syl p { font-size:12.5px; color:var(--body); line-height:1.5; margin:4px 0; }
+
+/* Progress: overlapping score-over-time line chart */
+.score-chart { width:100%; height:auto; display:block; margin-top:6px; }
+.score-chart .sc-axis { font-family:'JetBrains Mono',monospace; font-size:9px; fill:var(--mute); }
+.sc-legend { display:flex; gap:18px; flex-wrap:wrap; margin-bottom:8px; font-size:12.5px; color:var(--body); }
+.sc-legend .k { display:inline-flex; align-items:center; gap:7px; }
+.sc-legend .k i { width:15px; height:3px; border-radius:2px; }
+.sc-legend .k b { color:var(--ink); }
 `;

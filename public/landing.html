@@ -12,7 +12,6 @@
 <meta property="og:title" content="Tempo — UCAT skills trainer" />
 <meta property="og:description" content="Original UCAT practice on a replica of the real exam screen, weekly mocks and interview prep. £25 once, not a subscription." />
 <style>
-* { margin: 0; padding: 0; }
   :root {
     --paper: #F1F4F9; --card: #FFFFFF; --card-2: #F7F9FC;
     --ink: #0E1B2A; --soft: #47596E; --faint: #6B7C90;
@@ -238,6 +237,10 @@
   .review .av { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 14px; flex: none; }
   .review .who b { font-size: 14px; display: block; }
   .review .who span { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .rev-clock { margin-top: 6px; }
+  .rev-clock .big { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(4.6rem, 14vw, 8.5rem); font-weight: 700; line-height: 0.95; letter-spacing: -0.05em; color: var(--ink); display: inline-flex; align-items: baseline; gap: 10px; }
+  .rev-clock .big .u { font-size: 0.26em; color: var(--soft); font-weight: 500; letter-spacing: 0; }
+  .rev-clock .cap { font-size: 15px; color: var(--soft); margin-top: 10px; }
 
   /* ---- interview speaker ---- */
   .speak-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; margin-top: 34px; }
@@ -353,7 +356,7 @@
 
   <div class="instrument" aria-hidden="true">
     <div class="clock-lab"><span>Section clock</span><span class="dot"><i></i>live</span></div>
-    <div class="clock"><span id="sec">22</span><span class="u">s</span></div>
+    <div class="clock"><span class="sectick">22</span><span class="u">s</span></div>
     <div class="clock-sub">seconds a question — the exam's real pace</div>
     <div class="track"><i id="bar"></i></div>
     <div class="ticks">
@@ -604,8 +607,8 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="kicker">Reviews</span>
-      <h2>Over 500 users.</h2>
-      <p>Content checked by doctors, dentists and medical students.</p>
+      <div class="rev-clock"><span class="big"><span class="sectick">22</span><span class="u">s</span></span><div class="cap">seconds a question — the clock every one of these students learned to beat</div></div>
+      <p style="margin-top:18px">Content checked by doctors, dentists and medical students.</p>
     </div>
   </div>
   <div class="marquee">
@@ -767,16 +770,18 @@
 <script>
   (function () {
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var secEl = document.getElementById("sec");
+    var ticks = document.querySelectorAll(".sectick");
     var barEl = document.getElementById("bar");
-    if (!secEl || !barEl || reduce) return;
+    if (!ticks.length || reduce) return;
     var total = 22, t = total;
     function step() {
       t -= 1;
       if (t < 0) t = total;
-      secEl.textContent = t;
-      barEl.style.transition = t === total ? "none" : "transform 1s linear";
-      barEl.style.transform = "scaleX(" + (t / total) + ")";
+      for (var i = 0; i < ticks.length; i++) ticks[i].textContent = t;
+      if (barEl) {
+        barEl.style.transition = t === total ? "none" : "transform 1s linear";
+        barEl.style.transform = "scaleX(" + (t / total) + ")";
+      }
     }
     setInterval(step, 1000);
   })();

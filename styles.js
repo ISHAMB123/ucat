@@ -800,4 +800,9 @@ button.nav-row:hover { background:var(--signal)14; }
 .cal-cell.lf { background:transparent; }
 .cal-legend { display:flex; align-items:center; gap:5px; margin-top:9px; font-size:10.5px; color:var(--mute); }
 .cal-legend i { width:12px; height:12px; border-radius:3px; }
+
+/* Home: hero beside the countdown and streak */
+.ud-herorow { display:grid; grid-template-columns:1.35fr 1fr; gap:22px; align-items:start; }
+.ud-herostreak { display:flex; flex-direction:column; gap:14px; }
+@media (max-width: 860px) { .ud-herorow { grid-template-columns:1fr; } }
 `;

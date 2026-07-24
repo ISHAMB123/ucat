@@ -2441,7 +2441,7 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
 
 /* ------------------------------ HOME ------------------------------ */
 
-function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onLearnSjt, onGoto, planNext }) {
+function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onLearnSjt, onGoto, planNext }) {
   const bestBars = Object.entries(best || {}).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const weakTop = Object.entries(weak || {}).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 6);
   const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
@@ -2494,24 +2494,28 @@ function Home({ unlocked, best, weak, prefs, setPrefs, onStart, onUnlock, mistak
 
   return (
     <div className="ud-wrap">
-      <div className="ud-hero">
-        <div className="ud-eyebrow">VR · QR · SJT · The training layer</div>
-        <h1 className="ud-h1">Your question bank shows the score. This fixes <em>why</em>.</h1>
-        <p className="ud-lede">
-          Tempo runs beside whichever question bank you already use, it does not replace one. Banks give you volume;
-          this builds what sits underneath: recall speed, estimation, scanning, pacing, logic patterns and professional
-          judgement. Every answer comes with its reasoning, every mistake follows you until you beat it, and the
-          weekly mocks tell you honestly where you stand.
-        </p>
-        <div className="ud-stats">
-          <div className="ud-stat"><b className="mono">602</b><span>Mean VR 2025</span></div>
-          <div className="ud-stat"><b className="mono">661</b><span>Mean QR 2025</span></div>
-          <div className="ud-stat"><b className="mono">1-4</b><span>SJT bands</span></div>
-          <div className="ud-stat"><b className="mono">6</b><span>Week plan</span></div>
+      <div className="ud-herorow">
+        <div className="ud-hero">
+          <div className="ud-eyebrow">VR · QR · SJT · The training layer</div>
+          <h1 className="ud-h1">Your question bank shows the score. This fixes <em>why</em>.</h1>
+          <p className="ud-lede">
+            Tempo runs beside whichever question bank you already use, it does not replace one. Banks give you volume;
+            this builds what sits underneath: recall speed, estimation, scanning, pacing, logic patterns and professional
+            judgement. Every answer comes with its reasoning, every mistake follows you until you beat it, and the
+            weekly mocks tell you honestly where you stand.
+          </p>
+          <div className="ud-stats">
+            <div className="ud-stat"><b className="mono">602</b><span>Mean VR 2025</span></div>
+            <div className="ud-stat"><b className="mono">661</b><span>Mean QR 2025</span></div>
+            <div className="ud-stat"><b className="mono">1-4</b><span>SJT bands</span></div>
+            <div className="ud-stat"><b className="mono">6</b><span>Week plan</span></div>
+          </div>
+        </div>
+        <div className="ud-herostreak">
+          <CountdownStrip prefs={prefs} setPrefs={setPrefs} />
+          <StreakCalendar history={history || []} weeks={17} />
         </div>
       </div>
-
-      <CountdownStrip prefs={prefs} setPrefs={setPrefs} />
 
       <div className="ud-today">
         <button className="ud-tcard" onClick={() => onGoto("plan")}>
@@ -2827,7 +2831,7 @@ function ScoreChart({ series }) {
   );
 }
 
-function StreakCalendar({ history }) {
+function StreakCalendar({ history, weeks: WEEKS = 26 }) {
   const key = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   const counts = {};
   history.forEach((h) => { const k = key(new Date(h.ts)); counts[k] = (counts[k] || 0) + 1; });
@@ -2842,7 +2846,6 @@ function StreakCalendar({ history }) {
     ts.forEach((t) => { run = (prev !== null && t - prev === 86400000) ? run + 1 : 1; longest = Math.max(longest, run); prev = t; }); }
   const activeDays = active.size;
 
-  const WEEKS = 26;
   const gridEnd = new Date(today); gridEnd.setDate(gridEnd.getDate() + (6 - ((gridEnd.getDay() + 6) % 7)));
   const cells = [];
   for (let i = WEEKS * 7 - 1; i >= 0; i--) { const d = new Date(gridEnd); d.setDate(gridEnd.getDate() - i); cells.push({ future: d > today, count: counts[key(d)] || 0, d }); }
@@ -2889,9 +2892,7 @@ function ProgressView({ history, weak }) {
 
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Streak</h2><i /><span>keep the run going</span></div>
-      <StreakCalendar history={history} />
-      <div className="ud-sec"><h2>Progress</h2><i /><span>score over time</span></div>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>score over time</span></div>
       {series.length === 0 ? (
         <p className="ud-empty">Nothing here yet. Finish a drill and your scores start plotting from the next run, one coloured line per section.</p>
       ) : (
@@ -5553,7 +5554,7 @@ export default function UcatDrillTrainer() {
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
-      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
+      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
       {view === "sjtlearn" && (<><Header /><SjtLearn onBack={() => setView("drills")} onPractice={() => start(DRILL_BY_ID.sjt, prefs.exam, Math.min(prefs.count, 25), null, null, null)} /></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}

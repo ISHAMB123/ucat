@@ -832,4 +832,23 @@ button.nav-row:hover { background:var(--signal)14; }
   .ud-side-nav .dot { right:6px; top:6px; transform:none; }
   .ud-side-foot { flex-direction:column; }
 }
+
+/* ---- Learn overview: subtest cards then technique detail ---- */
+.learn-grid { display:grid; grid-template-columns:1fr; gap:12px; margin:20px 0 34px; }
+.learn-card { display:flex; align-items:center; gap:18px; text-align:left; width:100%; padding:20px 22px; background:var(--card); border:1px solid var(--line); border-radius:5px; cursor:pointer; transition:border-color .15s, transform .12s, box-shadow .15s; }
+.learn-card:hover { border-color:var(--signal); transform:translateY(-2px); box-shadow:0 6px 22px -14px rgba(0,0,0,.5); }
+.learn-ico { flex:none; width:56px; height:56px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--signal) 14%, transparent); color:var(--signal); }
+.learn-ico svg { width:30px; height:30px; }
+.learn-body { flex:1; min-width:0; display:flex; flex-direction:column; gap:7px; }
+.learn-title { font-family:var(--display); font-weight:700; font-size:18px; color:var(--paper); letter-spacing:-.01em; }
+.learn-blurb { font-size:13px; line-height:1.55; color:var(--body); }
+.learn-bar { display:block; height:5px; border-radius:3px; background:var(--paperline); overflow:hidden; margin-top:3px; }
+.learn-bar i { display:block; height:100%; background:var(--signal); border-radius:3px; transition:width .4s; }
+.learn-meta { display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--mute); }
+.learn-back { display:inline-flex; align-items:center; gap:6px; margin:26px 0 16px; padding:7px 12px; background:none; border:1px solid var(--line); border-radius:4px; color:var(--body); font-size:12.5px; cursor:pointer; transition:border-color .15s, color .15s; }
+.learn-back:hover { border-color:var(--signal); color:var(--paper); }
+.learn-detailhead { display:flex; align-items:center; gap:16px; margin-bottom:6px; }
+.learn-detailhead h2 { margin:0; }
+.learn-count { font-family:var(--mono); font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--mute); }
+@media (min-width:640px) { .learn-grid { grid-template-columns:repeat(3,1fr); } .learn-card { flex-direction:column; align-items:flex-start; text-align:left; } }
 `;

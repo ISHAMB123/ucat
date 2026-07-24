@@ -2494,8 +2494,8 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
 /* ------------------------------ HOME ------------------------------ */
 
 function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext }) {
-  const bestBars = Object.entries(best || {}).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const weakTop = Object.entries(weak || {}).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 6);
+  const bestBars = Object.entries(best || {}).filter(([id]) => DRILL_BY_ID[id]).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const weakTop = Object.entries(weak || {}).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
@@ -2764,45 +2764,93 @@ function UcatFacts() {
   );
 }
 
-function LearnView({ unlocked, onStart, onUnlock }) {
+/* Average best score across the drills that belong to one subtest, for
+   the overview progress bars. Returns null when nothing has been sat yet
+   so the card can show "Not started" rather than a misleading 0%. */
+function subtestProgress(section, best) {
+  const ids = DRILLS.filter((d) => d.section === section).map((d) => d.id);
+  const scored = ids.map((id) => best && best[id] && best[id].pct).filter((p) => typeof p === "number");
+  if (!scored.length) return null;
+  return Math.round(scored.reduce((a, b) => a + b, 0) / scored.length);
+}
+
+function LearnView({ unlocked, best, onStart, onUnlock }) {
+  const [open, setOpen] = useState(null);
+  const sec = open ? LEARN.find((s) => s.id === open) : null;
+
+  if (sec) {
+    return (
+      <div className="ud-wrap">
+        <button className="learn-back" onClick={() => setOpen(null)}>
+          <svg {...svgProps} width="15" height="15"><path d="M15 18l-6-6 6-6" /></svg>
+          All subtests
+        </button>
+        <div className="learn-detailhead">
+          <span className="learn-ico" data-sec={sec.id}>{SUBTEST_ICON[sec.id]}</span>
+          <div>
+            <h2>{sec.title}</h2>
+            <span className="learn-count">{sec.cards.length + (sec.extra ? sec.extra.length : 0)} techniques</span>
+          </div>
+        </div>
+        <p className="ud-learn-intro">{sec.intro}</p>
+        <div className="ud-lgrid">
+          {sec.cards.map((c, n) => (
+            <div className="ud-lcard" key={n}>
+              <h4>{c.h}</h4>
+              {unlocked ? <p>{c.p}</p> : (
+                <Locked onUnlock={onUnlock} label="Full technique with access">
+                  <p>{c.p}</p>
+                </Locked>
+              )}
+              {c.drill && (
+                <button
+                  onClick={() => onStart(DRILL_BY_ID[c.drill], false, DRILL_BY_ID[c.drill].def, null, c.sub || null, c.theme || null)}
+                  disabled={!unlocked && !DRILL_BY_ID[c.drill].free}
+                >
+                  {!unlocked && !DRILL_BY_ID[c.drill].free ? "LOCKED" : "DRILL THIS"}
+                </button>
+              )}
+            </div>
+          ))}
+          {sec.extra && sec.extra.map((c, n) => (
+            <div className="ud-lcard" key={"x" + n}>
+              <h4>{c.h}</h4>
+              {unlocked ? <p>{c.p}</p> : (
+                <Locked onUnlock={onUnlock} label="Full technique with access"><p>{c.p}</p></Locked>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{ height: 50 }} />
+      </div>
+    );
+  }
+
   return (
     <div className="ud-wrap">
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Learn the method</h2><i /><span>3 subtests</span></div>
+      <p className="ud-learn-intro">Pick a subtest to see the techniques that actually move the score. Everything here is original method, written for this exam, not lifted from a bank.</p>
+      <div className="learn-grid">
+        {LEARN.map((s) => {
+          const pct = subtestProgress(s.id.toUpperCase(), best);
+          const topics = s.cards.length + (s.extra ? s.extra.length : 0);
+          return (
+            <button className="learn-card" key={s.id} onClick={() => setOpen(s.id)}>
+              <span className="learn-ico" data-sec={s.id}>{SUBTEST_ICON[s.id]}</span>
+              <span className="learn-body">
+                <span className="learn-title">{s.title}</span>
+                <span className="learn-blurb">{SUBTEST_BLURB[s.id]}</span>
+                <span className="learn-bar"><i style={{ width: (pct || 0) + "%" }} /></span>
+                <span className="learn-meta">
+                  <span>{pct == null ? "Not started" : `Best ${pct}%`}</span>
+                  <span>{topics} techniques →</span>
+                </span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
       <UcatFacts />
-      {LEARN.map((sec) => (
-        <React.Fragment key={sec.id}>
-          <div className="ud-sec" style={{ paddingTop: 32 }}><h2>{sec.title}</h2><i /><span>{sec.cards.length + (sec.extra ? sec.extra.length : 0)} topics</span></div>
-          <p className="ud-learn-intro">{sec.intro}</p>
-          <div className="ud-lgrid">
-            {sec.cards.map((c, n) => (
-              <div className="ud-lcard" key={n}>
-                <h4>{c.h}</h4>
-                {unlocked ? <p>{c.p}</p> : (
-                  <Locked onUnlock={onUnlock} label="Full technique with access">
-                    <p>{c.p}</p>
-                  </Locked>
-                )}
-                {c.drill && (
-                  <button
-                    onClick={() => onStart(DRILL_BY_ID[c.drill], false, DRILL_BY_ID[c.drill].def, null, c.sub || null, c.theme || null)}
-                    disabled={!unlocked && !DRILL_BY_ID[c.drill].free}
-                  >
-                    {!unlocked && !DRILL_BY_ID[c.drill].free ? "LOCKED" : "DRILL THIS"}
-                  </button>
-                )}
-              </div>
-            ))}
-            {sec.extra && sec.extra.map((c, n) => (
-              <div className="ud-lcard" key={"x" + n}>
-                <h4>{c.h}</h4>
-                {unlocked ? <p>{c.p}</p> : (
-                  <Locked onUnlock={onUnlock} label="Full technique with access"><p>{c.p}</p></Locked>
-                )}
-              </div>
-            ))}
-          </div>
-        </React.Fragment>
-      ))}
-
       <div style={{ height: 50 }} />
     </div>
   );
@@ -2941,7 +2989,7 @@ function StreakCalendar({ history, weeks: WEEKS = 26 }) {
 }
 
 function ProgressView({ history, weak }) {
-  const weakTop = Object.entries(weak).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, 10);
+  const weakTop = Object.entries(weak).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const [ivMarks, setIvMarks] = useState([]);
   useEffect(() => { getJSON("ucat:ivmarks", []).then((a) => setIvMarks(Array.isArray(a) ? a : [])); }, []);
   const ivRecent = ivMarks.slice(-12);
@@ -5349,6 +5397,11 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
 
 /* ------------------------------ APP ------------------------------- */
 
+/* Decision Making was removed; its old weakness tags may still sit in a
+   returning user's saved data, so exclude them from every progress view. */
+const REMOVED_TAGS = new Set(["dsyll", "dvenn", "dprob", "dlogic"]);
+const liveTag = (t) => !REMOVED_TAGS.has(t);
+
 const MISTAKE_DRILL = { id: "mistakes", section: "MIX", name: "Mistake rematch", budget: 30 };
 const WEAKSPOTS_DRILL = { id: "weakspots", section: "MIX", name: "Fix my weak spots", budget: 40 };
 
@@ -5367,6 +5420,23 @@ const NAV_ICON = {
   mistakes: (<svg {...svgProps}><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5" /></svg>),
   legal: (<svg {...svgProps}><path d="M12 2 4 5v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V5z" /></svg>),
   billing: (<svg {...svgProps}><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2 20 3M16 5l3 3M14 7l3 3" /></svg>),
+};
+
+/* Original subtest icons for the Learn overview. Drawn here rather than
+   borrowed from any bank: an open book (VR), a rising bar chart (QR) and
+   a balance beam (SJT). Thicker stroke so they read at circle size. */
+const learnIco = { ...svgProps, strokeWidth: 1.7 };
+const SUBTEST_ICON = {
+  vr: (<svg {...learnIco}><path d="M12 6c-1.8-1.2-4.2-1.8-7-1.5v12c2.8-.3 5.2.3 7 1.5 1.8-1.2 4.2-1.8 7-1.5v-12c-2.8-.3-5.2.3-7 1.5z" /><path d="M12 6v12" /><path d="M7.5 9h1.5M7.5 12h1.5M15 9h1.5M15 12h1.5" /></svg>),
+  qr: (<svg {...learnIco}><path d="M4 20h16" /><rect x="5" y="13" width="3.4" height="5" rx="0.5" /><rect x="10.3" y="9" width="3.4" height="9" rx="0.5" /><rect x="15.6" y="5" width="3.4" height="13" rx="0.5" /></svg>),
+  sjt: (<svg {...learnIco}><path d="M12 4v15" /><path d="M7 19h10" /><path d="M5 7h14" /><path d="M8 4.5 5 7l-2.3 4c1.5 1.3 3.1 1.3 4.6 0z" /><path d="M16 4.5 19 7l2.3 4c-1.5 1.3-3.1 1.3-4.6 0z" /></svg>),
+};
+
+/* One honest line per subtest for the overview cards. */
+const SUBTEST_BLURB = {
+  vr: "The weakest subtest nationally, so the cheapest marks. Learn to search a passage instead of reading it.",
+  qr: "Arithmetic under time pressure, not maths. Estimation beats the on-screen calculator on nearly every question.",
+  sjt: "Feels subjective, is not. A panel applies fixed professional standards, and those standards can be learned.",
 };
 
 /* First-payment walkthrough of the main features, shown once after
@@ -5664,7 +5734,7 @@ export default function UcatDrillTrainer() {
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
       {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
       {view === "sjtlearn" && (<><Header /><SjtLearn onBack={() => setView("drills")} onPractice={() => start(DRILL_BY_ID.sjt, prefs.exam, Math.min(prefs.count, 25), null, null, null)} /></>)}
-      {view === "learn" && (<><Header /><LearnView unlocked={unlocked} onStart={start} onUnlock={() => setView("billing")} /></>)}
+      {view === "learn" && (<><Header /><LearnView unlocked={unlocked} best={best} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}
       {view === "interview" && (<><Header />{unlocked ? <InterviewView track={prefs.track || "dent"} onSwitch={(t) => setPrefs({ ...prefs, track: t })} />
         : <div className="ud-wrap"><div className="ud-sec" style={{ paddingTop: 32 }}><h2>Interview preparation</h2><i /><span>locked</span></div>

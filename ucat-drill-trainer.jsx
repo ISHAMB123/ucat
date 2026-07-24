@@ -1714,6 +1714,31 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  /* Keyboard for the standard drill runner only: press the letter of the
+     option you want (A, B, C ...) to pick and submit it, and Enter to move
+     to the next question from the feedback screen. The exam skin and
+     typed inputs keep their own key handling. */
+  useEffect(() => {
+    if (examSkin) return;
+    const onKey = (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const tag = ((e.target && e.target.tagName) || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (gated) return;
+      if (phase === "answer" && (q.kind === "mcq" || q.kind === "scale")) {
+        const idx = e.key.length === 1 ? e.key.toLowerCase().charCodeAt(0) - 97 : -1;
+        if (idx >= 0 && idx < q.options.length) {
+          e.preventDefault();
+          record(q.kind === "mcq" ? q.options[idx] : idx);
+          return;
+        }
+      }
+      if (e.key === "Enter" && phase === "review") { e.preventDefault(); advance(log); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const stars = ["★", "✦", "★", "✧", "★"];
 
   if (examSkin) {
@@ -1934,10 +1959,14 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
       <ExitGuard open={confirmExit} onStay={() => setConfirmExit(false)} onLeave={onQuit} />
       <div className="ud-runbar">
         <BrandMark onClick={() => setConfirmExit(true)} />
-        <div className={`ud-clock mono${exam && frac < 0.25 ? " warn" : ""}`}>
-          {exam ? `${Math.max(left / 1000, 0).toFixed(1)}s` : fmt(elapsed)}
-        </div>
-        {exam && <span className="ud-examflag">TIMED</span>}
+        {exam ? (
+          <>
+            <div className={`ud-clock mono${frac < 0.25 ? " warn" : ""}`}>{Math.max(left / 1000, 0).toFixed(1)}s</div>
+            <span className="ud-examflag">TIMED</span>
+          </>
+        ) : (
+          <span className="ud-examflag calm">UNTIMED</span>
+        )}
         <div className="ud-prog"><i style={{ width: `${(i / questions.length) * 100}%` }} /></div>
         <span className="mono" style={{ fontSize: 12, color: "var(--mute)" }}>{i + 1}/{questions.length}</span>
         <button className="ud-quit" onClick={() => setConfirmExit(true)}>End</button>
@@ -2068,11 +2097,14 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
           )}
 
           {phase !== "review" && (q.kind === "scale" || q.kind === "mcq") && (
-            q.options.map((o, n) => (
-              <button key={n} className="ud-opt" onClick={() => record(q.kind === "mcq" ? o : n)} disabled={phase !== "answer"}>
-                <b>{String.fromCharCode(65 + n)}</b>{o}
-              </button>
-            ))
+            <>
+              {q.options.map((o, n) => (
+                <button key={n} className="ud-opt" onClick={() => record(q.kind === "mcq" ? o : n)} disabled={phase !== "answer"}>
+                  <b>{String.fromCharCode(65 + n)}</b>{o}
+                </button>
+              ))}
+              <p className="ud-hint kbd">Tip: press a letter key to answer, Enter for the next question.</p>
+            </>
           )}
 
           {phase !== "review" && q.kind === "typed" && (
@@ -2507,7 +2539,7 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
     ["SJT", "Situational Judgement", "banded separately, learnable"],
   ];
 
-  const tryCode = () => { if (code.trim().toUpperCase() === "UCAT25") { setErr(""); onUnlock(); } else setErr("That code isn't recognised."); };
+  const tryCode = () => { if (code.trim().toUpperCase() === ACCESS_CODE) { setErr(""); onUnlock(); } else setErr("That code isn't recognised."); };
 
   const sjtThemes = [...new Set(SJT_SCENARIOS.map((s) => s.theme))];
 
@@ -2721,8 +2753,8 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
       {!unlocked && (
         <div className="ud-price">
           <div>
-            <h3>£25, once</h3>
-            <p>Every drill, the Learn pages, the weekly VR and QR mocks with leaderboards, the six week plan, the spaced mistake bank, and timed mode with extra time options. Built to run alongside whichever question bank you use. No subscription, nothing to cancel. Times tables stays free either way.</p>
+            <h3>{saleLive() ? `${SALE_PRICE}, once` : `${FULL_PRICE}, once`}</h3>
+            <p>{saleLive() ? `Launch price of ${SALE_PRICE} until ${SALE_ENDS_LABEL}, then ${FULL_PRICE}. ` : ""}Every drill, the Learn pages, the weekly VR and QR mocks with leaderboards, the six week plan, the spaced mistake bank, and timed mode with extra time options. Built to run alongside whichever question bank you use. No subscription, nothing to cancel. Times tables stays free either way.</p>
             <div className="ud-code">
               <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryCode()} placeholder="Access code" aria-label="Access code" />
               <button className="ud-btn ghost" onClick={tryCode}>Redeem</button>
@@ -2875,6 +2907,9 @@ function PlanView({ unlocked, plan, onStart }) {
     const week = PLAN.find((x) => x.week === w);
     nextInfo = { week, day: week.days[d - 1], w, d, key: nextKey };
   }
+  /* One week open at a time so the whole plan stays compact. Default to
+     the week that holds the next unfinished session. */
+  const [openWeek, setOpenWeek] = useState(nextInfo ? nextInfo.w : 1);
   return (
     <div className="ud-wrap">
       <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Six week plan</h2><i /><span>{doneCount}/{PLAN_KEYS.length} sessions done</span></div>
@@ -2893,24 +2928,38 @@ function PlanView({ unlocked, plan, onStart }) {
       ) : (
         <div className="ud-nextup"><div><h3>Plan complete</h3><p>Keep running timed blocks until test day.</p></div></div>
       )}
-      {PLAN.map((w) => (
-        <div className="ud-week" key={w.week}>
-          <div className="ud-weekhead"><span>Week {w.week}</span><b>{w.theme}</b><p>{w.note}</p></div>
-          {w.days.map((d, i) => {
-            const key = `w${w.week}d${i + 1}`;
-            const dr = DRILL_BY_ID[d.drill];
-            const locked = !unlocked && !dr.free;
-            return (
-              <button key={key} className="ud-day" disabled={locked} onClick={() => onStart(dr, d.exam, dr.def, key, null, null)}>
-                <span className={`ud-tick${plan[key] ? " done" : ""}`}>{plan[key] ? "✓" : ""}</span>
-                <span className="n">Day {i + 1}</span>
-                <span className="nm">{dr.name}</span>
-                <span className="meta">{locked ? "locked" : d.exam ? "timed" : "untimed"}</span>
-              </button>
-            );
-          })}
-        </div>
-      ))}
+      {PLAN.map((w) => {
+        const open = openWeek === w.week;
+        const wdone = w.days.filter((_, i) => plan[`w${w.week}d${i + 1}`]).length;
+        return (
+          <div className={`ud-week${open ? " open" : ""}`} key={w.week}>
+            <button className="ud-weekhead" onClick={() => setOpenWeek(open ? null : w.week)} aria-expanded={open}>
+              <span className="wk">Week {w.week}</span>
+              <b>{w.theme}</b>
+              <span className="wk-meta mono">{wdone}/{w.days.length}</span>
+              <span className="wk-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
+            </button>
+            {open && (
+              <div className="ud-weekbody">
+                <p className="wk-note">{w.note}</p>
+                {w.days.map((d, i) => {
+                  const key = `w${w.week}d${i + 1}`;
+                  const dr = DRILL_BY_ID[d.drill];
+                  const locked = !unlocked && !dr.free;
+                  return (
+                    <button key={key} className="ud-day" disabled={locked} onClick={() => onStart(dr, d.exam, dr.def, key, null, null)}>
+                      <span className={`ud-tick${plan[key] ? " done" : ""}`}>{plan[key] ? "✓" : ""}</span>
+                      <span className="n">Day {i + 1}</span>
+                      <span className="nm">{dr.name}</span>
+                      <span className="meta">{locked ? "locked" : d.exam ? "timed" : "untimed"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
       <div style={{ height: 50 }} />
     </div>
   );
@@ -4942,7 +4991,14 @@ function LegalView({ account, prefs, setPrefs, onDeleteAccount }) {
    https://buy.stripe.com/xxxxx) and checkout goes live with no code
    change. Empty means checkout is not connected yet. */
 const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || "";
-const PRICE = "£25";
+/* Launch sale: £25 until 18 August, then the standard £39. The code
+   UCAT18 unlocks during the launch. saleLive() is date driven so the
+   copy and price switch on their own when the sale ends. */
+const FULL_PRICE = "£39";
+const SALE_PRICE = "£25";
+const ACCESS_CODE = "UCAT18";
+const SALE_ENDS_LABEL = "18 August";
+const saleLive = () => Date.now() < new Date("2026-08-19T00:00:00").getTime();
 const PRICE_NOTE = "one payment, no subscription, no renewal";
 
 const PLAN_INCLUDES = [
@@ -5127,12 +5183,12 @@ function BillingView({ unlocked, onUnlock, email }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const tryCode = () => {
-    if (code.trim().toUpperCase() === "UCAT25") { setErr(""); onUnlock(); }
+    if (code.trim().toUpperCase() === ACCESS_CODE) { setErr(""); onUnlock(); }
     else setErr("That code is not recognised.");
   };
   const checkout = () => {
     if (STRIPE_LINK) window.open(STRIPE_LINK, "_blank", "noopener");
-    else setErr("Checkout is not connected yet. Use the access code UCAT25 to unlock everything for now.");
+    else setErr(`Checkout is not connected yet. Use the access code ${ACCESS_CODE} to unlock everything for now.`);
   };
 
   return (
@@ -5163,8 +5219,11 @@ function BillingView({ unlocked, onUnlock, email }) {
 
           <div className="bill-card feature">
             <span className="tag on">Full season</span>
-            <p className="price"><b>{PRICE}</b><em>once</em></p>
-            <p className="sub">{PRICE_NOTE}</p>
+            <p className="price">
+              <b>{saleLive() ? SALE_PRICE : FULL_PRICE}</b><em>once</em>
+              {saleLive() && <s className="was">{FULL_PRICE}</s>}
+            </p>
+            <p className="sub">{saleLive() ? `Launch price until ${SALE_ENDS_LABEL}, then ${FULL_PRICE}` : PRICE_NOTE}</p>
             <ul>{PLAN_INCLUDES.map((x) => <li key={x}>{x}</li>)}</ul>
             <button className="ud-btn full" onClick={checkout}>Unlock everything</button>
             <div className="bill-code">
@@ -5370,6 +5429,24 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
             ? "Leaderboard names and scores are visible to everyone using this app, so use initials or a nickname if you prefer. Boards are per mock, per week."
             : "Leaderboards are saved on this device only for now, so you are comparing against your own attempts. A shared board across everyone sitting the mock arrives once accounts are connected. Boards are per mock, per week."}
         </p>
+
+        <div className="mock-official">
+          <div className="mo-head">
+            <h3>Sit the official UCAT mocks too</h3>
+            <p>Our weekly mocks build pace and technique. Before test day, always do the real thing at least once: the official practice tests run on the exact Pearson VUE interface you sit on the day, so nothing about the screen surprises you.</p>
+          </div>
+          <div className="mo-links">
+            <a className="mo-link" href="https://www.ucat.ac.uk/preparation/practice-tests/" target="_blank" rel="noopener noreferrer">
+              <b>Official UCAT practice tests →</b>
+              <span>Free full mocks and question banks on the official UCAT site, in the real exam interface.</span>
+            </a>
+            <a className="mo-link" href="https://www.ucat.ac.uk/ucat/preparation/" target="_blank" rel="noopener noreferrer">
+              <b>UCAT preparation hub →</b>
+              <span>The official preparation guide, tutorials and the on-screen calculator practice.</span>
+            </a>
+          </div>
+          <p className="mo-foot">External links to ucat.ac.uk. We are independent and not affiliated with the UCAT Consortium. Always confirm details on the official site.</p>
+        </div>
       </div>
     );
   }

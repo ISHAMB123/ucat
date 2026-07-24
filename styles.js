@@ -98,10 +98,14 @@ export const CSS = `
 .ud-nextup h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:21px; margin:6px 0 4px; letter-spacing:-0.02em; }
 .ud-nextup p { margin:0; color:var(--mute); font-size:13px; }
 .ud-week { border:1px solid var(--line); border-radius:3px; margin-top:12px; overflow:hidden; }
-.ud-weekhead { padding:14px 17px; background:var(--slate); display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
-.ud-weekhead b { font-family:'Bricolage Grotesque',sans-serif; font-size:15.5px; }
-.ud-weekhead span { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--signal); letter-spacing:0.14em; text-transform:uppercase; }
-.ud-weekhead p { width:100%; margin:4px 0 0; font-size:12.5px; color:var(--mute); line-height:1.5; }
+.ud-weekhead { padding:14px 17px; background:var(--slate); display:flex; gap:12px; align-items:center; width:100%; text-align:left; color:inherit; cursor:pointer; border:none; }
+.ud-weekhead:hover { background:color-mix(in srgb, var(--signal) 8%, var(--slate)); }
+.ud-weekhead b { font-family:'Bricolage Grotesque',sans-serif; font-size:15.5px; flex:1; }
+.ud-weekhead .wk { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--signal); letter-spacing:0.14em; text-transform:uppercase; flex:none; }
+.ud-weekhead .wk-meta { color:var(--mute); font-size:11px; flex:none; }
+.ud-weekhead .wk-chev { color:var(--mute); font-size:12px; flex:none; }
+.ud-week.open .ud-weekhead { border-bottom:1px solid var(--line); }
+.ud-weekbody .wk-note { margin:0; padding:12px 17px 4px; font-size:12.5px; color:var(--mute); line-height:1.5; }
 .ud-day { display:flex; align-items:center; gap:13px; padding:11px 17px; border-top:1px solid var(--line); width:100%; background:transparent; color:inherit; text-align:left; }
 .ud-day:hover:not(:disabled) { background:var(--slate); }
 .ud-day .n { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--mute); width:38px; flex-shrink:0; }
@@ -882,4 +886,21 @@ button.nav-row:hover { background:var(--signal)14; }
 .fit-warn { border-left:3px solid var(--signal); background:color-mix(in srgb, var(--signal) 9%, transparent); }
 .fit-stop { border-left:3px solid var(--stop); background:color-mix(in srgb, var(--stop) 9%, transparent); }
 .uni-subjflag { margin:6px 0 0; padding:8px 11px; font-size:12.5px; line-height:1.55; color:var(--paper); background:color-mix(in srgb, var(--stop) 10%, transparent); border-left:3px solid var(--stop); border-radius:4px; }
+
+/* Launch-sale struck price, untimed badge, keyboard hint */
+.price .was, .bill-card .price .was { font-family:'JetBrains Mono',monospace; font-size:15px; color:var(--mute); text-decoration:line-through; margin-left:10px; -webkit-text-decoration:line-through; }
+.ud-examflag.calm { color:var(--mute); border-color:var(--line); }
+.ud-hint.kbd { margin-top:12px; font-size:11.5px; color:var(--mute); font-style:italic; }
+
+/* Official-mocks panel in the mock centre */
+.mock-official { margin-top:26px; border:1px solid var(--line); border-radius:5px; padding:20px; background:var(--slate); }
+.mock-official .mo-head h3 { margin:0 0 6px; font-family:'Bricolage Grotesque',sans-serif; font-size:17px; letter-spacing:-0.01em; }
+.mock-official .mo-head p { margin:0; font-size:13px; line-height:1.6; color:var(--body); }
+.mo-links { display:grid; grid-template-columns:1fr; gap:10px; margin:16px 0 12px; }
+.mo-link { display:block; padding:13px 15px; border:1px solid var(--line); border-radius:4px; background:var(--card); text-decoration:none; color:inherit; transition:border-color .15s, transform .12s; }
+.mo-link:hover { border-color:var(--signal); transform:translateY(-1px); }
+.mo-link b { display:block; font-size:13.5px; color:var(--signal); margin-bottom:3px; }
+.mo-link span { display:block; font-size:12.5px; color:var(--body); line-height:1.5; }
+.mo-foot { margin:0; font-size:11px; color:var(--mute); line-height:1.5; }
+@media (min-width:640px) { .mo-links { grid-template-columns:1fr 1fr; } }
 `;

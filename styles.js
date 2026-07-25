@@ -832,6 +832,9 @@ button.nav-row:hover { background:var(--signal)14; }
 .ud-side-nav .dot { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:7px; height:7px; border-radius:50%; background:var(--stop); }
 .ud-side-foot { border-top:1px solid var(--line); padding-top:12px; margin-top:10px; display:flex; align-items:center; gap:8px; }
 .ud-side-foot .ud-badge { flex:1; text-align:center; padding:7px 6px; }
+.ud-signout:hover { color:var(--stop); border-color:var(--stop); }
+.bill-acct { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-top:22px; padding:16px 18px; border:1px solid var(--line); border-radius:4px; background:var(--slate); font-size:13.5px; color:var(--body); }
+.bill-acct b { color:var(--paper); }
 @media (max-width:820px) {
   .ud-hasside { padding-left:60px; }
   .ud-side { width:60px; padding:14px 8px; align-items:center; }

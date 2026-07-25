@@ -6346,7 +6346,7 @@ function AuthScreen({ onAuthed, onSkip }) {
   );
 }
 
-function BillingView({ unlocked, onUnlock, email }) {
+function BillingView({ unlocked, onUnlock, email, onSignOut }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const tryCode = () => {
@@ -6410,6 +6410,13 @@ function BillingView({ unlocked, onUnlock, email }) {
         <div><b>Is this a replacement for a question bank?</b><p>No, and it is not sold as one. Banks give you volume. This builds the underlying speed, technique and judgement, and tells you why each answer was wrong.</p></div>
         <div><b>Refunds</b><p>If it is not useful, say so and get your money back. A study tool that has to trap people to keep them is not worth building.</p></div>
       </div>
+
+      {email && (
+        <div className="bill-acct">
+          <span>Signed in as <b>{email}</b></span>
+          <button className="ud-btn ghost" onClick={onSignOut}>Sign out</button>
+        </div>
+      )}
       <div style={{ height: 50 }} />
     </div>
   );
@@ -7607,6 +7614,17 @@ export default function UcatDrillTrainer() {
     setView("drills");
   };
 
+  /* Sign out without wiping anything: end the Supabase session, forget who
+     is signed in, and return to the sign-in screen. Progress on this device
+     is kept, so signing back in picks up where you left off. */
+  const signOut = async () => {
+    if (supabaseEnabled) { try { await supabase.auth.signOut(); } catch (e) { /* ignore */ } }
+    const np = { ...prefs }; delete np.account; delete np.skippedAuth;
+    setPrefs(np);
+    setAccount(null); setAuthDone(false);
+    setView("drills");
+  };
+
   const Header = () => (
     <nav className="ud-side" aria-label="Main navigation">
       <button className="ud-markbtn" onClick={() => setView("drills")} aria-label="Tempo home">
@@ -7632,6 +7650,9 @@ export default function UcatDrillTrainer() {
         </button>
         <button className={`ud-badge${unlocked ? " on" : ""}`} onClick={() => setView("billing")} title={account ? account.email : "Not signed in"}>
           <span className="txt">{unlocked ? "Full access" : "Free only"}</span>
+        </button>
+        <button className="ud-theme ud-signout" onClick={signOut} title={account ? `Sign out of ${account.email}` : "Back to sign in"} aria-label={account ? "Sign out" : "Back to sign in"}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
         </button>
       </div>
     </nav>
@@ -7678,7 +7699,7 @@ export default function UcatDrillTrainer() {
             <div className="ud-trend" style={{ padding: 20, minHeight: 220 }}><h3>Map your grades against every school</h3>
             <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.65 }}>Enter your GCSEs, UCAT and predictions and see where you are strong, in range or aspirational, with contextual weighting, course detail and living costs.</p></div>
           </Locked></div>}</>)}
-      {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} email={account ? account.email : ""} /></>)}
+      {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} email={account ? account.email : ""} onSignOut={signOut} /></>)}
       {view === "legal" && (<><Header /><LegalView account={account} prefs={prefs} setPrefs={setPrefs} onDeleteAccount={deleteAccount} /></>)}
       {view === "ps" && (<><Header /><PsBuilder unlocked={unlocked} onUnlock={() => setView("billing")} /></>)}
       {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} prefs={prefs} setPrefs={setPrefs} setPlanDone={setPlanDone} weak={weak} best={best} history={history} /></>)}

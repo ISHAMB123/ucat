@@ -290,6 +290,41 @@
   .vbox .vdots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.35); }
   .vbox .vdots i.on { background: #fff; }
 
+  /* ---- try-a-question demo ---- */
+  .demo-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: start; margin-top: 34px; }
+  .demo { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  .demo .d-top { display: flex; align-items: center; justify-content: space-between; padding: 13px 20px; border-bottom: 1px solid var(--line); background: var(--card-2); }
+  .demo .d-top .tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  .demo .d-top .prog { font-family: var(--mono); font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .demo .d-body { padding: 22px 24px 24px; }
+  .demo .passage { font-size: 14.5px; line-height: 1.7; color: var(--soft); background: var(--card-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 15px 17px; }
+  .demo .stmt { font-size: 16.5px; font-weight: 650; color: var(--ink); margin: 18px 0 4px; line-height: 1.45; }
+  .demo .opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  .demo .opt { font-family: var(--sans); font-weight: 600; font-size: 14px; padding: 12px 8px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; transition: border-color .14s, background .14s, color .14s; }
+  .demo .opt:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .demo .opt:disabled { cursor: default; }
+  .demo .opt.correct { border-color: var(--go); background: color-mix(in srgb, var(--go) 12%, transparent); color: var(--go); }
+  .demo .opt.wrong { border-color: var(--stop); background: color-mix(in srgb, var(--stop) 10%, transparent); color: var(--stop); }
+  .demo .why { margin-top: 16px; border-left: 3px solid var(--accent-fill); background: var(--accent-soft); border-radius: 0 10px 10px 0; padding: 14px 16px; font-size: 14px; line-height: 1.6; color: var(--ink); display: none; }
+  .demo .why.show { display: block; animation: dfade .25s ease; }
+  .demo .why .verdict { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .demo .why .verdict.ok { color: var(--go); }
+  .demo .why .verdict.no { color: var(--stop); }
+  @keyframes dfade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  .demo .d-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; min-height: 40px; }
+  .demo .d-foot .score { font-family: var(--mono); font-size: 12.5px; color: var(--faint); }
+  .demo .d-done { text-align: center; padding: 8px 4px 4px; }
+  .demo .d-done .big { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 800; letter-spacing: -0.03em; }
+  .demo .d-done p { color: var(--soft); font-size: 14.5px; margin: 8px 0 18px; }
+  .demo-aside .featlist { margin-top: 0; }
+  .demo-aside .lead { font-size: 15px; color: var(--soft); margin-bottom: 18px; }
+
+  /* ---- sale countdown ---- */
+  .sale-count { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 8px 14px; border-radius: 20px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, transparent); font-size: 14px; color: var(--ink); }
+  .sale-count:empty { display: none; }
+  .sale-count b { color: var(--accent); font-weight: 700; }
+  .sale-count .cd { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 700; color: var(--accent); }
+
   /* ---- interview speaker ---- */
   .speak-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; margin-top: 34px; }
   .speak-ui { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; }
@@ -352,7 +387,7 @@
   .cost-legend .k i { width: 15px; height: 3px; border-radius: 2px; display: inline-block; }
 
   @media (max-width: 900px) {
-    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .give .box { grid-template-columns: 1fr; }
+    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .give .box, .demo-grid { grid-template-columns: 1fr; }
     .give .box { text-align: center; gap: 22px; padding: 36px 26px; }
     .give p { margin-left: auto; margin-right: auto; }
     .hero { gap: 32px; padding-top: 48px; }
@@ -386,6 +421,7 @@
     <div class="nav-links">
       <a href="#interface">The interface</a>
       <a href="#drills">Drills</a>
+      <a href="#try">Try it</a>
       <a href="#reviews">Reviews</a>
       <a href="#giving">Giving</a>
       <a href="#pricing">Pricing</a>
@@ -484,6 +520,41 @@
         <span class="tc">Focus</span>
         <h3>Your mistakes, chased</h3>
         <p>The questions that beat you come back on a spaced schedule until they don't. Clearing that list moves your score more than any fresh set ever will.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="try">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="kicker">Try it, free</span>
+      <h2>One real question. See how it marks.</h2>
+      <p>An original Verbal Reasoning item, marked the way everything in Tempo is: the reasoning and the exact trap, not just a tick or a cross. No sign-up to have a go.</p>
+    </div>
+    <div class="demo-grid">
+      <div class="demo" id="demo">
+        <div class="d-top"><span class="tag">Verbal Reasoning</span><span class="prog" id="dProg">1 / 2</span></div>
+        <div class="d-body" id="dBody">
+          <p class="passage" id="dPassage"></p>
+          <p class="stmt" id="dStmt"></p>
+          <div class="opts">
+            <button class="opt" data-v="true" type="button">True</button>
+            <button class="opt" data-v="false" type="button">False</button>
+            <button class="opt" data-v="cant" type="button">Can't tell</button>
+          </div>
+          <div class="why" id="dWhy"><span class="verdict" id="dVerdict"></span><span id="dWhyText"></span></div>
+          <div class="d-foot"><span class="score" id="dScore">Pick True, False or Can't tell.</span><button class="btn btn-primary btn-sm" id="dNext" type="button" style="display:none">Next question</button></div>
+        </div>
+      </div>
+      <div class="demo-aside">
+        <p class="lead">This is the whole idea, in one screen.</p>
+        <ul class="featlist">
+          <li><span class="mk">✓</span><span><b>Marked the moment you answer.</b> No waiting, no logging in, no bank of unexplained scores.</span></li>
+          <li><span class="mk">?</span><span><b>The why, every time.</b> The reason it was wrong and the trap that caught you, so the next one of its kind is easier.</span></li>
+          <li><span class="mk">↻</span><span><b>Wrong ones come back.</b> Inside the app, anything you miss returns on a spaced schedule until it stops beating you.</span></li>
+        </ul>
+        <a class="btn btn-primary" href="/app/">Start free</a>
       </div>
     </div>
   </div>
@@ -731,6 +802,7 @@
       <span class="kicker">Pricing</span>
       <h2>One price. Paid once.</h2>
       <p>No subscription, nothing to cancel. Times tables stays free either way, and you can preview the whole app before you decide.</p>
+      <p class="sale-count" id="saleCount" aria-live="off"></p>
     </div>
     <div class="price">
       <div class="plan">
@@ -885,6 +957,91 @@
     else if (e.key === "ArrowRight") step(1);
     else if (e.key === "ArrowLeft") step(-1);
   });
+})();
+
+/* try-a-question demo */
+(function () {
+  var demo = document.getElementById("demo");
+  if (!demo) return;
+  var Q = [
+    {
+      p: "When the Camborne pumping engine was restored in 1979, the volunteers expected the boiler to be the costliest part of the job. In the event the boiler needed only minor repairs, and it was the cracked flywheel, recast off-site to an old pattern, that swallowed most of the budget. The engine runs on open days now, though always at a reduced steam pressure.",
+      s: "The volunteers expected the flywheel to be the most expensive part of the restoration.",
+      a: "false",
+      why: "The passage says they expected the boiler to cost the most; the flywheel is what actually did. When a statement swaps in something the passage named differently, it is contradicted by the text, so it is False rather than merely unsupported."
+    },
+    {
+      p: "When the Camborne pumping engine was restored in 1979, the volunteers expected the boiler to be the costliest part of the job. In the event the boiler needed only minor repairs, and it was the cracked flywheel, recast off-site to an old pattern, that swallowed most of the budget. The engine runs on open days now, though always at a reduced steam pressure.",
+      s: "The flywheel cracked because it had been cast to an old pattern.",
+      a: "cant",
+      why: "The passage tells you the flywheel was cracked and that it was recast to an old pattern, but it never links the two. Two facts sitting side by side do not make one the cause of the other, however neat the story sounds. That single trap is where most Verbal Reasoning marks are lost."
+    }
+  ];
+  var passage = document.getElementById("dPassage"), stmt = document.getElementById("dStmt"),
+      why = document.getElementById("dWhy"), verdict = document.getElementById("dVerdict"),
+      whyText = document.getElementById("dWhyText"), prog = document.getElementById("dProg"),
+      score = document.getElementById("dScore"), next = document.getElementById("dNext"),
+      body = document.getElementById("dBody");
+  var opts = Array.prototype.slice.call(demo.querySelectorAll(".opt"));
+  var i = 0, correct = 0, answered = false;
+  function render() {
+    var q = Q[i];
+    passage.textContent = q.p; stmt.textContent = q.s;
+    prog.textContent = (i + 1) + " / " + Q.length;
+    why.className = "why"; whyText.textContent = ""; verdict.textContent = ""; verdict.className = "verdict";
+    score.textContent = "Pick True, False or Can't tell.";
+    answered = false; next.style.display = "none";
+    opts.forEach(function (b) { b.disabled = false; b.className = "opt"; });
+  }
+  function answer(b) {
+    if (answered) return;
+    answered = true;
+    var q = Q[i], chosen = b.getAttribute("data-v"), ok = chosen === q.a;
+    if (ok) correct++;
+    opts.forEach(function (o) {
+      o.disabled = true;
+      if (o.getAttribute("data-v") === q.a) o.classList.add("correct");
+      else if (o === b) o.classList.add("wrong");
+    });
+    verdict.textContent = ok ? "Correct" : "Not quite";
+    verdict.className = "verdict " + (ok ? "ok" : "no");
+    whyText.textContent = q.why;
+    why.classList.add("show");
+    score.textContent = "";
+    next.textContent = i < Q.length - 1 ? "Next question" : "See the result";
+    next.style.display = "";
+  }
+  function done() {
+    var perfect = correct === Q.length;
+    body.innerHTML = '<div class="d-done"><div class="big">' + correct + " / " + Q.length + "</div>" +
+      "<p>" + (perfect
+        ? "Spotless. That can’t-tell trap catches most people first time."
+        : "Now you’ve felt the trap. Inside Tempo every wrong answer is explained like this, and comes back until it stops beating you.") +
+      '</p><a class="btn btn-primary" href="/app/">Start free</a></div>';
+  }
+  function advance() { if (i < Q.length - 1) { i++; render(); } else done(); }
+  opts.forEach(function (b) { b.addEventListener("click", function () { answer(b); }); });
+  next.addEventListener("click", advance);
+  render();
+})();
+
+/* launch-sale countdown */
+(function () {
+  var el = document.getElementById("saleCount");
+  if (!el) return;
+  var end = new Date("2026-08-31T23:59:59+01:00").getTime();
+  var t;
+  function tick() {
+    var diff = end - Date.now();
+    if (diff <= 0) { el.innerHTML = "Launch sale has ended · now £39"; if (t) clearInterval(t); return; }
+    var d = Math.floor(diff / 86400000),
+        h = Math.floor(diff / 3600000) % 24,
+        m = Math.floor(diff / 60000) % 60,
+        s = Math.floor(diff / 1000) % 60;
+    el.innerHTML = "<b>£25</b> until 31 August · <span class=\"cd\">" + d + "d " + h + "h " + m + "m " + s + "s</span> left";
+  }
+  tick();
+  t = setInterval(tick, 1000);
 })();
 </script>
 </body>

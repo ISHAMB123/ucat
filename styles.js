@@ -43,6 +43,9 @@ export const CSS = `
 .ud-mark { display:flex; align-items:baseline; gap:9px; }
 .ud-mark b { font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; letter-spacing:-0.02em; }
 .ud-mark span { font-family:'Inter',sans-serif; font-size:10px; color:var(--signal); letter-spacing:0.18em; text-transform:uppercase; }
+.auth-home { cursor:pointer; text-decoration:none; transition:opacity .15s; }
+.auth-home:hover { opacity:0.72; }
+.auth-home b { color:var(--ink); }
 .ud-nav { display:flex; gap:4px; flex-wrap:wrap; }
 .ud-nav button { background:transparent; color:var(--mute); font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0.09em; text-transform:uppercase; padding:7px 10px; border-radius:2px; position:relative; }
 .ud-nav button.on { color:#131A22; background:var(--signal); }

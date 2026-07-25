@@ -6251,7 +6251,7 @@ function AuthScreen({ onAuthed, onSkip }) {
   return (
     <div className="ud-gate">
       <div className="auth-card">
-        <div className="ud-mark" style={{ justifyContent: "center", marginBottom: 6 }}><b>Tempo</b><span>UCAT trainer</span></div>
+        <a href="/" className="ud-mark auth-home" style={{ justifyContent: "center", marginBottom: 6 }} title="Back to the Tempo home page" aria-label="Back to the Tempo home page"><b>Tempo</b><span>UCAT trainer</span></a>
         <h2>{mode === "signup" ? "Create your account" : mode === "login" ? "Welcome back" : "Reset your password"}</h2>
         <p className="sub">
           {mode === "signup" ? "An account keeps your progress, mistake bank and mocks on every device you use."

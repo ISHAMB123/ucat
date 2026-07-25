@@ -1154,4 +1154,43 @@ button.nav-row:hover { background:var(--signal)14; }
   .lb-ring-arc { stroke-dashoffset:var(--off); }
 }
 @media (max-width:520px) { .lb-row { grid-template-columns:28px 30px 1fr 46px; } .lb-row .lb-bar { display:none; } .lb-standing { flex-wrap:wrap; } }
+
+/* ============================ MOBILE HARDENING ============================ */
+/* One responsive app, tuned for phones (where nearly all traffic lands).    */
+
+/* Never let a wide child push the whole page sideways. clip avoids the       */
+/* scroll-container side effects of overflow:hidden.                          */
+.ud { overflow-x:clip; }
+/* Wide data tables scroll inside their own box instead of blowing out.       */
+.qs-tab { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.qs-tab table { min-width:320px; }
+
+@media (max-width:640px) {
+  /* 16px inputs stop iOS zooming in on focus, the classic mobile jolt.       */
+  .ud input, .ud select, .ud textarea { font-size:16px; }
+  .ud-wrap { padding:0 14px; }
+}
+
+@media (max-width:560px) {
+  /* Timed run / mock bar: stay on the rails, progress drops to its own line. */
+  .ud-runbar { flex-wrap:wrap; row-gap:8px; padding:10px 14px; gap:9px; }
+  .ud-clock { font-size:18px; }
+  .ud-runbar .ud-prog { order:9; flex-basis:100%; max-width:none; }
+  .ud-examflag { padding:3px 6px; }
+  /* Comfortable tap targets for the small icon buttons.                      */
+  .pl-ic, .cust-del, .al-drop { min-width:38px; min-height:38px; }
+}
+
+@media (max-width:760px) {
+  /* Exam-skin toolbars wrap rather than overflow; drop the desktop-only bits.*/
+  .vx-bar, .vx-foot { flex-wrap:wrap; row-gap:6px; }
+  .vx-scheme { display:none; }
+}
+
+@media (max-width:400px) {
+  .sconv-grid { grid-template-columns:1fr 52px 52px 40px; gap:6px; }
+  .sconv-grid input { padding:6px 4px; }
+  .pace-nums { gap:16px; }
+  .pl-stats { gap:6px; }
+}
 `;

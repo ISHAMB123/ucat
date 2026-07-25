@@ -4874,7 +4874,7 @@ function InterviewLauncher({ track }) {
         <p className="ud-empty" style={{ margin: "12px 0 0" }}>
           {source === "general"
             ? (mode === "mmi" ? "Four stations, one from each MMI topic: ethics, role play, prioritisation and reflection. Timed like the real thing, marked at the end." : "Four panel questions back to back, timed and marked at the end.")
-            : "A tailored circuit built around this school's reported format and themes. Or press Go on any single question below to run it on its own."}
+            : "Four questions in this school's format, timed and marked at the end. Or hit Go on any single question below to run just that one."}
         </p>
         <div className="row" style={{ marginTop: 14 }}>
           <button className="ud-btn" onClick={start}>{startLabel}</button>

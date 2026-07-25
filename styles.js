@@ -1072,6 +1072,20 @@ button.nav-row:hover { background:var(--signal)14; }
 .lb-dist-key .k.you::before { background:var(--signal); }
 .lb-dist-key .k.avg::before { border:1px dashed var(--body); }
 .lb-foot { margin:12px 0 0; font-size:11px; color:var(--mute); line-height:1.5; }
+.lb-viewtabs { display:inline-flex; margin:8px 0 0; border:1px solid var(--line); border-radius:5px; overflow:hidden; }
+.lb-viewtabs button { padding:6px 14px; background:var(--card); border:none; border-right:1px solid var(--line); color:var(--body); font-size:12px; cursor:pointer; }
+.lb-viewtabs button:last-child { border-right:none; }
+.lb-viewtabs button.on { background:var(--signal); color:#12161b; font-weight:600; }
+
+/* Result badges (personal best / delta) and share card button */
+.res-badges { display:flex; justify-content:center; margin-top:2px; }
+.res-badge { font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:0.03em; padding:6px 13px; border-radius:20px; border:1px solid var(--line); }
+.res-badge.pb { color:#12161b; background:#E8B923; border-color:#E8B923; font-weight:700; }
+.res-badge.up { color:var(--go); border-color:var(--go); background:color-mix(in srgb, var(--go) 10%, transparent); }
+.res-badge.down { color:var(--stop); border-color:var(--stop); background:color-mix(in srgb, var(--stop) 8%, transparent); }
+.res-badge.first { color:var(--body); }
+.res-share { display:flex; align-items:center; gap:12px; justify-content:center; margin-top:16px; }
+.res-shared { font-size:12px; color:var(--go); }
 
 /* Percentile ring in the standing panel */
 .lb-ring { position:relative; flex:none; width:60px; height:60px; }

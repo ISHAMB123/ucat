@@ -5776,6 +5776,7 @@ function Ring({ pct, label, sub, gold }) {
    percentile, a ranked list that pins your row when you fall outside the
    top, a score distribution, and honest device-only vs global labelling. */
 function MockLeaderboard({ entries, you, boardGlobal }) {
+  const [view, setView] = useState("top");
   const list = dedupeBest(entries);
   const N = list.length;
   if (N === 0) {
@@ -5795,8 +5796,16 @@ function MockLeaderboard({ entries, you, boardGlobal }) {
 
   const podium = list.slice(0, 3);
   const podOrder = [podium[1], podium[0], podium[2]].map((e, k) => (e ? { e, place: [2, 1, 3][k] } : null)).filter(Boolean);
-  const rows = list.slice(0, 12);
-  const youOutside = youRank && youRank > 12;
+  const canAround = youRank && N > 12;
+  const around = view === "me" && youRank;
+  let displayRows;
+  if (around) {
+    const start = Math.max(0, Math.min(youIdx - 4, N - 11));
+    displayRows = list.slice(start, start + 11).map((e, k) => ({ e, place: start + k + 1 }));
+  } else {
+    displayRows = list.slice(0, 12).map((e, n) => ({ e, place: n + 1 }));
+  }
+  const youOutside = !around && youRank && youRank > 12;
 
   const bins = Array.from({ length: 10 }, () => 0);
   list.forEach((e) => { bins[Math.min(9, Math.floor(e.pct / 10))]++; });
@@ -5854,8 +5863,15 @@ function MockLeaderboard({ entries, you, boardGlobal }) {
         </div>
       )}
 
+      {canAround && (
+        <div className="lb-viewtabs">
+          <button className={view === "top" ? "on" : ""} onClick={() => setView("top")}>Top 12</button>
+          <button className={view === "me" ? "on" : ""} onClick={() => setView("me")}>Around you</button>
+        </div>
+      )}
       <div className="lb-list">
-        {rows.map((e, n) => Row(e, n + 1))}
+        {around && displayRows[0] && displayRows[0].place > 1 && <div className="lb-gap">· · ·</div>}
+        {displayRows.map(({ e, place }) => Row(e, place))}
         {youOutside && (
           <>
             <div className="lb-gap">· · ·</div>
@@ -5901,7 +5917,10 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   const [board, setBoard] = useState(null);
   const [name, setName] = useState(prefs.name || "");
   const [submitted, setSubmitted] = useState(false);
+  const [delta, setDelta] = useState(null);
+  const [shared, setShared] = useState("");
   const answersRef = useRef([]);
+  const savedHistRef = useRef(false);
   useEffect(() => { answersRef.current = answers; }, [answers]);
 
   /* True only when a real cross-device backend (Supabase) is live.
@@ -5964,6 +5983,56 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
   };
   const score = mock ? mock.flat.reduce((s, q, n) => s + scoreOf(q, answers[n]), 0) : 0;
   const pct = mock ? Math.round((score / mock.flat.length) * 100) : 0;
+
+  /* Once per finished mock: work out how this result compares to your own
+     past attempts at the same section, then record it. This drives the
+     personal-best and beat-your-last badges. Guarded so it saves once. */
+  useEffect(() => {
+    if (phase !== "review" || !mock) { savedHistRef.current = false; return; }
+    if (savedHistRef.current) return;
+    savedHistRef.current = true;
+    const mh = prefs.mockHist || [];
+    const same = mh.filter((h) => h.t === type);
+    const prevBest = same.length ? Math.max(...same.map((h) => h.pct)) : null;
+    const prevLast = same.length ? same[same.length - 1].pct : null;
+    setDelta({ prevBest, prevLast, isPB: prevBest === null || pct > prevBest, first: same.length === 0 });
+    setPrefs({ ...prefs, mockHist: [...mh, { t: type, pct, ts: Date.now() }].slice(-60) });
+  }, [phase, mock]);
+
+  /* Build a square share card on a canvas and either open the native share
+     sheet (with the image) or download it. Pure client-side, no upload. */
+  const shareCard = async () => {
+    try {
+      const S = 1080, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+      const g = cv.getContext("2d");
+      g.fillStyle = "#0E1319"; g.fillRect(0, 0, S, S);
+      g.fillStyle = "#F5A524"; g.fillRect(0, 0, S, 12);
+      g.textAlign = "left";
+      g.fillStyle = "#F5A524"; g.font = "700 44px system-ui, sans-serif"; g.fillText("Tempo", 80, 130);
+      g.fillStyle = "#6B7C90"; g.font = "500 26px system-ui, sans-serif"; g.fillText("UCAT trainer", 80, 168);
+      g.fillStyle = "#98AABD"; g.font = "600 34px system-ui, sans-serif";
+      g.fillText(`${type.toUpperCase()} ${mini ? "Mini" : "Mock " + "ABC"[slot]} · week ${week % 1000}`, 80, 300);
+      g.textAlign = "center";
+      g.fillStyle = "#E9F0F8"; g.font = "800 320px system-ui, sans-serif"; g.fillText(`${pct}`, S / 2 - 40, 640);
+      g.fillStyle = "#F5A524"; g.font = "800 90px system-ui, sans-serif"; g.fillText("%", S / 2 + 210, 600);
+      g.fillStyle = "#98AABD"; g.font = "500 30px system-ui, sans-serif";
+      g.fillText(`${score} of ${mock.flat.length} correct  ·  ~${marksToScale(pct, 100)} scaled est.`, S / 2, 720);
+      if (delta && delta.isPB && !delta.first) { g.fillStyle = "#3ECF8E"; g.font = "700 40px system-ui, sans-serif"; g.fillText("New personal best", S / 2, 810); }
+      g.fillStyle = "#47596E"; g.font = "500 24px system-ui, sans-serif"; g.fillText("Original UCAT practice on a replica exam screen", S / 2, 1000);
+      const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
+      if (!blob) return;
+      const file = new File([blob], "tempo-result.png", { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "My Tempo UCAT mock", text: `${pct}% on ${type.toUpperCase()} ${mini ? "Mini" : "Mock " + "ABC"[slot]}` });
+        setShared("Shared.");
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = "tempo-result.png"; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        setShared("Saved to your device.");
+      }
+    } catch (e) { setShared("Could not share, try again."); }
+  };
 
   const submitScore = async () => {
     if (submitted) return; /* one submission per result, no double-post */
@@ -6182,9 +6251,26 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
     <div className="ud-wrap ud-res">
       <div className="ud-eyebrow">{type.toUpperCase()} · {mock.title} · week {week % 1000}</div>
       <p className="ud-score">{pct}<small>%</small></p>
-      <div className="ud-stats" style={{ marginTop: 18 }}>
+      {delta && (
+        <div className="res-badges">
+          {delta.first ? (
+            <span className="res-badge first">First {type.toUpperCase()} mock logged</span>
+          ) : delta.isPB ? (
+            <span className="res-badge pb">Personal best · beat {delta.prevBest}%</span>
+          ) : (
+            <span className={`res-badge ${pct >= delta.prevLast ? "up" : "down"}`}>
+              {pct >= delta.prevLast ? "▲" : "▼"} {Math.abs(pct - delta.prevLast)}% vs your last · best {delta.prevBest}%
+            </span>
+          )}
+        </div>
+      )}
+      <div className="ud-stats" style={{ marginTop: 16 }}>
         <div className="ud-stat"><b className="mono">{score}/{mock.flat.length}</b><span>Correct</span></div>
         <div className="ud-stat"><b className="mono">~{marksToScale(pct, 100)}</b><span>Scaled estimate</span></div>
+      </div>
+      <div className="res-share">
+        <button className="ud-btn" onClick={shareCard}>Share result card</button>
+        {shared && <span className="res-shared">{shared}</span>}
       </div>
 
       <div className="ud-sec"><h2>Review screen</h2><i /><span>green right, red wrong, grey skipped</span></div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { MockLeaderboard } from "../ucat-drill-trainer.jsx";
 
 const mk = (n) => Array.from({ length: n }, (_, i) => ({ name: `P${i + 1}`, pct: 100 - i, ts: i + 1 }));
@@ -34,5 +34,16 @@ describe("MockLeaderboard", () => {
     // P18 is rank 18, beyond the top 12 list, but still shown via the pinned row
     expect(screen.getByText("P18")).toBeTruthy();
     expect(screen.getByText("#18")).toBeTruthy();
+  });
+
+  it("offers an 'Around you' view that centres the list on your rank", () => {
+    render(<MockLeaderboard entries={mk(20)} you={{ name: "P15", pct: 86 }} boardGlobal={true} />);
+    const around = screen.getByRole("button", { name: /Around you/i });
+    fireEvent.click(around);
+    // neighbours around rank 15 are now visible; a top name like P1 is not
+    expect(screen.getAllByText("P15").length).toBeGreaterThan(0);
+    expect(screen.getByText("P13")).toBeTruthy();
+    // P5 is neither on the podium nor near your rank, so it is not in view
+    expect(screen.queryByText("P5")).toBeNull();
   });
 });

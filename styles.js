@@ -464,6 +464,9 @@ button.nav-row:hover { background:var(--signal)14; }
 .wp-mic.on { border-color:var(--stop); color:var(--stop); }
 @keyframes wplive { 0%,100% { opacity:1 } 50% { opacity:.3 } }
 .wp-live { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--stop); animation:wplive 1.2s infinite; }
+.mic-meter { display:inline-flex; align-items:center; gap:3px; height:22px; }
+.mic-meter i { width:3px; height:100%; border-radius:2px; background:var(--mute); transform-origin:center; transition:transform .06s linear, opacity .06s linear; }
+.mic-meter.live i { background:var(--go); }
 .wp-head { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
 .wp-src { display:flex; flex-direction:column; gap:7px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--mute); flex:1; min-width:220px; }
 .wp-src select { background:var(--ink); border:1px solid var(--line); color:var(--paper); padding:10px; border-radius:3px; font-size:14px; font-family:'Inter',sans-serif; max-width:420px; }

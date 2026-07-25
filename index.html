@@ -244,6 +244,23 @@
   .rev-clock .big .u { font-size: 0.26em; color: var(--soft); font-weight: 500; letter-spacing: 0; }
   .rev-clock .cap { font-size: 15px; color: var(--soft); margin-top: 10px; }
 
+  /* ---- giving band ---- */
+  .give { border-top: 1px solid var(--line); }
+  .give .box { position: relative; overflow: hidden; border-radius: 16px; padding: 26px 30px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); display: grid; grid-template-columns: auto 1fr auto; gap: 28px; align-items: center; }
+  .give .box::before { content: ""; position: absolute; inset: 0; background: radial-gradient(90% 120% at 6% 0%, var(--accent-soft), transparent 52%); pointer-events: none; }
+  .give .fig { position: relative; display: flex; align-items: center; gap: 14px; flex: none; }
+  .give .heart { color: var(--accent); animation: hb 1.4s ease-in-out infinite; transform-origin: center; flex: none; }
+  @keyframes hb { 0%,100% { transform: scale(1); } 14% { transform: scale(1.16); } 28% { transform: scale(1); } 42% { transform: scale(1.1); } }
+  .give .num { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(2.6rem, 6vw, 3.5rem); font-weight: 820; line-height: .95; letter-spacing: -0.05em; color: var(--accent); }
+  .give .num small { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); margin-top: 5px; }
+  .give .txt { position: relative; }
+  .give h2 { font-size: clamp(1.3rem, 2.6vw, 1.75rem); font-weight: 800; }
+  .give p { color: var(--soft); font-size: 14.5px; margin-top: 8px; max-width: 54ch; line-height: 1.55; }
+  .give p b { color: var(--ink); }
+  .give .act { position: relative; flex: none; text-align: center; }
+  .give .act .btn { white-space: nowrap; }
+  .give .act .seal { display: block; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--faint); margin-top: 10px; }
+
   /* ---- interview speaker ---- */
   .speak-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; margin-top: 34px; }
   .speak-ui { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; }
@@ -306,7 +323,9 @@
   .cost-legend .k i { width: 15px; height: 3px; border-radius: 2px; display: inline-block; }
 
   @media (max-width: 900px) {
-    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid { grid-template-columns: 1fr; }
+    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .give .box { grid-template-columns: 1fr; }
+    .give .box { text-align: center; gap: 22px; padding: 36px 26px; }
+    .give p { margin-left: auto; margin-right: auto; }
     .hero { gap: 32px; padding-top: 48px; }
     .three, .drills, .tk, .stat-row, .compare, .prog-grid { grid-template-columns: 1fr 1fr; }
     .nav-links a:not(.nav-cta) { display: none; }
@@ -318,7 +337,7 @@
     .exam .left { border-right: 0; border-bottom: 3px solid #1F5FA9; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .beat i, .clock-lab .dot i, .wave i { animation: none; }
+    .beat i, .clock-lab .dot i, .wave i, .give .heart { animation: none; }
     .wave i { height: 26px; }
     .mtrack { animation: none; }
     .marquee { overflow-x: auto; }
@@ -335,6 +354,7 @@
       <a href="#interface">The interface</a>
       <a href="#drills">Drills</a>
       <a href="#reviews">Reviews</a>
+      <a href="#giving">Giving</a>
       <a href="#pricing">Pricing</a>
       <a class="btn btn-primary btn-sm nav-cta" href="/app/">Start free</a>
     </div>
@@ -622,6 +642,26 @@
       <div class="review" aria-hidden="true"><div class="stars">★★★★★</div><p class="body">I took a gap year to reapply for medicine because my UCAT held me back the first time. Tempo made such a difference. It helped me fix mistakes I didn't even realise I was making, and my score improved by over 200 points compared to last year. I felt way more confident going in.</p><div class="who"><span class="av">S</span><span><b>Sophie</b><span>Gap year</span></span></div></div>
       <div class="review" aria-hidden="true"><div class="stars">★★★★★</div><p class="body">After a disappointing UCAT last year, I decided to get proper help instead of doing everything myself. Tempo was honestly worth it. Using it was really relaxed but super useful, and I learned loads of strategies that actually improved my score.</p><div class="who"><span class="av">A</span><span><b>Adam</b><span>Gap year</span></span></div></div>
       <div class="review" aria-hidden="true"><div class="stars">★★★★★</div><p class="body">Honestly couldn't have asked for better. Tempo explained everything in a way that actually made sense and gave loads of useful tips I hadn't seen anywhere else. My mock scores kept going up and I felt so much more confident by the time I sat the exam. 100% worth it.</p><div class="who"><span class="av">C</span><span><b>Chloe</b><span>Year 12</span></span></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="giving" class="give">
+  <div class="wrap">
+    <div class="box">
+      <div class="fig">
+        <svg class="heart" width="58" height="58" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21s-7.5-4.6-10-9.2C.4 8.5 1.9 4.9 5.3 4.9c2 0 3.4 1.2 4.2 2.5.8-1.3 2.2-2.5 4.2-2.5 3.4 0 4.9 3.6 3.3 6.9C19.5 16.4 12 21 12 21Z"/></svg>
+        <div class="num">1,000<small>orphans fed</small></div>
+      </div>
+      <div class="txt">
+        <span class="kicker">Where your money goes</span>
+        <h2>Buy Tempo, help feed a child.</h2>
+        <p>A large share of every sale goes to orphanages in Bangladesh, helping <b>feed 1,000 orphans</b>. Not a slogan: you can watch the meals handed out on our TikTok.</p>
+      </div>
+      <div class="act">
+        <a class="btn btn-primary" href="https://www.tiktok.com/" target="_blank" rel="noopener">See it on TikTok</a>
+        <span class="seal">Real meals · real children</span>
+      </div>
     </div>
   </div>
 </section>

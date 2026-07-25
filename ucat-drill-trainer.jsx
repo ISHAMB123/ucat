@@ -4602,6 +4602,7 @@ function useDictation() {
   const [listening, setListening] = useState(false);
   const [micState, setMicState] = useState("idle");
   const [audioUrl, setAudioUrl] = useState("");
+  const [level, setLevel] = useState(0);
   const recRef = useRef(null);
   const baseRef = useRef("");
   const interimRef = useRef("");
@@ -4611,6 +4612,10 @@ function useDictation() {
   const mediaRef = useRef(null);
   const streamRef = useRef(null);
   const chunksRef = useRef([]);
+  const audioCtxRef = useRef(null);
+  const analyserRef = useRef(null);
+  const rafRef = useRef(0);
+  const heardRef = useRef(0);
 
   useEffect(() => {
     const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -4639,6 +4644,9 @@ function useDictation() {
   useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
 
   const stopAudio = () => {
+    try { if (rafRef.current) cancelAnimationFrame(rafRef.current); } catch (e) { /* ignore */ }
+    try { if (audioCtxRef.current) { audioCtxRef.current.close(); audioCtxRef.current = null; } } catch (e) { /* ignore */ }
+    analyserRef.current = null; setLevel(0);
     try { if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop(); } catch (e) { /* ignore */ }
     try { if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { /* ignore */ }
   };
@@ -4648,13 +4656,34 @@ function useDictation() {
     if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); }
     if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== "undefined") {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         streamRef.current = stream;
         const mr = new MediaRecorder(stream);
         chunksRef.current = [];
         mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunksRef.current.push(ev.data); };
         mr.onstop = () => { try { setAudioUrl(URL.createObjectURL(new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" }))); } catch (e) { /* ignore */ } };
-        mr.start(); mediaRef.current = mr;
+        mr.start(200); mediaRef.current = mr;
+        /* live input meter so the speaker can see they are being heard */
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AC(); audioCtxRef.current = ctx;
+          if (ctx.state === "suspended") ctx.resume();
+          const an = ctx.createAnalyser(); an.fftSize = 512; an.smoothingTimeConstant = 0.75;
+          ctx.createMediaStreamSource(stream).connect(an); analyserRef.current = an;
+          const buf = new Uint8Array(an.fftSize);
+          heardRef.current = 0;
+          const tick = () => {
+            an.getByteTimeDomainData(buf);
+            let sum = 0;
+            for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
+            const rms = Math.sqrt(sum / buf.length);
+            const shown = Math.min(1, rms * 3.4);
+            if (shown > 0.12) heardRef.current = Date.now();
+            setLevel(shown);
+            rafRef.current = requestAnimationFrame(tick);
+          };
+          rafRef.current = requestAnimationFrame(tick);
+        } catch (e) { /* meter unavailable; dictation still works */ }
       } catch (e) { /* audio recording unavailable; carry on with the live transcript only */ }
     }
     interimRef.current = ""; wantRef.current = true; startRef.current = Date.now();
@@ -4670,7 +4699,7 @@ function useDictation() {
   };
   const reset = () => { stop(); setText(""); baseRef.current = ""; interimRef.current = ""; secsRef.current = 0; if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); } };
   const secsOf = () => secsRef.current + (listening ? (Date.now() - startRef.current) / 1000 : 0);
-  return { text, setText, listening, micState, audioUrl, start, stop, reset, toggle: () => (listening ? stop() : start()), secsOf, baseRef };
+  return { text, setText, listening, micState, audioUrl, level, start, stop, reset, toggle: () => (listening ? stop() : start()), secsOf, baseRef };
 }
 
 /* The fullscreen circuit runner: press Go, the question reveals, 5s to think,
@@ -4795,8 +4824,17 @@ function InterviewRunner({ title, questions, track, onExit }) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" strokeLinecap="round" /></svg>
                 {d.listening ? "Listening, tap to stop" : d.micState === "unsupported" ? "Dictation not supported" : "Speak your answer"}
               </button>
+              {d.listening && (
+                <span className={`mic-meter${d.level > 0.12 ? " live" : ""}`} aria-hidden="true">
+                  {[0, 1, 2, 3, 4, 5, 6].map((n) => {
+                    const th = (n + 1) / 8;
+                    return <i key={n} style={{ transform: `scaleY(${d.level >= th ? 1 : 0.18 + d.level * 1.4})`, opacity: d.level >= th ? 1 : 0.35 }} />;
+                  })}
+                </span>
+              )}
               {d.listening && <span className="wp-live">recording</span>}
             </div>
+            {d.listening && d.level < 0.06 && <p className="mmi-short" style={{ color: "var(--signal)" }}>Speak up a little, the mic is quiet. If the bars stay flat, check your browser has mic access.</p>}
             {d.micState === "denied" && <p className="mmi-short" style={{ color: "var(--stop)" }}>Microphone access was blocked. Type the answer instead.</p>}
           </div>
         )}

@@ -1087,6 +1087,48 @@ button.nav-row:hover { background:var(--signal)14; }
 .res-share { display:flex; align-items:center; gap:12px; justify-content:center; margin-top:16px; }
 .res-shared { font-size:12px; color:var(--go); }
 
+/* ---- Outlook: readiness gauge + projected score ---- */
+.outlook { display:grid; grid-template-columns:1fr; gap:12px; }
+.ok-card { border:1px solid var(--line); border-radius:8px; padding:16px 18px; background:var(--card); }
+.ok-gauge { display:flex; align-items:center; gap:14px; }
+.ok-gbody b { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:17px; }
+.ok-gbody span { font-size:12.5px; color:var(--mute); }
+.ok-factors { margin-top:14px; display:flex; flex-direction:column; gap:7px; }
+.ok-f { display:grid; grid-template-columns:78px 1fr 40px; align-items:center; gap:9px; font-size:12px; color:var(--body); }
+.ok-f .mono { text-align:right; color:var(--mute); font-size:11px; }
+.ok-ftrack { height:6px; border-radius:4px; background:var(--paperline); overflow:hidden; }
+.ok-ftrack i { display:block; height:100%; background:var(--signal); border-radius:4px; }
+.ok-eyebrow { font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--mute); }
+.ok-band { display:flex; align-items:baseline; gap:8px; margin:8px 0 10px; }
+.ok-band b { font-family:'Bricolage Grotesque',sans-serif; font-size:30px; letter-spacing:-0.03em; color:var(--signal); }
+.ok-band span { font-size:12px; color:var(--mute); }
+.ok-secs { display:flex; flex-wrap:wrap; gap:7px; }
+.ok-secs span { font-family:'JetBrains Mono',monospace; font-size:11px; padding:3px 8px; border-radius:4px; background:var(--slate); border:1px solid var(--line); }
+.ok-secs .dm { color:var(--mute); border-style:dashed; }
+.ok-range { margin:12px 0 0; font-size:12.5px; color:var(--body); line-height:1.5; }
+.ok-range b { color:var(--paper); }
+.ok-link { background:none; border:none; color:var(--signal); cursor:pointer; font-size:12.5px; padding:0 0 0 6px; }
+.ok-link:hover { text-decoration:underline; }
+.ok-note { margin:10px 0 0; font-size:11px; color:var(--mute); line-height:1.5; }
+.ok-empty b { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:15px; margin-bottom:5px; }
+.ok-empty p { margin:0; font-size:12.5px; color:var(--mute); line-height:1.55; }
+@media (min-width:680px) { .outlook { grid-template-columns:1fr 1fr; } }
+
+/* ---- Rhythm panel (drill results) ---- */
+.pace-panel { border:1px solid var(--line); border-left:3px solid var(--signal); border-radius:6px; padding:14px 16px; margin-top:12px; background:var(--slate); }
+.pace-panel .k { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; color:var(--signal); }
+.pace-nums { display:flex; gap:24px; margin:8px 0 6px; }
+.pace-nums div { display:flex; flex-direction:column; }
+.pace-nums b { font-size:20px; letter-spacing:-0.02em; line-height:1.1; }
+.pace-nums span { font-size:10.5px; color:var(--mute); }
+.pace-panel p { margin:0; font-size:13px; color:var(--body); line-height:1.55; }
+
+/* ---- Live pace chip (mock run) ---- */
+.pace-chip { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; padding:4px 8px; border-radius:3px; border:1px solid; white-space:nowrap; }
+.pace-chip.on { color:var(--mute); border-color:var(--line); }
+.pace-chip.ahead { color:var(--go); border-color:var(--go); }
+.pace-chip.behind { color:var(--stop); border-color:var(--stop); }
+
 /* Percentile ring in the standing panel */
 .lb-ring { position:relative; flex:none; width:60px; height:60px; }
 .lb-ring-c { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }

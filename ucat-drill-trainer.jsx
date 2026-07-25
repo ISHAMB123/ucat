@@ -2443,6 +2443,20 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
           </>
         );
       })()}
+      {(() => {
+        const rp = analysePace(log);
+        return rp ? (
+          <div className="pace-panel">
+            <span className="k">Rhythm</span>
+            <div className="pace-nums">
+              <div><b className="mono">{fmt(rp.med)}</b><span>median</span></div>
+              <div><b className="mono" style={{ color: rp.rushed ? "var(--stop)" : "var(--paper)" }}>{rp.rushed}</b><span>rushed errors</span></div>
+              <div><b className="mono" style={{ color: rp.laboured ? "var(--signal)" : "var(--paper)" }}>{rp.laboured}</b><span>laboured errors</span></div>
+            </div>
+            <p>{rp.verdict}</p>
+          </div>
+        ) : null;
+      })()}
       {groupList.length > 1 && (
         <>
           <div className="ud-sec"><h2>How you did by type</h2><i /><span>weakest first</span></div>
@@ -3355,7 +3369,68 @@ function StreakCalendar({ history, weeks: WEEKS = 26 }) {
   );
 }
 
-function ProgressView({ history, weak }) {
+/* Compact "outlook" panel: a readiness gauge and a projected test-day
+   score band with a schools-in-range tie-in. All clearly framed as
+   estimates. */
+function OutlookPanel({ best, history, plan, prefs, onGoto }) {
+  const track = prefs.track || "dent";
+  const ready = readinessScore({ best, history, plan, customPlan: prefs.customPlan, examDate: prefs.examDate });
+  const proj = projectScore(prefs.mockHist, prefs.examDate);
+  const range = proj && proj.total ? schoolsInRange(proj.total.proj, track, MED_SCHOOLS, UNIS) : null;
+  return (
+    <>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Your outlook</h2><i /><span>estimates, not promises</span></div>
+      <div className="outlook">
+        <div className="ok-card">
+          <div className="ok-gauge">
+            <Ring pct={ready.score} label={String(ready.score)} sub="ready" />
+            <div className="ok-gbody">
+              <b>{ready.band}</b>
+              <span>{ready.daysLeft != null ? `${ready.daysLeft < 0 ? 0 : ready.daysLeft} days to your UCAT` : "Set a test date on the planner"}</span>
+            </div>
+          </div>
+          <div className="ok-factors" role="list" aria-label="Readiness breakdown">
+            {ready.factors.map((f) => (
+              <div className="ok-f" role="listitem" key={f.label}>
+                <span>{f.label}</span>
+                <div className="ok-ftrack"><i style={{ width: `${f.pct}%` }} /></div>
+                <span className="mono">{f.pct}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="ok-card">
+          {proj ? (
+            <>
+              <div className="ok-eyebrow">Projected by test day</div>
+              {proj.total ? (
+                <div className="ok-band"><b className="mono">{proj.total.lo}–{proj.total.hi}</b><span>/ 2700 estimate</span></div>
+              ) : (
+                <p className="ok-note">Sit both a VR and a QR mock to project a total out of 2700.</p>
+              )}
+              <div className="ok-secs">
+                {proj.vr && <span>VR ~{proj.vr.proj}</span>}
+                {proj.qr && <span>QR ~{proj.qr.proj}</span>}
+                {proj.complete && <span className="dm">DM ~{proj.dm} (assumed)</span>}
+              </div>
+              {range && (
+                <p className="ok-range">Clears the realistic bar at <b>{range.inRange} of {range.total}</b> {track === "med" ? "medical" : "dental"} schools.{onGoto && <button className="ok-link" onClick={() => onGoto("unis")}>Map them →</button>}</p>
+              )}
+              <p className="ok-note">From {proj.points} mock{proj.points === 1 ? "" : "s"}. The trend tightens with every one you sit.</p>
+            </>
+          ) : (
+            <div className="ok-empty">
+              <b>No projection yet</b>
+              <p>Sit a weekly mock and your projected UCAT appears here, tightening with each one. Decision Making is estimated from your other sections, since the app does not drill it.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ProgressView({ history, weak, best, plan, prefs, onGoto }) {
   const weakTop = Object.entries(weak).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const [ivMarks, setIvMarks] = useState([]);
   useEffect(() => { getJSON("ucat:ivmarks", []).then((a) => setIvMarks(Array.isArray(a) ? a : [])); }, []);
@@ -3372,6 +3447,7 @@ function ProgressView({ history, weak }) {
 
   return (
     <div className="ud-wrap">
+      <OutlookPanel best={best} history={history} plan={plan} prefs={prefs} onGoto={onGoto} />
       <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Progress</h2><i /><span>score over time</span></div>
       {series.length === 0 ? (
         <p className="ud-empty">Nothing here yet. Finish a drill and your scores start plotting from the next run, one coloured line per section.</p>
@@ -5649,6 +5725,130 @@ function old3600to2700(v) {
   return Math.round((Math.max(1200, Math.min(3600, t)) * 0.75) / 10) * 10;
 }
 
+/* ---- Hyper-unique engines: pace, projection, readiness ---- */
+
+const clamp900 = (v) => Math.max(300, Math.min(900, v));
+const round10 = (v) => Math.round(v / 10) * 10;
+
+/* Rhythm analysis for a drill log. Splits wrong answers into ones you
+   rushed (well under your median time) and ones you laboured over (well
+   over it), which is a more useful lens than a flat accuracy number. */
+function analysePace(log) {
+  const timed = (log || []).filter((l) => l && l.ms > 0);
+  if (timed.length < 4) return null;
+  const med = median(timed.map((l) => l.ms));
+  const wrong = timed.filter((l) => !l.correct && (l.score || 0) < 1);
+  const rushed = wrong.filter((l) => l.ms < med * 0.6).length;
+  const laboured = wrong.filter((l) => l.ms > med * 1.5).length;
+  let verdict;
+  if (!wrong.length) verdict = "Clean and even. Nothing to fix in your rhythm this run.";
+  else if (rushed > laboured) verdict = "Most errors came when you sped up. Give the trickier ones one extra beat before you commit.";
+  else if (laboured > rushed) verdict = "Your errors clustered on the slow questions, where doubt crept in. Decide sooner and move on.";
+  else verdict = "Errors are spread evenly across your pace, so this is technique rather than timing.";
+  return { med, rushed, laboured, wrong: wrong.length, n: timed.length, verdict };
+}
+
+/* Live pace against an even split of the section clock: are you ahead of,
+   on, or behind where the time says you should be. */
+function paceState(reached, elapsedSec, totalSec, numQ) {
+  if (!(totalSec > 0) || !numQ) return null;
+  const expected = (elapsedSec / totalSec) * numQ;
+  const diff = reached - expected;
+  const tone = diff >= 1 ? "ahead" : diff <= -1.5 ? "behind" : "on";
+  return { expected, diff, tone, behindBy: Math.max(0, Math.round(-diff)), aheadBy: Math.max(0, Math.round(diff)) };
+}
+
+/* Project a scaled score per practised section by fitting a line to your
+   mock history and extending it to test day, then estimate a /2700 total
+   (Decision Making, which the app does not drill, is assumed to sit at the
+   average of your other sections and is labelled as such). Deliberately
+   honest: needs at least two mocks in a section, and returns a band. */
+function projectSection(pts, nowTs, targetTs) {
+  if (!pts.length) return null;
+  if (pts.length === 1) return { now: round10(pts[0].y), proj: round10(pts[0].y), n: 1 };
+  const x0 = pts[0].x;
+  const xs = pts.map((p) => (p.x - x0) / 86400000);
+  const ys = pts.map((p) => p.y);
+  const n = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
+  const b = den ? num / den : 0;
+  const a = my - b * mx;
+  const nowX = (nowTs - x0) / 86400000;
+  const targetX = Math.max((targetTs - x0) / 86400000, nowX);
+  return { now: round10(clamp900(a + b * nowX)), proj: round10(clamp900(a + b * targetX)), slope: b, n };
+}
+function projectScore(mockHist, examDate, nowTs = Date.now()) {
+  const mh = (mockHist || []).filter((h) => h && (h.t === "vr" || h.t === "qr") && typeof h.pct === "number");
+  if (!mh.length) return null;
+  const targetTs = examDate && parseYmd(examDate) ? parseYmd(examDate).getTime() : nowTs + 21 * 86400000;
+  const ptsOf = (t) => mh.filter((h) => h.t === t).sort((x, y) => x.ts - y.ts).map((h) => ({ x: h.ts, y: marksToScale(h.pct, 100) }));
+  const vr = projectSection(ptsOf("vr"), nowTs, targetTs);
+  const qr = projectSection(ptsOf("qr"), nowTs, targetTs);
+  const have = [vr, qr].filter(Boolean);
+  if (!have.length) return null;
+  const totalPts = mh.length;
+  const bothProj = have.map((s) => s.proj);
+  const dm = round10(bothProj.reduce((a, b) => a + b, 0) / bothProj.length); /* assumed */
+  const complete = !!(vr && qr);
+  const total = complete ? vr.proj + qr.proj + dm : null;
+  const spread = totalPts >= 4 ? 60 : 100;
+  return {
+    vr, qr, dm, complete,
+    total: total ? { proj: total, lo: Math.max(900, total - spread), hi: Math.min(2700, total + spread) } : null,
+    points: totalPts, targetTs,
+  };
+}
+
+/* How many schools your projected/best UCAT clears the realistic bar at,
+   for the score-to-shortlist tie-in. Uses each school's published low bar
+   (medicine) or cut-off (dentistry). */
+function schoolsInRange(total, track, medSchools, unis) {
+  if (!total) return null;
+  if (track === "med") {
+    const withBar = medSchools.filter((u) => typeof u.low === "number");
+    return { inRange: withBar.filter((u) => total >= u.low).length, total: withBar.length };
+  }
+  const withBar = unis.filter((u) => typeof u.cut === "number");
+  return { inRange: withBar.filter((u) => total >= u.cut).length, total: withBar.length };
+}
+
+/* A single readiness number from the things that actually predict a good
+   sitting: your scores, how many sections you have touched, plan progress
+   and recent consistency. Weighted, 0 to 100, with the breakdown shown. */
+function readinessScore({ best, history, plan, customPlan, examDate }) {
+  const secBest = (sec) => {
+    const ids = DRILLS.filter((d) => d.section === sec).map((d) => d.id);
+    const vals = ids.map((id) => best && best[id] && best[id].pct).filter((v) => typeof v === "number");
+    return vals.length ? Math.max(...vals) : null;
+  };
+  const scores = ["VR", "QR", "SJT"].map(secBest);
+  const got = scores.filter((s) => s !== null);
+  const avgScore = got.length ? got.reduce((a, b) => a + b, 0) / got.length / 100 : 0;
+  const covered = got.length / 3;
+  const streak = currentStreak(history);
+  const streakF = Math.min(streak / 7, 1);
+  const planDone = PLAN_KEYS.filter((k) => plan && plan[k]).length + (customPlan || []).filter((x) => plan && plan[`cust:${x.id}`]).length;
+  const planTotal = PLAN_KEYS.length + (customPlan || []).length;
+  const planF = planTotal ? Math.min(planDone / Math.min(planTotal, 20), 1) : 0;
+  const recent = (history || []).filter((h) => Date.now() - h.ts < 7 * 86400000).length;
+  const activityF = Math.min(recent / 8, 1);
+  const score = Math.round(100 * (0.30 * avgScore + 0.25 * covered + 0.20 * planF + 0.15 * activityF + 0.10 * streakF));
+  const band = score >= 75 ? "On track" : score >= 45 ? "Getting there" : "Early days";
+  return {
+    score, band,
+    factors: [
+      { label: "Scores", pct: Math.round(avgScore * 100) },
+      { label: "Coverage", pct: Math.round(covered * 100) },
+      { label: "Plan", pct: Math.round(planF * 100) },
+      { label: "Consistency", pct: Math.round(((streakF + activityF) / 2) * 100) },
+    ],
+    daysLeft: daysUntil(examDate),
+  };
+}
+
 function ScoreConverter() {
   const [rows, setRows] = useState([
     { key: "vr", name: "Verbal Reasoning", out: 44, marks: "" },
@@ -6129,6 +6329,12 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
           <BrandMark onClick={() => setConfirmExit(true)} />
           <div className={`ud-clock mono${left < 60 ? " warn" : ""}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</div>
           <span className="ud-examflag">MOCK</span>
+          {(() => {
+            const ps = paceState(i, mock.secs - left, mock.secs, mock.flat.length);
+            if (!ps) return null;
+            const txt = ps.tone === "ahead" ? `Ahead ${ps.aheadBy}` : ps.tone === "behind" ? `Behind ${ps.behindBy}` : "On pace";
+            return <span className={`pace-chip ${ps.tone}`} aria-label={`Pace: ${txt}`}>{txt}</span>;
+          })()}
           <div className="ud-prog"><i style={{ width: `${(i / mock.flat.length) * 100}%` }} /></div>
           <span className="mono" style={{ fontSize: 12, color: "var(--mute)" }}>{i + 1}/{mock.flat.length}</span>
           <button className={`ud-quit${flags.includes(i) ? " on" : ""}`} onClick={toggleFlag} aria-pressed={flags.includes(i)}>{flags.includes(i) ? "⚑ Flagged" : "⚑ Flag"}</button>
@@ -6722,7 +6928,7 @@ export default function UcatDrillTrainer() {
           <div className="ud-trend" style={{ padding: 20, minHeight: 200 }}><h3>Sparklines, weak tags and score history</h3>
           <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.65 }}>Every session tracked per section, with the tags you keep dropping marks on surfaced automatically.</p></div>
         </Locked></div></>)}
-      {view === "progress" && unlocked && (<><Header /><ProgressView history={history} weak={weak} /></>)}
+      {view === "progress" && unlocked && (<><Header /><ProgressView history={history} weak={weak} best={best} plan={plan} prefs={prefs} onGoto={(v) => setView(v)} /></>)}
       {view === "mistakes" && (<><Header /><MistakesView mistakes={mistakes} active={activeMistakes} onRetry={startMistakes} onClear={() => { setMistakes([]); setJSON("ucat:mistakes", []); }} /></>)}
       {view === "run" && drill && drill.id === "speed" && <PacingDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}
@@ -6752,4 +6958,5 @@ export {
   predFromSubjects, evalSubjReq, subjPresetFor, SUBJ_PRESETS, MED_SUBJ, DENT_SUBJ,
   generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
   marksToScale, old3600to2700, ScoreConverter, dedupeBest, MockLeaderboard,
+  analysePace, paceState, projectScore, readinessScore, schoolsInRange, OutlookPanel,
 };

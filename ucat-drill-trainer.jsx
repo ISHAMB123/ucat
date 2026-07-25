@@ -3858,7 +3858,7 @@ function UniInterviewDeck({ track, sel, setSel, onPractise }) {
           {d.qs.map((q, n) => (
             <div className="iv-uniq" key={n}>
               <span>{q}</span>
-              <button className="ud-quit" onClick={() => onPractise(q)}>write it</button>
+              {onPractise && <button className="ud-quit" onClick={() => onPractise(q)}>write it</button>}
             </div>
           ))}
 
@@ -3871,7 +3871,7 @@ function UniInterviewDeck({ track, sel, setSel, onPractise }) {
           {d.curve.map((q, n) => (
             <div className="iv-uniq curve" key={n}>
               <span>{q}</span>
-              <button className="ud-quit" onClick={() => onPractise(q)}>write it</button>
+              {onPractise && <button className="ud-quit" onClick={() => onPractise(q)}>write it</button>}
             </div>
           ))}
         </div>
@@ -4509,13 +4509,405 @@ function MmiCircuit({ track }) {
   );
 }
 
+/* ==================== UNIFIED INTERVIEW STUDIO ==================== */
+
+/* MMI is marked on the same criteria per topic whatever the scenario, so
+   each topic carries one framework, one rubric and several prompts. All
+   original, written around published themes, never real questions. */
+function ivTopics(track) {
+  const pro = track === "med" ? "doctor" : "dentist";
+  return {
+    ethics: {
+      type: "Ethics",
+      framework: [["Autonomy", "The person's right to their own choices."], ["Beneficence", "Acting in their and others' interests."], ["Non-maleficence", "The harm risked either way."], ["Justice", "Fairness, duty and the wider public."]],
+      covers: [
+        ["Names the principles in tension", /\b(autonomy|beneficence|non-?maleficence|confidential|justice|duty of care|four pillars|principle|ethic)\b/i],
+        ["Puts patient safety first", /\b(patient safety|patients?|harm|risk|safe|unsafe|impair|danger|fitness to practise)\b/i],
+        ["Compassion, not just rules", /\b(support|help (them|him|her)|wellbeing|talk to (them|him|her)|without judg|non-?judg|encourage (them|him|her)|struggling|underlying|why they)\b/i],
+        ["A clear, professional action", /\b(i would|i'd|i will|speak to|report|escalate|encourage (them|him|her) to|advise|raise (it|this|concern)|seek help|occupational health|supervisor|tutor|welfare)\b/i],
+      ],
+      guide: "Name the principles in tension, gather what you would need to know, act with patient safety leading, and stay compassionate throughout.",
+      prompts: [
+        "A close friend on your course admits, in confidence, that they have been drinking before placement shifts and beg you to say nothing. What do you do, and why?",
+        "An elderly patient with capacity refuses a treatment you believe they need. Their adult daughter quietly asks you to go ahead anyway. How do you approach this?",
+        `You notice a senior ${pro} you admire skipping infection-control steps when the clinic is busy. What do you do?`,
+      ],
+    },
+    roleplay: {
+      type: "Role play",
+      framework: [["Acknowledge", "Open calmly, without accusation."], ["Explore", "Ask open questions; something may be going on."], ["Empathise", "Show you have heard them first."], ["Plan", "Agree a concrete next step together."]],
+      covers: [
+        ["Opens without blame", /\b(calm|without blame|not accus|non-?confrontational|start by|open by|privately|one to one|how are you|check (in|how))\b/i],
+        ["Listens before fixing", /\b(listen|ask|open question|understand|explore|why|find out|their side|hear (them|their)|going on|is everything)\b/i],
+        ["Genuine empathy", /\b(empath|acknowledge|i understand|that must|i can see|feel|reassure|support|no judg)\b/i],
+        ["Agrees a shared plan", /\b(plan|agree|together|next step|going forward|check back|follow up|solution|share the|redistribute|catch up)\b/i],
+      ],
+      guide: "Open privately and without blame, ask what is going on before assuming, show you have heard them, then agree a concrete shared plan.",
+      prompts: [
+        "A team-mate has missed several group deadlines and the rest of the group is angry. You have been asked to speak to them. How do you open and handle that conversation?",
+        "A friend is convinced they failed an exam that matters to them and is talking about dropping out. How would you talk with them?",
+        "A classmate keeps taking credit for shared work in front of tutors. You need to raise it with them. Talk through how.",
+      ],
+    },
+    prioritise: {
+      type: "Prioritisation",
+      framework: [["Safety first", "What carries the greatest risk if it waits?"], ["Gather", "Clarify what each demand actually needs."], ["Delegate / escalate", "You need not do everything yourself."], ["Communicate", "Tell people what you are doing and when."]],
+      covers: [
+        ["A clear, safety-led order", /\b(safety|safe|first|priorit|most urgent|urgent|risk|life-threatening|greatest (risk|harm|need)|clinical)\b/i],
+        ["Knows your limits", /\b(student|within my|my role|not my place|beyond my|competence|qualified|i am not|i'm not|remit)\b/i],
+        ["Escalates or delegates", /\b(escalate|senior|supervisor|nurse|ask for help|inform|tell (the|my)|delegate|hand over|get help)\b/i],
+        ["Keeps everyone informed", /\b(let (them|him|her) know|communicat|explain|tell them|inform|update|apolog|reassure|come back|be with you)\b/i],
+      ],
+      guide: "Lead with the greatest clinical risk, recognise a student's limits and escalate rather than act beyond competence, and keep the others informed.",
+      prompts: [
+        "You are a student on a busy ward round. At once, a nurse asks for urgent help, your supervisor wants you to present, and a visitor looks lost and upset. How do you prioritise, and why?",
+        "It is exam week. You have a group project due, a part-time shift, a friend in crisis messaging you, and your own revision. Walk through how you would order it.",
+        "On placement you spot two things at once: a piece of equipment left unsafe, and a patient who seems anxious and alone. What do you do first?",
+      ],
+    },
+    reflection: {
+      type: "Reflection",
+      framework: [["Situation", "One sentence of context, no more."], ["Task", "What was at stake and why it was hard."], ["Action", "What you did, first person."], ["Result and reflection", "The outcome and what you changed since. The marks live here."]],
+      covers: [
+        ["A real failure, owned", /\b(i failed|my (mistake|fault|error)|i (did not|didn't|should have|could have)|i got (it )?wrong|i underestimated|i let|i struggled|i missed)\b/i],
+        ["First-person actions", /\bi (did|took|decided|spoke|asked|changed|worked|practi[sc]ed|tried|rebuilt|organis|planned|approached|reached out)\b/i],
+        ["An honest outcome", /\b(result|outcome|in the end|eventually|passed|failed|improved|the grade|the score|we (won|lost)|did not|still|better)\b/i],
+        ["A lesson since applied", /\b(learn|taught me|since then|now i|next time|i would|applied|used (this|that|it)|changed how|these days|ever since)\b/i],
+      ],
+      guide: "Pick a real failure and own it in a line, describe what you did in the first person, give the honest outcome, then land on the lesson and where you have used it since.",
+      prompts: [
+        "Describe a time you failed at something that mattered to you. What did you do, and what did it teach you?",
+        "Tell me about a time you received difficult feedback. How did you respond?",
+        "Describe a time you let a team down. What was your part in it, and what changed afterwards?",
+      ],
+    },
+  };
+}
+const IV_TOPIC_ORDER = ["ethics", "roleplay", "prioritise", "reflection"];
+
+/* Build a four-question circuit. MMI takes one question from every topic so
+   all are tested; Panel and Uni draw from their pools. */
+function buildInterviewCircuit(mode, track, panelPool, uniQs) {
+  if (mode === "uni") {
+    return shuffle(uniQs || []).slice(0, 4).map((q, i) => ({ id: `uni-${i}-${q.q}`, topic: "panel", type: q.theme || "Question", prompt: q.q, guide: q.g || "", mmi: false }));
+  }
+  if (mode === "panel") {
+    return shuffle(panelPool || []).slice(0, 4).map((q, i) => ({ id: `panel-${i}-${q.q}`, topic: "panel", type: q.theme || "Question", prompt: q.q, guide: q.g || "", mmi: false }));
+  }
+  const T = ivTopics(track);
+  return IV_TOPIC_ORDER.map((k) => {
+    const t = T[k];
+    return { id: `${k}-${Math.floor(Math.random() * 1e6).toString(36)}`, topic: k, type: t.type, prompt: pick(t.prompts), framework: t.framework, covers: t.covers, guide: t.guide, mmi: true };
+  });
+}
+
+/* One answer scored into a common shape, station-aware for MMI. */
+function scoreAnswer(text, q) {
+  const lines = analyseAnswer(text);
+  if (q.mmi && q.covers) {
+    const r = scoreStation(text, q);
+    return { out10: r.out10, band: r.band, met: r.met, covered: r.covered, total: r.total, crits: r.base.crits, lines, guide: q.guide };
+  }
+  const m = markAnswer(text);
+  return { out10: m.outOf10, band: m.band, met: null, crits: m.crits, lines, guide: q.guide, bestCase: m.bestCase, worstCase: m.worstCase };
+}
+
+/* Robust dictation: recognises for the transcript and records the raw audio
+   in parallel so nothing spoken is ever lost. Returns everything a caller
+   needs. */
+function useDictation() {
+  const [text, setText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [micState, setMicState] = useState("idle");
+  const [audioUrl, setAudioUrl] = useState("");
+  const recRef = useRef(null);
+  const baseRef = useRef("");
+  const interimRef = useRef("");
+  const wantRef = useRef(false);
+  const startRef = useRef(0);
+  const secsRef = useRef(0);
+  const mediaRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
+
+  useEffect(() => {
+    const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) { setMicState("unsupported"); return; }
+    const rec = new SR();
+    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB"; rec.maxAlternatives = 1;
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const seg = e.results[i][0].transcript;
+        if (e.results[i].isFinal) baseRef.current = (baseRef.current + " " + seg).replace(/\s+/g, " ").trim();
+        else interim += seg;
+      }
+      interimRef.current = interim;
+      setText((baseRef.current + (interim ? " " + interim : "")).replace(/\s+/g, " ").trim());
+    };
+    rec.onerror = (e) => { if (e.error === "not-allowed" || e.error === "service-not-allowed") { wantRef.current = false; setMicState("denied"); setListening(false); } };
+    rec.onend = () => {
+      if (interimRef.current) { baseRef.current = (baseRef.current + " " + interimRef.current).replace(/\s+/g, " ").trim(); interimRef.current = ""; setText(baseRef.current); }
+      if (wantRef.current) { try { rec.start(); } catch (err) { setTimeout(() => { if (wantRef.current) { try { rec.start(); } catch (e2) { /* give up */ } } }, 120); } }
+      else setListening(false);
+    };
+    recRef.current = rec;
+    return () => { wantRef.current = false; try { rec.stop(); } catch (err) { /* ignore */ } };
+  }, []);
+  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
+
+  const stopAudio = () => {
+    try { if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop(); } catch (e) { /* ignore */ }
+    try { if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { /* ignore */ }
+  };
+  const start = async () => {
+    const rec = recRef.current;
+    if (!rec || listening) return;
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); }
+    if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== "undefined") {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        const mr = new MediaRecorder(stream);
+        chunksRef.current = [];
+        mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunksRef.current.push(ev.data); };
+        mr.onstop = () => { try { setAudioUrl(URL.createObjectURL(new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" }))); } catch (e) { /* ignore */ } };
+        mr.start(); mediaRef.current = mr;
+      } catch (e) { setMicState("denied"); return; }
+    }
+    interimRef.current = ""; wantRef.current = true; startRef.current = Date.now();
+    try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { setListening(true); }
+  };
+  const stop = () => {
+    if (!listening) return;
+    wantRef.current = false;
+    try { recRef.current && recRef.current.stop(); } catch (e) { /* ignore */ }
+    stopAudio();
+    secsRef.current += (Date.now() - startRef.current) / 1000;
+    setListening(false);
+  };
+  const reset = () => { stop(); setText(""); baseRef.current = ""; interimRef.current = ""; secsRef.current = 0; if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); } };
+  const secsOf = () => secsRef.current + (listening ? (Date.now() - startRef.current) / 1000 : 0);
+  return { text, setText, listening, micState, audioUrl, start, stop, reset, toggle: () => (listening ? stop() : start()), secsOf, baseRef };
+}
+
+/* The fullscreen circuit runner: press Go, the question reveals, 5s to think,
+   30s to answer (strict), then it advances with a burst and a slide. At the
+   end the results panel rises with a mark for every question. */
+function IvStars() {
+  const stars = ["★", "✦", "★", "✧", "★", "✦"];
+  return <div className="ivr-stars" aria-hidden="true">{stars.map((s, n) => <s key={n} style={{ left: `${8 + n * 16}%`, top: `${20 + (n % 3) * 22}%`, animationDelay: `${n * 55}ms` }}>{s}</s>)}</div>;
+}
+function InterviewRunner({ title, questions, track, onExit }) {
+  const [idx, setIdx] = useState(0);
+  const [phase, setPhase] = useState("ready"); /* ready | think | write | results */
+  const [left, setLeft] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const [slide, setSlide] = useState("");
+  const [burst, setBurst] = useState(false);
+  const d = useDictation();
+  const dRef = useRef(d); useEffect(() => { dRef.current = d; });
+  const q = questions[idx];
+  const THINK = 5, WRITE = 30;
+
+  const finishCircuit = (all) => {
+    const scored = all.map((a) => ({ ...a, r: scoreAnswer(a.text, a.q) }));
+    setAnswers(scored);
+    setPhase("results");
+    /* record marks and, for anything under 7, the interview mistake bank */
+    getJSON("ucat:ivmarks", []).then((arr) => {
+      const list = Array.isArray(arr) ? arr : [];
+      const add = scored.map((s) => ({ ts: Date.now(), out10: s.r.out10, band: s.r.band, track, mmi: s.q.mmi ? s.q.topic : "panel" }));
+      setJSON("ucat:ivmarks", [...list, ...add].slice(-120));
+    });
+    getJSON("ucat:ivmistakes", []).then((arr) => {
+      let list = Array.isArray(arr) ? arr : [];
+      scored.filter((s) => s.r.out10 < 7).forEach((s) => {
+        list = list.filter((m) => m.prompt !== s.q.prompt);
+        list.push({ id: s.q.id, topic: s.q.topic, type: s.q.type, prompt: s.q.prompt, guide: s.q.guide, out10: s.r.out10, ts: Date.now() });
+      });
+      setJSON("ucat:ivmistakes", list.slice(-60));
+    });
+  };
+
+  const advance = () => {
+    const secs = dRef.current.secsOf();
+    const captured = { q, text: dRef.current.text, secs };
+    const all = [...answers, captured];
+    dRef.current.reset();
+    setBurst(true); setSlide("out");
+    setTimeout(() => {
+      setBurst(false);
+      if (idx + 1 >= questions.length) { setAnswers(all); finishCircuit(all); return; }
+      setAnswers(all);
+      setIdx(idx + 1); setPhase("ready"); setSlide("in");
+      setTimeout(() => setSlide(""), 360);
+    }, 620);
+  };
+
+  /* Timed phases: think then write, strictly. */
+  useEffect(() => {
+    if (phase !== "think" && phase !== "write") return;
+    if (left <= 0) {
+      if (phase === "think") { setPhase("write"); setLeft(WRITE); dRef.current.reset(); }
+      else advance();
+      return;
+    }
+    const t = setTimeout(() => setLeft((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [phase, left]);
+
+  const go = () => { setPhase("think"); setLeft(THINK); };
+
+  if (phase === "results") {
+    const avg = answers.length ? Math.round(answers.reduce((a, s) => a + s.r.out10, 0) / answers.length) : 0;
+    return (
+      <div className="ivr">
+        <div className="ivr-top"><span className="ivr-ttl">{title} · results</span><button className="ivr-exit" onClick={onExit}>Done</button></div>
+        <div className="ivr-results">
+          <div className="ivr-overall"><b className="mono">{avg}<em>/10</em></b><span>average across {answers.length} stations</span></div>
+          {answers.map((s, n) => (
+            <div className="ivr-rcard" key={n} style={{ animationDelay: `${n * 70}ms` }}>
+              <div className="ivr-rhead"><span className="mmi-type">{s.q.type}</span><b>{s.q.prompt}</b><span className={`mmi-scorepill ${s.r.band.toLowerCase()}`}>{s.r.out10}/10</span></div>
+              {s.r.met && (
+                <ul className="ivr-covers">{s.r.met.map((m, i) => <li key={i} className={m.met ? "hit" : "miss"}><span aria-hidden="true">{m.met ? "✓" : "○"}</span>{m.label}</li>)}</ul>
+              )}
+              {s.r.out10 < 7 && <p className="mmi-guide"><b>To improve:</b> {s.q.guide}</p>}
+              {!s.text.trim() && <p className="ivr-noans">No answer recorded for this station.</p>}
+            </div>
+          ))}
+          <p className="ok-note">Anything under 7/10 has been added to your interview mistake bank to come back to.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ivr">
+      <div className="ivr-top">
+        <span className="ivr-ttl">{title}</span>
+        <span className="ivr-count mono">Station {idx + 1} / {questions.length}</span>
+        {(phase === "think" || phase === "write") && <span className={`ivr-clock mono ${phase}${phase === "write" && left <= 8 ? " low" : ""}`}>{left}s</span>}
+        <button className="ivr-exit" onClick={onExit}>End</button>
+      </div>
+      <div className={`ivr-stage sl-${slide}`}>
+        {burst && <IvStars />}
+        <span className="ivr-topic">{q.type}</span>
+        <p className={`ivr-q${phase === "ready" ? " blur" : ""}`} aria-hidden={phase === "ready"}>{q.prompt}</p>
+        {phase === "ready" && (
+          <div className="ivr-ready">
+            <p>Press Go and the question reveals. You will get {THINK} seconds to think, then {WRITE} seconds to answer, just like a real station.</p>
+            <button className="ud-btn" onClick={go}>Go</button>
+          </div>
+        )}
+        {phase === "think" && (
+          <div className="ivr-think"><b className="mono">{left}</b><span>Think. Plan your answer, do not type yet.</span>
+            {q.framework && <div className="mmi-frame" style={{ marginTop: 14 }}>{q.framework.map(([h, dd]) => <div key={h}><b>{h}</b><span>{dd}</span></div>)}</div>}
+          </div>
+        )}
+        {phase === "write" && (
+          <div className="ivr-write">
+            <textarea value={d.text} onChange={(e) => d.setText(e.target.value)} placeholder="Speak it or type it. Say it exactly as you would in the room." rows={5} autoFocus />
+            <div className="mmi-tools">
+              <button className={`wp-mic${d.listening ? " on" : ""}`} onClick={d.toggle} disabled={d.micState === "unsupported"}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" strokeLinecap="round" /></svg>
+                {d.listening ? "Listening, tap to stop" : d.micState === "unsupported" ? "Dictation not supported" : "Speak your answer"}
+              </button>
+              {d.listening && <span className="wp-live">recording</span>}
+            </div>
+            {d.micState === "denied" && <p className="mmi-short" style={{ color: "var(--stop)" }}>Microphone access was blocked. Type the answer instead.</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* The one practice screen: pick a source, and on the general bank a MMI or
+   Panel toggle, then start the fullscreen circuit. */
+function InterviewLauncher({ track }) {
+  const [source, setSource] = useState("general");
+  const [mode, setMode] = useState("mmi");
+  const [running, setRunning] = useState(null);
+  const IVTABLE = track === "med" ? MED_IV : UNI_IV;
+  const IVLIST = track === "med" ? MED_UNIS : UNIS.filter((u) => UNI_IV[u.id]);
+  const panelPool = [];
+  IV_THEMES.filter((t) => t.tracks.includes(track)).forEach((th) => th.qs.forEach((qq) => { if (!qq.t || qq.t === track) panelPool.push({ q: qq.q, g: qq.g, theme: th.name }); }));
+
+  const [mistakes, setMistakes] = useState([]);
+  useEffect(() => { getJSON("ucat:ivmistakes", []).then((a) => setMistakes(Array.isArray(a) ? a : [])); }, [running]);
+
+  const startGeneral = () => setRunning(buildInterviewCircuit(mode, track, panelPool, null));
+  const startUni = () => {
+    const uni = IVTABLE[source];
+    const qs = uni ? [...(uni.qs || []).map((x) => ({ q: x.q || x, g: x.g || "", theme: uni.focus ? uni.focus[0] : "Tailored" })), ...(uni.curve || []).map((x) => ({ q: x, g: "There is no right answer. Buy a beat, pick an angle, reason out loud and land somewhere.", theme: "Curveball" }))] : [];
+    setRunning(buildInterviewCircuit("uni", track, null, qs));
+  };
+  const start = () => (source === "general" ? startGeneral() : startUni());
+  const retry = () => {
+    const qs = mistakes.slice(0, 4).map((m) => {
+      const T = ivTopics(track);
+      const t = IV_TOPIC_ORDER.includes(m.topic) ? T[m.topic] : null;
+      return t ? { id: m.id, topic: m.topic, type: m.type, prompt: m.prompt, framework: t.framework, covers: t.covers, guide: m.guide, mmi: true } : { id: m.id, topic: "panel", type: m.type, prompt: m.prompt, guide: m.guide, mmi: false };
+    });
+    if (qs.length) setRunning(qs);
+  };
+
+  if (running) return <InterviewRunner title={source === "general" ? (mode === "mmi" ? "MMI circuit" : "Panel circuit") : "Tailored circuit"} questions={running} track={track} onExit={() => setRunning(null)} />;
+
+  return (
+    <>
+      <div className="ud-config" style={{ marginTop: 6 }}>
+        <div className="grp">
+          <label>Question source</label>
+          <div className="row">
+            <select className="ud-input" style={{ maxWidth: 320 }} value={source} onChange={(e) => setSource(e.target.value)}>
+              <option value="general">General bank, all schools</option>
+              <option disabled>Tailored to a school:</option>
+              {IVLIST.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+          </div>
+        </div>
+        {source === "general" && (
+          <div className="ud-mode" style={{ paddingTop: 12 }}>
+            <span>Format</span>
+            <button className={mode === "mmi" ? "on" : ""} onClick={() => setMode("mmi")}>MMI circuit</button>
+            <button className={mode === "panel" ? "on" : ""} onClick={() => setMode("panel")}>Panel questions</button>
+          </div>
+        )}
+        <p className="ud-empty" style={{ margin: "12px 0 0" }}>
+          {source === "general"
+            ? (mode === "mmi" ? "Four stations, one from each MMI topic: ethics, role play, prioritisation and reflection. Timed like the real thing, marked at the end." : "Four panel questions back to back, timed and marked at the end.")
+            : "A tailored circuit built around this school's reported format and themes."}
+        </p>
+        <div className="row" style={{ marginTop: 14 }}>
+          <button className="ud-btn" onClick={start}>Start the circuit</button>
+        </div>
+      </div>
+
+      {mistakes.length > 0 && (
+        <>
+          <div className="ud-sec"><h2>Interview mistake bank</h2><i /><span>{mistakes.length} to revisit</span></div>
+          <p className="ud-empty" style={{ margin: "0 0 12px" }}>Stations you scored under 7/10. Read what to fix, then re-run them.</p>
+          {mistakes.slice(0, 8).map((m, n) => (
+            <div className="ud-mrow" key={n} style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
+              <span className="sec mono">{m.out10}/10</span>
+              <span className="txt" style={{ flex: 1 }}><b>{m.type}.</b> {m.prompt}<br /><span style={{ color: "var(--mute)", fontSize: 12.5 }}>{m.guide}</span></span>
+            </div>
+          ))}
+          <div className="row" style={{ marginTop: 12 }}><button className="ud-btn ghost" onClick={retry}>Re-run these stations</button></div>
+        </>
+      )}
+    </>
+  );
+}
+
 function InterviewView({ track, onSwitch }) {
   const themes = IV_THEMES.filter((t) => t.tracks.includes(track));
   const [openQ, setOpenQ] = useState(null);
   const [warnHidden, setWarnHidden] = useState(false);
   const [uni, setUni] = useState("");
   const [uniSel, setUniSel] = useState("generic");
-  const [jump, setJump] = useState(null);
   const [practice, setPractice] = useState(null); /* {q, theme} */
   const [phase, setPhase] = useState("prep");
   const [left, setLeft] = useState(30);
@@ -4565,13 +4957,10 @@ function InterviewView({ track, onSwitch }) {
       </p>
       <SiteDisclaimer />
 
-      <UniInterviewDeck track={track} sel={uniSel} setSel={setUniSel} onPractise={(qq) => setJump({ q: qq, n: Date.now() })} />
+      <div className="ud-sec"><h2>Practice, timed and marked</h2><i /><span>one circuit, MMI or panel, marked at the end</span></div>
+      <InterviewLauncher track={track} />
 
-      <div className="ud-sec"><h2>Written practice, marked</h2><i /><span>structure and content, never spelling or grammar</span></div>
-      <WritingPractice themes={themes} track={track} uniSel={uniSel} setUniSel={setUniSel} jump={jump} clearJump={() => setJump(null)} />
-
-      <div className="ud-sec"><h2>MMI circuit</h2><i /><span>the real interview format, station by station</span></div>
-      <MmiCircuit track={track} />
+      <UniInterviewDeck track={track} sel={uniSel} setSel={setUniSel} onPractise={null} />
 
       <div className="ud-sec"><h2>How to present yourself</h2><i /><span>delivery carries real marks</span></div>
       <div className="iv-grid">
@@ -7315,4 +7704,5 @@ export {
   marksToScale, old3600to2700, ScoreConverter, dedupeBest, MockLeaderboard,
   analysePace, paceState, projectScore, readinessScore, schoolsInRange, OutlookPanel,
   mmiStations, MmiCircuit, scoreStation,
+  ivTopics, IV_TOPIC_ORDER, buildInterviewCircuit, scoreAnswer, InterviewLauncher, InterviewRunner,
 };

@@ -1258,6 +1258,54 @@ button.nav-row:hover { background:var(--signal)14; }
 .mmi-playback .k { display:block; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--mute); margin-bottom:6px; }
 .mmi-playback audio { width:100%; height:38px; }
 
+/* ==================== Interview runner (fullscreen) ==================== */
+.ivr { position:fixed; inset:0; z-index:60; background:var(--ink); color:var(--paper); display:flex; flex-direction:column; overflow-y:auto; }
+.ivr-top { display:flex; align-items:center; gap:14px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.ivr-ttl { font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px; }
+.ivr-count { font-size:12px; color:var(--mute); }
+.ivr-clock { margin-left:auto; font-size:26px; font-weight:700; color:var(--signal); letter-spacing:-0.02em; }
+.ivr-clock.think { color:var(--mute); }
+.ivr-clock.low { color:var(--stop); }
+.ivr-exit { margin-left:auto; background:none; border:1px solid var(--line); color:var(--body); border-radius:4px; padding:7px 13px; font-size:12.5px; cursor:pointer; }
+.ivr-clock + .ivr-exit { margin-left:12px; }
+.ivr-exit:hover { border-color:var(--stop); color:var(--stop); }
+.ivr-stage { flex:1; max-width:760px; width:100%; margin:0 auto; padding:34px 22px 60px; position:relative; }
+.ivr-stage.sl-out { animation:ivslideout .5s ease forwards; }
+.ivr-stage.sl-in { animation:ivslidein .36s ease; }
+@keyframes ivslideout { to { opacity:0; transform:translateX(-40px); } }
+@keyframes ivslidein { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:none; } }
+.ivr-topic { font-family:'Bricolage Grotesque',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--signal); }
+.ivr-q { font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(20px,3.4vw,28px); line-height:1.32; letter-spacing:-0.02em; margin:10px 0 20px; }
+.ivr-q.blur { filter:blur(11px); user-select:none; pointer-events:none; opacity:0.75; }
+.ivr-ready p { color:var(--body); font-size:14px; line-height:1.6; margin:0 0 18px; max-width:52ch; }
+.ivr-think { text-align:center; padding:20px 0; }
+.ivr-think b { font-family:'Bricolage Grotesque',sans-serif; font-size:60px; font-weight:800; color:var(--signal); line-height:1; }
+.ivr-think span { display:block; margin-top:8px; color:var(--body); font-size:14px; }
+.ivr-write textarea { width:100%; background:var(--slate); border:1px solid var(--line); color:var(--paper); border-radius:6px; padding:14px; font-family:'Inter',sans-serif; font-size:15px; line-height:1.55; resize:vertical; }
+.ivr-stars { position:absolute; inset:0; pointer-events:none; z-index:5; }
+.ivr-stars s { position:absolute; font-size:26px; color:var(--signal); text-decoration:none; animation:ivstar .62s ease forwards; }
+@keyframes ivstar { 0% { opacity:0; transform:scale(.4) translateY(0); } 40% { opacity:1; } 100% { opacity:0; transform:scale(1.5) translateY(-40px); } }
+.ivr-results { max-width:760px; width:100%; margin:0 auto; padding:22px; animation:ivriseup .5s cubic-bezier(.2,.8,.3,1); }
+@keyframes ivriseup { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:none; } }
+.ivr-overall { text-align:center; margin-bottom:20px; }
+.ivr-overall b { font-family:'Bricolage Grotesque',sans-serif; font-size:52px; font-weight:800; color:var(--signal); letter-spacing:-0.03em; }
+.ivr-overall b em { font-size:22px; color:var(--mute); font-style:normal; }
+.ivr-overall span { display:block; font-size:13px; color:var(--mute); margin-top:2px; }
+.ivr-rcard { border:1px solid var(--line); border-radius:7px; padding:15px 16px; margin-bottom:10px; background:var(--card); animation:udrise .4s ease both; }
+.ivr-rhead { display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap; }
+.ivr-rhead b { flex:1; min-width:200px; font-size:14px; line-height:1.4; color:var(--paper); }
+.ivr-covers { list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:5px; }
+.ivr-covers li { display:flex; gap:9px; align-items:flex-start; font-size:12.5px; }
+.ivr-covers li span { flex:none; font-weight:700; width:13px; }
+.ivr-covers li.hit { color:var(--body); } .ivr-covers li.hit span { color:var(--go); }
+.ivr-covers li.miss { color:var(--mute); } .ivr-covers li.miss span { color:var(--stop); }
+.ivr-noans { margin:8px 0 0; font-size:12.5px; color:var(--stop); }
+@media (prefers-reduced-motion: reduce) {
+  .ivr-stage.sl-out, .ivr-stage.sl-in, .ivr-stars s, .ivr-results, .ivr-rcard { animation:none !important; }
+  .ivr-stage.sl-out { opacity:1; transform:none; }
+}
+@media (max-width:560px) { .ivr-stage { padding:22px 16px 50px; } .ivr-clock { font-size:20px; } }
+
 /* Live countdown clocks stay monospace with tabular figures so the digits
    do not jitter as they tick. Everything else is Inter. */
 .ud-clock, .tclock { font-family:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace; font-variant-numeric:tabular-nums; }

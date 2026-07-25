@@ -26,3 +26,27 @@ describe("markAnswer returns a coherent out-of-10 score", () => {
     });
   }
 });
+
+import { analyseDelivery } from "../engine/marking.js";
+
+describe("analyseDelivery reads spoken pace, fillers and length", () => {
+  it("returns null without speech or a duration", () => {
+    expect(analyseDelivery("", 30)).toBe(null);
+    expect(analyseDelivery("some words here", 0)).toBe(null);
+  });
+  it("computes words per minute from words and seconds", () => {
+    const text = Array.from({ length: 120 }, () => "word").join(" ");
+    const d = analyseDelivery(text, 60);
+    expect(d.wpm).toBe(120);
+    expect(d.paceTone).toBe("good");
+  });
+  it("flags a fast pace", () => {
+    const text = Array.from({ length: 200 }, () => "word").join(" ");
+    expect(analyseDelivery(text, 60).paceTone).toBe("fast");
+  });
+  it("counts filler words", () => {
+    const d = analyseDelivery("um so basically like i mean the thing um", 20);
+    expect(d.fillers).toBeGreaterThanOrEqual(4);
+    expect(d.verdict).toMatch(/filler/i);
+  });
+});

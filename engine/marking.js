@@ -43,6 +43,28 @@ export function analyseAnswer(text) {
   return splitSentences(text).map((sn) => ({ sn, ...analyseSentence(sn) }));
 }
 
+/* Delivery analysis for a spoken answer: pace, filler words and length.
+   Interviews are spoken, so how it lands matters as much as what is said.
+   Returns null unless there is real speech and a measured duration. */
+const FILLERS = /\b(um+|uh+|erm*|like|basically|literally|actually|you know|kind of|sort of|i mean|so yeah)\b/gi;
+export function analyseDelivery(text, seconds) {
+  const words = (text || "").trim().split(/\s+/).filter(Boolean);
+  const wc = words.length;
+  if (!wc || !(seconds > 0)) return null;
+  const wpm = Math.round(wc / (seconds / 60));
+  const fillers = (text.match(FILLERS) || []).length;
+  const paceTone = wpm < 110 ? "slow" : wpm > 170 ? "fast" : "good";
+  const lenTone = seconds < 40 ? "short" : seconds > 150 ? "long" : "good";
+  const bits = [];
+  if (paceTone === "fast") bits.push("You are speaking fast, which reads as nerves. Slow down; clarity beats cramming.");
+  else if (paceTone === "slow") bits.push("A measured pace, maybe a touch slow. Fine for a considered point, just keep the energy up.");
+  else bits.push("Good speaking pace, clear and unhurried.");
+  if (fillers >= 4) bits.push(`Heard ${fillers} filler words. A short silence to think reads far better than "um".`);
+  if (lenTone === "short") bits.push("Quite short for a station. Develop one point with an example rather than stopping early.");
+  else if (lenTone === "long") bits.push("Running long. Interviewers cut you off; make your point and land it.");
+  return { wc, seconds: Math.round(seconds), wpm, fillers, paceTone, lenTone, verdict: bits.join(" ") };
+}
+
 export const MODEL_SKELETON = {
   Motivation: ["Open with the specific moment that started it, not a childhood memory.",
     "Say how you tested the idea: what you saw, read, or did that could have changed your mind.",

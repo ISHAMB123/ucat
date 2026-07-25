@@ -14,7 +14,7 @@ import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UN
 import { MED_SCHOOLS, MED_CHECKED } from "./data/medicine.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
 import { PS_TOTAL, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
-import { markAnswer, analyseAnswer, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
+import { markAnswer, analyseAnswer, analyseDelivery, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
 import { WorkDiagram, BrandMark, ExitGuard, LastChecked, MarkingNotice, SiteDisclaimer, Monogram, Locked } from "./components/ui.jsx";
 
 /* ================================================================== */
@@ -2009,17 +2009,17 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
               <circle cx="112" cy="66" r="47" fill="#2F71B81f" stroke="#2F71B8" strokeWidth="1.4" />
               <circle cx="182" cy="66" r="47" fill="#F5A5241f" stroke="#B97A0E" strokeWidth="1.4" />
               <circle cx="147" cy="118" r="47" fill="#3ECF8E1f" stroke="#1E8E5A" strokeWidth="1.4" />
-              <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.la}</text>
-              <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.lb}</text>
-              <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.lc}</text>
-              <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.a}</text>
-              <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.b}</text>
-              <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.c}</text>
-              <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.ab}</text>
-              <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.ac}</text>
-              <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.bc}</text>
-              <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.abc}</text>
-              <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="monospace">{q.venn3.none} neither</text>
+              <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.la}</text>
+              <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lb}</text>
+              <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lc}</text>
+              <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.a}</text>
+              <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.b}</text>
+              <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.c}</text>
+              <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ab}</text>
+              <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ac}</text>
+              <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.bc}</text>
+              <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.abc}</text>
+              <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="Arial, sans-serif">{q.venn3.none} neither</text>
             </svg>
           )}
           {q.venn && (
@@ -2027,12 +2027,12 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
               <rect x="1" y="1" width="298" height="138" fill="#fff" stroke="#9DB2C8" rx="4" />
               <circle cx="115" cy="70" r="48" fill="#2F71B822" stroke="#2F71B8" strokeWidth="1.5" />
               <circle cx="185" cy="70" r="48" fill="#F5A52422" stroke="#B97A0E" strokeWidth="1.5" />
-              <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="monospace">{q.venn.la}</text>
-              <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="monospace">{q.venn.lb}</text>
-              <text x="90" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.onlyA}</text>
-              <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.both}</text>
-              <text x="210" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.onlyB}</text>
-              <text x="264" y="128" fontSize="11" fill="#5A6675" fontFamily="monospace" textAnchor="middle">{q.venn.neither} neither</text>
+              <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.la}</text>
+              <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.lb}</text>
+              <text x="90" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyA}</text>
+              <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.both}</text>
+              <text x="210" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyB}</text>
+              <text x="264" y="128" fontSize="11" fill="#5A6675" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.neither} neither</text>
             </svg>
           )}
           {q.table && (
@@ -4158,6 +4158,183 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
 
 /* ------------------------------ INTERVIEW VIEW -------------------- */
 
+/* Original MMI station templates. UK medicine and dentistry interviews are
+   circuits of short stations, so this rehearses the real format: a mix of
+   station types, each with its own framework and what a strong answer
+   covers. Prompts are written from scratch around published themes, never
+   real questions. field/pro adapt the wording to the chosen track. */
+function mmiStations(track) {
+  const field = track === "med" ? "medicine" : "dentistry";
+  const pro = track === "med" ? "doctor" : "dentist";
+  return [
+    {
+      id: "motivation", type: "Motivation", label: `Why ${field}?`,
+      prompt: `Why do you want to study ${field}, and how have you tested that it is right for you?`,
+      framework: [["Honest reason", "One real reason, not a slogan. Where did it actually start?"], ["Evidence", "What you saw or did that tested it: work experience, volunteering, wider reading."], ["Realism", "One hard or unglamorous part of the job you have understood."], ["Reflection", "What it confirmed or changed, in your own words."]],
+      covers: ["A specific origin, not a childhood story", "Real evidence you explored it", "Awareness of the difficult side", "Why you still chose it"],
+    },
+    {
+      id: "ethics", type: "Ethics", label: "An ethical dilemma",
+      prompt: `A close friend on your course tells you, in confidence, that they have been drinking heavily before placement shifts. They beg you not to say anything. What do you do, and why?`,
+      framework: [["Autonomy", "Your friend's right to make their own choices."], ["Beneficence", "Acting in the interests of patients and of your friend."], ["Non-maleficence", "The harm risked if impaired care reaches a patient."], ["Justice", "Fairness, professional duty and the wider public."]],
+      covers: ["Names the principles in tension", "Puts patient safety first", "Shows compassion for the friend, not just rules", "Reaches a clear, professional action"],
+      note: "Weigh the four pillars, then decide. Consent, capacity and confidentiality often sit underneath them.",
+    },
+    {
+      id: "roleplay", type: "Role play", label: "A difficult conversation",
+      prompt: `A team-mate has been missing group deadlines and the rest of the group is angry. You have been asked to speak to them. Talk through how you would open and handle that conversation.`,
+      framework: [["Acknowledge", "Open calmly and without accusation."], ["Explore", "Ask open questions; there may be something going on."], ["Empathise", "Show you have heard them before problem-solving."], ["Plan", "Agree a concrete next step together."]],
+      covers: ["Opens without blame", "Listens before fixing", "Genuine empathy", "A shared, specific plan"],
+    },
+    {
+      id: "prioritise", type: "Prioritisation", label: "Competing demands",
+      prompt: `You are on a busy ward round as a student. Three things happen at once: a nurse asks for help, your supervisor wants you to present, and a visitor looks lost and upset. How do you prioritise?`,
+      framework: [["Safety first", "What carries the greatest risk if it waits?"], ["Gather", "Quickly clarify what each actually needs."], ["Delegate / escalate", "You do not have to do everything yourself."], ["Communicate", "Tell people what you are doing and when."]],
+      covers: ["A clear safety-led order", "Recognises your own limits as a student", "Escalates appropriately", "Keeps everyone informed"],
+    },
+    {
+      id: "reflection", type: "Reflection", label: "A time you failed",
+      prompt: `Describe a time you failed at something that mattered to you. What did you do, and what did it teach you?`,
+      framework: [["Situation", "One sentence of context, no more."], ["Task", "What was at stake and why it was hard."], ["Action", "What you did, in the first person."], ["Result and reflection", "The outcome, and what you genuinely changed since. The marks live here."]],
+      covers: ["A real failure, owned not deflected", "First-person actions", "An honest outcome", "A concrete lesson you have since applied"],
+    },
+  ];
+}
+
+/* One collapsible MMI station: framework, an answer you type or speak,
+   content marking and, when spoken, delivery analysis. */
+function MmiStation({ st, open, onToggle, track }) {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState(null);
+  const [listening, setListening] = useState(false);
+  const recRef = useRef(null);
+  const baseRef = useRef("");
+  const wantRef = useRef(false);
+  const startRef = useRef(0);
+  const secsRef = useRef(0);
+  const [micState, setMicState] = useState("idle");
+
+  useEffect(() => {
+    const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) { setMicState("unsupported"); return; }
+    const rec = new SR();
+    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB";
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const seg = e.results[i][0].transcript;
+        if (e.results[i].isFinal) baseRef.current = (baseRef.current + " " + seg).replace(/\s+/g, " ").trim();
+        else interim += seg;
+      }
+      setText((baseRef.current + (interim ? " " + interim : "")).replace(/\s+/g, " ").trim());
+    };
+    rec.onerror = (e) => { if (e.error === "not-allowed" || e.error === "service-not-allowed") { wantRef.current = false; setMicState("denied"); setListening(false); } };
+    rec.onend = () => { if (wantRef.current) { try { rec.start(); } catch (err) { /* restart */ } } else setListening(false); };
+    recRef.current = rec;
+    return () => { wantRef.current = false; try { rec.stop(); } catch (err) { /* ignore */ } };
+  }, []);
+
+  const toggleMic = () => {
+    const rec = recRef.current;
+    if (!rec) return;
+    if (listening) {
+      wantRef.current = false; try { rec.stop(); } catch (e) { /* ignore */ }
+      secsRef.current += (Date.now() - startRef.current) / 1000;
+      setListening(false);
+      return;
+    }
+    baseRef.current = text ? text.replace(/\s+/g, " ").trim() : "";
+    wantRef.current = true; startRef.current = Date.now();
+    try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* running */ }
+  };
+
+  const mark = () => {
+    if (listening) { wantRef.current = false; try { recRef.current.stop(); } catch (e) { /* ignore */ } secsRef.current += (Date.now() - startRef.current) / 1000; setListening(false); }
+    const wc = text.trim().split(/\s+/).filter(Boolean).length;
+    if (wc < 12) { setResult({ short: true }); return; }
+    const m = markAnswer(text);
+    const lines = analyseAnswer(text);
+    const delivery = secsRef.current > 3 ? analyseDelivery(text, secsRef.current) : null;
+    setResult({ m, lines, delivery });
+    getJSON("ucat:ivmarks", []).then((arr) => {
+      const list = Array.isArray(arr) ? arr : [];
+      setJSON("ucat:ivmarks", [...list, { ts: Date.now(), out10: m.outOf10, band: m.band, track, mmi: st.id }].slice(-100));
+    });
+  };
+
+  const reset = () => { setText(""); setResult(null); secsRef.current = 0; baseRef.current = ""; };
+
+  return (
+    <div className={`mmi-station${open ? " open" : ""}`}>
+      <button className="mmi-head" onClick={onToggle} aria-expanded={open}>
+        <span className="mmi-type">{st.type}</span>
+        <b>{st.label}</b>
+        {result && result.m && <span className={`mmi-scorepill ${result.m.band.toLowerCase()}`}>{result.m.outOf10}/10</span>}
+        <span className="mmi-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="mmi-body">
+          <p className="mmi-prompt">{st.prompt}</p>
+          {st.note && <p className="mmi-note">{st.note}</p>}
+          <div className="mmi-frame">
+            {st.framework.map(([h, d]) => (<div key={h}><b>{h}</b><span>{d}</span></div>))}
+          </div>
+          <div className="mmi-answer">
+            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Speak it or type it, exactly as you would in the room. Spelling and grammar are never marked here." rows={4} />
+            <div className="mmi-tools">
+              <button className={`wp-mic${listening ? " on" : ""}`} onClick={toggleMic} disabled={micState === "unsupported"}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" strokeLinecap="round" /></svg>
+                {listening ? "Listening, tap to stop" : micState === "unsupported" ? "Dictation not supported" : "Speak your answer"}
+              </button>
+              <span className="mmi-toolspacer" />
+              {result && <button className="ud-quit" onClick={reset}>reset</button>}
+              <button className="ud-btn" onClick={mark} disabled={text.trim().split(/\s+/).filter(Boolean).length < 12}>Mark it</button>
+            </div>
+          </div>
+          {result && result.short && <p className="mmi-short">Give it a real go first: a sentence or two is not enough to mark.</p>}
+          {result && result.m && (
+            <div className="mmi-result">
+              <div className="mmi-covers">
+                <span className="k">What a strong answer covers</span>
+                <ul>{st.covers.map((c, n) => <li key={n}>{c}</li>)}</ul>
+              </div>
+              {result.delivery && (
+                <div className="mmi-delivery">
+                  <span className="k">Delivery</span>
+                  <div className="mmi-dnums">
+                    <div><b className={`mono ${result.delivery.paceTone === "good" ? "" : "warn"}`}>{result.delivery.wpm}</b><span>words / min</span></div>
+                    <div><b className="mono">{result.delivery.seconds}s</b><span>spoken</span></div>
+                    <div><b className={`mono ${result.delivery.fillers >= 4 ? "warn" : ""}`}>{result.delivery.fillers}</b><span>filler words</span></div>
+                  </div>
+                  <p>{result.delivery.verdict}</p>
+                </div>
+              )}
+              <div className="mmi-lines">
+                <span className="k">Line by line</span>
+                {result.lines.map((l, n) => (<p key={n} className={`mmi-l ${l.v}`}>{l.sn} <em>{l.n}</em></p>))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MmiCircuit({ track }) {
+  const stations = mmiStations(track);
+  const [open, setOpen] = useState({ [stations[0].id]: true });
+  const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+  return (
+    <div className="mmi-wrap">
+      <p className="ud-learn-intro">A circuit of the station types real MMIs are built from. Open a station, take a moment to think, then speak or type your answer and mark it. Each one stays open or folds away so you can work through them at your own pace.</p>
+      {stations.map((st) => (
+        <MmiStation key={st.id} st={st} open={!!open[st.id]} onToggle={() => toggle(st.id)} track={track} />
+      ))}
+    </div>
+  );
+}
+
 function InterviewView({ track, onSwitch }) {
   const themes = IV_THEMES.filter((t) => t.tracks.includes(track));
   const [openQ, setOpenQ] = useState(null);
@@ -4218,6 +4395,9 @@ function InterviewView({ track, onSwitch }) {
 
       <div className="ud-sec"><h2>Written practice, marked</h2><i /><span>structure and content, never spelling or grammar</span></div>
       <WritingPractice themes={themes} track={track} uniSel={uniSel} setUniSel={setUniSel} jump={jump} clearJump={() => setJump(null)} />
+
+      <div className="ud-sec"><h2>MMI circuit</h2><i /><span>the real interview format, station by station</span></div>
+      <MmiCircuit track={track} />
 
       <div className="ud-sec"><h2>How to present yourself</h2><i /><span>delivery carries real marks</span></div>
       <div className="iv-grid">
@@ -6015,7 +6195,7 @@ function MockLeaderboard({ entries, you, boardGlobal }) {
   const avgBin = Math.min(9, Math.floor(avg / 10));
 
   const RankCell = (place) => place <= 3
-    ? <span className="lb-medal" style={{ color: MEDAL_COL[place - 1] }} aria-label={`Rank ${place}`}><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8.5 2l1.8 5M15.5 2l-1.8 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><circle cx="12" cy="15" r="6.4" fill="currentColor" opacity="0.16" stroke="currentColor" strokeWidth="1.5" /><text x="12" y="18" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="monospace">{place}</text></svg></span>
+    ? <span className="lb-medal" style={{ color: MEDAL_COL[place - 1] }} aria-label={`Rank ${place}`}><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8.5 2l1.8 5M15.5 2l-1.8 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><circle cx="12" cy="15" r="6.4" fill="currentColor" opacity="0.16" stroke="currentColor" strokeWidth="1.5" /><text x="12" y="18" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="Arial, sans-serif">{place}</text></svg></span>
     : <span className="lb-rank mono">{place}</span>;
 
   const Row = (e, place) => {
@@ -6209,17 +6389,17 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
       g.fillStyle = "#0E1319"; g.fillRect(0, 0, S, S);
       g.fillStyle = "#F5A524"; g.fillRect(0, 0, S, 12);
       g.textAlign = "left";
-      g.fillStyle = "#F5A524"; g.font = "700 44px system-ui, sans-serif"; g.fillText("Tempo", 80, 130);
-      g.fillStyle = "#6B7C90"; g.font = "500 26px system-ui, sans-serif"; g.fillText("UCAT trainer", 80, 168);
-      g.fillStyle = "#98AABD"; g.font = "600 34px system-ui, sans-serif";
+      g.fillStyle = "#F5A524"; g.font = "700 44px Arial, sans-serif"; g.fillText("Tempo", 80, 130);
+      g.fillStyle = "#6B7C90"; g.font = "500 26px Arial, sans-serif"; g.fillText("UCAT trainer", 80, 168);
+      g.fillStyle = "#98AABD"; g.font = "600 34px Arial, sans-serif";
       g.fillText(`${type.toUpperCase()} ${mini ? "Mini" : "Mock " + "ABC"[slot]} · week ${week % 1000}`, 80, 300);
       g.textAlign = "center";
-      g.fillStyle = "#E9F0F8"; g.font = "800 320px system-ui, sans-serif"; g.fillText(`${pct}`, S / 2 - 40, 640);
-      g.fillStyle = "#F5A524"; g.font = "800 90px system-ui, sans-serif"; g.fillText("%", S / 2 + 210, 600);
-      g.fillStyle = "#98AABD"; g.font = "500 30px system-ui, sans-serif";
+      g.fillStyle = "#E9F0F8"; g.font = "800 320px Arial, sans-serif"; g.fillText(`${pct}`, S / 2 - 40, 640);
+      g.fillStyle = "#F5A524"; g.font = "800 90px Arial, sans-serif"; g.fillText("%", S / 2 + 210, 600);
+      g.fillStyle = "#98AABD"; g.font = "500 30px Arial, sans-serif";
       g.fillText(`${score} of ${mock.flat.length} correct  ·  ~${marksToScale(pct, 100)} scaled est.`, S / 2, 720);
-      if (delta && delta.isPB && !delta.first) { g.fillStyle = "#3ECF8E"; g.font = "700 40px system-ui, sans-serif"; g.fillText("New personal best", S / 2, 810); }
-      g.fillStyle = "#47596E"; g.font = "500 24px system-ui, sans-serif"; g.fillText("Original UCAT practice on a replica exam screen", S / 2, 1000);
+      if (delta && delta.isPB && !delta.first) { g.fillStyle = "#3ECF8E"; g.font = "700 40px Arial, sans-serif"; g.fillText("New personal best", S / 2, 810); }
+      g.fillStyle = "#47596E"; g.font = "500 24px Arial, sans-serif"; g.fillText("Original UCAT practice on a replica exam screen", S / 2, 1000);
       const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
       if (!blob) return;
       const file = new File([blob], "tempo-result.png", { type: "image/png" });
@@ -6375,17 +6555,17 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
                 <circle cx="112" cy="66" r="47" fill="#2F71B81f" stroke="#2F71B8" strokeWidth="1.4" />
                 <circle cx="182" cy="66" r="47" fill="#F5A5241f" stroke="#B97A0E" strokeWidth="1.4" />
                 <circle cx="147" cy="118" r="47" fill="#3ECF8E1f" stroke="#1E8E5A" strokeWidth="1.4" />
-                <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.la}</text>
-                <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.lb}</text>
-                <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="monospace">{q.venn3.lc}</text>
-                <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.a}</text>
-                <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.b}</text>
-                <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.c}</text>
-                <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.ab}</text>
-                <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.ac}</text>
-                <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.bc}</text>
-                <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn3.abc}</text>
-                <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="monospace">{q.venn3.none} neither</text>
+                <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.la}</text>
+                <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lb}</text>
+                <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lc}</text>
+                <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.a}</text>
+                <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.b}</text>
+                <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.c}</text>
+                <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ab}</text>
+                <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ac}</text>
+                <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.bc}</text>
+                <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.abc}</text>
+                <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="Arial, sans-serif">{q.venn3.none} neither</text>
               </svg>
             )}
             {q.venn && (
@@ -6393,12 +6573,12 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
                 <rect x="1" y="1" width="298" height="138" fill="#fff" stroke="#9DB2C8" rx="4" />
                 <circle cx="115" cy="70" r="48" fill="#2F71B822" stroke="#2F71B8" strokeWidth="1.5" />
                 <circle cx="185" cy="70" r="48" fill="#F5A52422" stroke="#B97A0E" strokeWidth="1.5" />
-                <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="monospace">{q.venn.la}</text>
-                <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="monospace">{q.venn.lb}</text>
-                <text x="95" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.onlyA}</text>
-                <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.both}</text>
-                <text x="205" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="monospace" textAnchor="middle">{q.venn.onlyB}</text>
-                <text x="252" y="130" fontSize="11" fill="#5A6675" fontFamily="monospace">{q.venn.neither} neither</text>
+                <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.la}</text>
+                <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.lb}</text>
+                <text x="95" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyA}</text>
+                <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.both}</text>
+                <text x="205" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyB}</text>
+                <text x="252" y="130" fontSize="11" fill="#5A6675" fontFamily="Arial, sans-serif">{q.venn.neither} neither</text>
               </svg>
             )}
             {q.scenarioText && <p className="ud-scenario">{q.scenarioText}</p>}
@@ -6528,7 +6708,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
               <p style={{ fontSize: 13.5, color: "var(--body)", lineHeight: 1.65, margin: "8px 0 12px" }}>{q.why || q.working}</p>
               {type === "vr" ? (
                 <div style={{ background: "var(--card)", borderRadius: 3, padding: "14px 16px" }}>
-                  <p style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#5A6675", margin: "0 0 8px" }}>Where the answer was hiding</p>
+                  <p style={{ fontFamily: "Arial, sans-serif", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#5A6675", margin: "0 0 8px" }}>Where the answer was hiding</p>
                   {highlightEvidence(q.passage.text, q.evidence)}
                 </div>
               ) : (
@@ -6960,4 +7140,5 @@ export {
   generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
   marksToScale, old3600to2700, ScoreConverter, dedupeBest, MockLeaderboard,
   analysePace, paceState, projectScore, readinessScore, schoolsInRange, OutlookPanel,
+  mmiStations, MmiCircuit,
 };

@@ -5323,14 +5323,14 @@ const CHECKOUT_RETURN = (() => {
   try { return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success"; }
   catch (e) { return false; }
 })();
-/* Launch sale: £25 until 18 August, then the standard £39. The code
+/* Launch sale: £25 until 31 August, then the standard £39. The code
    UCAT18 unlocks during the launch. saleLive() is date driven so the
    copy and price switch on their own when the sale ends. */
 const FULL_PRICE = "£39";
 const SALE_PRICE = "£25";
 const ACCESS_CODE = "UCAT18";
-const SALE_ENDS_LABEL = "18 August";
-const saleLive = () => Date.now() < new Date("2026-08-19T00:00:00").getTime();
+const SALE_ENDS_LABEL = "31 August";
+const saleLive = () => Date.now() < new Date("2026-09-01T00:00:00").getTime();
 const PRICE_NOTE = "one payment, no subscription, no renewal";
 
 const PLAN_INCLUDES = [
@@ -5756,6 +5756,22 @@ function Laurel({ size = 64, color = "#E8B923" }) {
   );
 }
 
+/* Circular percentile gauge for the standing panel. The arc animates from
+   empty to its target on mount via CSS custom properties. */
+function Ring({ pct, label, sub, gold }) {
+  const R = 26, C = 2 * Math.PI * R;
+  const off = C * (1 - Math.max(0, Math.min(100, pct)) / 100);
+  return (
+    <div className="lb-ring">
+      <svg viewBox="0 0 64 64" width="60" height="60" aria-hidden="true">
+        <circle cx="32" cy="32" r={R} fill="none" stroke="var(--paperline)" strokeWidth="6" />
+        <circle className="lb-ring-arc" cx="32" cy="32" r={R} fill="none" stroke={gold ? "#E8B923" : "var(--signal)"} strokeWidth="6" strokeLinecap="round" transform="rotate(-90 32 32)" style={{ strokeDasharray: C, strokeDashoffset: off, "--circ": C, "--off": off }} />
+      </svg>
+      <div className="lb-ring-c"><b className="mono">{label}</b><span>{sub}</span></div>
+    </div>
+  );
+}
+
 /* The full mock leaderboard: a champion podium, a your-standing panel with
    percentile, a ranked list that pins your row when you fall outside the
    top, a score distribution, and honest device-only vs global labelling. */
@@ -5795,7 +5811,7 @@ function MockLeaderboard({ entries, you, boardGlobal }) {
   const Row = (e, place) => {
     const mine = you && e.name === you.name && e.pct === you.pct;
     return (
-      <div className={`lb-row${mine ? " me" : ""}`} key={`${e.name}-${e.ts}`}>
+      <div className={`lb-row${mine ? " me" : ""}`} key={`${e.name}-${e.ts}`} style={{ animationDelay: `${Math.min(place, 12) * 35}ms` }}>
         {RankCell(place)}
         <Avatar name={e.name} place={place} />
         <span className="lb-name">{e.name}{mine && <em>you</em>}</span>
@@ -5812,7 +5828,7 @@ function MockLeaderboard({ entries, you, boardGlobal }) {
       {you && youRank && (
         <div className={`lb-standing r${Math.min(youRank, 4)}`}>
           {youRank === 1 && <div className="lb-crown"><Laurel size={58} /></div>}
-          <div className="lb-stand-rank"><b className="mono">#{youRank}</b><span>of {N}</span></div>
+          <Ring pct={youRank === 1 ? 100 : (ahead == null ? 100 : ahead)} label={`#${youRank}`} sub={`of ${N}`} gold={youRank === 1} />
           <div className="lb-stand-mid">
             <b>{youRank === 1 ? "Top of the board" : `Top ${topPct}% this week`}</b>
             <span>{N === 1 ? "First to post. You set the pace." : youRank === 1 ? "Nobody has beaten you yet." : `Ahead of ${ahead}% of everyone who has sat it.`}</span>

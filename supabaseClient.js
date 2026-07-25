@@ -18,3 +18,25 @@ export const supabaseEnabled = supabase !== null;
    weekly leaderboard becomes genuinely global. This side effect runs
    once, at import, before any component reads sharedIsGlobal(). */
 if (supabase) useSupabaseSharedBackend(supabase);
+
+/* Server-verified access check. Reads the signed-in user's row from the
+   entitlements table (see supabase/schema.sql), which only the Stripe
+   webhook can write. Returns { active, product } or null when there is no
+   backend, no session, or no paid row. This is what unlock should key off
+   once the backend is live, replacing the client-trust access code and the
+   ?checkout=success flag. Never throws. */
+export async function getEntitlement() {
+  if (!supabase) return null;
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess || !sess.session) return null;
+    const { data, error } = await supabase
+      .from("entitlements")
+      .select("active, product")
+      .maybeSingle();
+    if (error || !data) return null;
+    return data;
+  } catch (e) {
+    return null;
+  }
+}

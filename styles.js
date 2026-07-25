@@ -1054,7 +1054,7 @@ button.nav-row:hover { background:var(--signal)14; }
 .lb-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13.5px; }
 .lb-name em { font-style:normal; margin-left:7px; font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:#12161b; background:var(--signal); padding:1px 5px; border-radius:3px; }
 .lb-bar { height:7px; border-radius:4px; background:var(--paperline); overflow:hidden; }
-.lb-bar i { display:block; height:100%; border-radius:4px; transition:width .5s ease; }
+.lb-bar i { display:block; height:100%; border-radius:4px; transform-origin:left; animation:lb-fill .6s cubic-bezier(.2,.7,.2,1) both; }
 .lb-pct { text-align:right; font-size:13px; font-weight:600; }
 .lb-gap { text-align:center; padding:5px; color:var(--mute); letter-spacing:0.3em; font-size:12px; border-top:1px solid var(--line); }
 
@@ -1072,5 +1072,28 @@ button.nav-row:hover { background:var(--signal)14; }
 .lb-dist-key .k.you::before { background:var(--signal); }
 .lb-dist-key .k.avg::before { border:1px dashed var(--body); }
 .lb-foot { margin:12px 0 0; font-size:11px; color:var(--mute); line-height:1.5; }
+
+/* Percentile ring in the standing panel */
+.lb-ring { position:relative; flex:none; width:60px; height:60px; }
+.lb-ring-c { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.lb-ring-c b { font-size:16px; letter-spacing:-0.02em; line-height:1; }
+.lb-ring-c span { font-size:8.5px; color:var(--mute); margin-top:1px; }
+.lb-standing.r1 .lb-ring-c b { color:#E8B923; }
+
+/* Motion: rows stagger in, bars grow, podiums rise, the champion glows */
+@keyframes lb-fill { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+@keyframes lb-rowin { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+@keyframes lb-rise { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+@keyframes lb-ring { from { stroke-dashoffset:var(--circ); } to { stroke-dashoffset:var(--off); } }
+@keyframes lb-glow { 0%,100% { box-shadow:0 0 20px -6px #E8B923; } 50% { box-shadow:0 0 30px -4px #E8B923; } }
+.lb-row { animation:lb-rowin .4s ease both; }
+.lb-ring-arc { animation:lb-ring .85s cubic-bezier(.2,.7,.2,1) both; }
+.lb-pod-base { transform-origin:bottom; animation:lb-rise .5s cubic-bezier(.2,.7,.2,1) both; }
+.lb-pod.p1 .lb-pod-base { animation:lb-rise .5s cubic-bezier(.2,.7,.2,1) both, lb-glow 2.6s ease-in-out 1s infinite; }
+.lb-standing.r1 { animation:lb-glow 2.8s ease-in-out 1.2s infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .lb-row, .lb-bar i, .lb-ring-arc, .lb-pod-base, .lb-pod.p1 .lb-pod-base, .lb-standing.r1 { animation:none !important; }
+  .lb-ring-arc { stroke-dashoffset:var(--off); }
+}
 @media (max-width:520px) { .lb-row { grid-template-columns:28px 30px 1fr 46px; } .lb-row .lb-bar { display:none; } .lb-standing { flex-wrap:wrap; } }
 `;

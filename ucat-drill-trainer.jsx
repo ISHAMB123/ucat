@@ -4262,18 +4262,29 @@ function MmiStation({ st, open, onToggle, track }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState(null);
   const [listening, setListening] = useState(false);
+  const [micState, setMicState] = useState("idle");
+  const [audioUrl, setAudioUrl] = useState("");
   const recRef = useRef(null);
   const baseRef = useRef("");
+  const interimRef = useRef("");
   const wantRef = useRef(false);
   const startRef = useRef(0);
   const secsRef = useRef(0);
-  const [micState, setMicState] = useState("idle");
+  const mediaRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
 
+  /* Speech recognition gives the transcript for marking. It is a recogniser,
+     not a tape: it stops on pauses and drops audio on each restart. So we
+     also record the raw audio in parallel, which captures everything spoken,
+     stutters and all, for playback. The transcript is kept robust by
+     committing any in-progress words before every restart and restarting
+     immediately, and by never stopping on silence or transient errors. */
   useEffect(() => {
     const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (!SR) { setMicState("unsupported"); return; }
     const rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB";
+    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB"; rec.maxAlternatives = 1;
     rec.onresult = (e) => {
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -4281,32 +4292,68 @@ function MmiStation({ st, open, onToggle, track }) {
         if (e.results[i].isFinal) baseRef.current = (baseRef.current + " " + seg).replace(/\s+/g, " ").trim();
         else interim += seg;
       }
+      interimRef.current = interim;
       setText((baseRef.current + (interim ? " " + interim : "")).replace(/\s+/g, " ").trim());
     };
-    rec.onerror = (e) => { if (e.error === "not-allowed" || e.error === "service-not-allowed") { wantRef.current = false; setMicState("denied"); setListening(false); } };
-    rec.onend = () => { if (wantRef.current) { try { rec.start(); } catch (err) { /* restart */ } } else setListening(false); };
+    rec.onerror = (e) => {
+      /* Only a genuine permission block stops us. Silence, "aborted",
+         "network" and the like are normal; onend restarts through them. */
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") { wantRef.current = false; setMicState("denied"); setListening(false); }
+    };
+    rec.onend = () => {
+      /* Commit any dangling in-progress words so a mid-sentence cut off is
+         not lost, then restart at once to minimise the audio gap. */
+      if (interimRef.current) { baseRef.current = (baseRef.current + " " + interimRef.current).replace(/\s+/g, " ").trim(); interimRef.current = ""; setText(baseRef.current); }
+      if (wantRef.current) { try { rec.start(); } catch (err) { setTimeout(() => { if (wantRef.current) { try { rec.start(); } catch (e2) { /* give up quietly */ } } }, 120); } }
+      else setListening(false);
+    };
     recRef.current = rec;
     return () => { wantRef.current = false; try { rec.stop(); } catch (err) { /* ignore */ } };
   }, []);
 
-  const toggleMic = () => {
+  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
+
+  const stopAudio = () => {
+    try { if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop(); } catch (e) { /* ignore */ }
+    try { if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { /* ignore */ }
+  };
+
+  const toggleMic = async () => {
     const rec = recRef.current;
     if (!rec) return;
     if (listening) {
-      wantRef.current = false; try { rec.stop(); } catch (e) { /* ignore */ }
+      wantRef.current = false;
+      try { rec.stop(); } catch (e) { /* ignore */ }
+      stopAudio();
       secsRef.current += (Date.now() - startRef.current) / 1000;
       setListening(false);
       return;
     }
+    /* Start the raw audio recorder first, so nothing said is ever missed. */
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); }
+    if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== "undefined") {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        const mr = new MediaRecorder(stream);
+        chunksRef.current = [];
+        mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunksRef.current.push(ev.data); };
+        mr.onstop = () => { try { const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" }); setAudioUrl(URL.createObjectURL(blob)); } catch (e) { /* ignore */ } };
+        mr.start();
+        mediaRef.current = mr;
+      } catch (e) { setMicState("denied"); return; }
+    }
     baseRef.current = text ? text.replace(/\s+/g, " ").trim() : "";
+    interimRef.current = "";
     wantRef.current = true; startRef.current = Date.now();
-    try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* running */ }
+    try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* already running */ setListening(true); }
   };
 
   const stopListening = () => {
     if (!listening) return;
     wantRef.current = false;
     try { recRef.current && recRef.current.stop(); } catch (e) { /* ignore */ }
+    stopAudio();
     secsRef.current += (Date.now() - startRef.current) / 1000;
     setListening(false);
   };
@@ -4325,7 +4372,7 @@ function MmiStation({ st, open, onToggle, track }) {
     });
   };
 
-  const reset = () => { setText(""); setResult(null); secsRef.current = 0; baseRef.current = ""; };
+  const reset = () => { setText(""); setResult(null); secsRef.current = 0; baseRef.current = ""; interimRef.current = ""; if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); } };
   const marked = result && !result.short;
 
   return (
@@ -4356,6 +4403,13 @@ function MmiStation({ st, open, onToggle, track }) {
               <button className="ud-btn" onClick={mark}>Mark it</button>
             </div>
             {micState === "denied" && <p className="mmi-short" style={{ color: "var(--stop)" }}>Microphone access was blocked. Allow it in your browser settings, or type the answer instead.</p>}
+            {listening && <p className="mmi-rechint">Recording the full audio and transcribing as you go. The transcript can miss the odd word, so glance over it before marking; your recording below always has everything.</p>}
+            {audioUrl && !listening && (
+              <div className="mmi-playback">
+                <span className="k">Your recording, everything you said</span>
+                <audio controls src={audioUrl} preload="metadata" />
+              </div>
+            )}
           </div>
           {result && result.short && <p className="mmi-short">Give it a real go first, at least a couple of sentences (around 12 words), then tap Mark it.</p>}
           {marked && (

@@ -1253,6 +1253,10 @@ button.nav-row:hover { background:var(--signal)14; }
 .mmi-crit .dot { width:10px; height:10px; border-radius:50%; margin-top:5px; flex:none; }
 .mmi-crit .dot.s2 { background:var(--go); } .mmi-crit .dot.s1 { background:var(--signal); } .mmi-crit .dot.s0 { background:var(--stop); }
 .mmi-crit b { font-size:12.5px; } .mmi-crit p { font-size:12.5px; color:var(--body); line-height:1.55; margin:3px 0 0; }
+.mmi-rechint { margin:8px 0 0; font-size:12px; color:var(--mute); line-height:1.5; }
+.mmi-playback { margin-top:10px; }
+.mmi-playback .k { display:block; font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--mute); margin-bottom:6px; }
+.mmi-playback audio { width:100%; height:38px; }
 
 /* Live countdown clocks stay monospace with tabular figures so the digits
    do not jitter as they tick. Everything else is Inter. */

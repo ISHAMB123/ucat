@@ -536,8 +536,8 @@
       <div class="demo" id="demo">
         <div class="d-top"><span class="tag">Verbal Reasoning</span><span class="prog" id="dProg">1 / 2</span></div>
         <div class="d-body" id="dBody">
-          <p class="passage" id="dPassage"></p>
-          <p class="stmt" id="dStmt"></p>
+          <p class="passage" id="dPassage">When the Camborne pumping engine was restored in 1979, the volunteers expected the boiler to be the costliest part of the job. In the event the boiler needed only minor repairs, and it was the cracked flywheel, recast off-site to an old pattern, that swallowed most of the budget. The engine runs on open days now, though always at a reduced steam pressure.</p>
+          <p class="stmt" id="dStmt">The volunteers expected the flywheel to be the most expensive part of the restoration.</p>
           <div class="opts">
             <button class="opt" data-v="true" type="button">True</button>
             <button class="opt" data-v="false" type="button">False</button>
@@ -958,8 +958,9 @@
     else if (e.key === "ArrowLeft") step(-1);
   });
 })();
-
-/* try-a-question demo */
+</script>
+<script>
+/* try-a-question demo (isolated so nothing else can stop it running) */
 (function () {
   var demo = document.getElementById("demo");
   if (!demo) return;
@@ -1024,8 +1025,9 @@
   next.addEventListener("click", advance);
   render();
 })();
-
-/* launch-sale countdown */
+</script>
+<script>
+/* launch-sale countdown (isolated) */
 (function () {
   var el = document.getElementById("saleCount");
   if (!el) return;

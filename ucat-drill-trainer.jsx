@@ -4037,7 +4037,8 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
       <span className="iv-phase" style={{ animation: "none" }}>
         {cur.kindq ? `${cur.kindq} · ` : ""}{cur.theme}
       </span>
-      <p className="qbig">{cur.q}</p>
+      <p className={`qbig${tPhase === "off" ? " iv-blur" : ""}`} aria-hidden={tPhase === "off"}>{cur.q}</p>
+      {tPhase === "off" && <p className="iv-revealnote">Press Go to reveal the question and start the station, just like the real thing.</p>}
 
       <div className="wp-timer">
         {tPhase === "off" ? (

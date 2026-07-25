@@ -339,6 +339,8 @@ button.nav-row:hover { background:var(--signal)14; }
 .iv-a p { font-size:13px; color:var(--body); line-height:1.65; margin:0 0 10px; padding:0 2px; }
 .iv-practice { border:1px solid var(--signal); border-radius:4px; background:var(--slate); padding:22px; margin-top:18px; animation:udrise .4s ease; }
 .iv-practice .qbig { font-family:'Bricolage Grotesque',sans-serif; font-size:clamp(19px,3.5vw,26px); line-height:1.3; letter-spacing:-0.02em; margin:8px 0 16px; }
+.iv-practice .qbig.iv-blur { filter:blur(10px); user-select:none; pointer-events:none; opacity:0.75; transition:filter .25s ease; }
+.iv-revealnote { margin:-8px 0 16px; font-size:12.5px; color:var(--mute); border-left:2px solid var(--line); padding-left:10px; }
 .iv-clock { font-family:'JetBrains Mono',monospace; font-size:34px; font-weight:700; color:var(--signal); }
 .iv-clock.answer { color:var(--go); }
 @keyframes ivpulse { 0%,100% { opacity:1 } 50% { opacity:.45 } }

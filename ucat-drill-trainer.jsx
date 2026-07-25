@@ -3812,71 +3812,53 @@ function assessUni(u, f) {
 
 /* ------------------------------ INTERVIEW VIEW -------------------- */
 
-function UniInterviewDeck({ track, sel, setSel, onPractise }) {
-  const med = track === "med";
-  const list = med ? MED_UNIS : UNIS.filter((u) => UNI_IV[u.id]);
-  const table = med ? MED_IV : UNI_IV;
-  const d = table[sel] || UNI_IV.generic;
-  const uni = med ? MED_UNIS.find((u) => u.id === sel) : UNIS.find((u) => u.id === sel);
-
-  useEffect(() => { if (sel !== "generic" && !table[sel]) setSel("generic"); }, [track]);
-
+/* A school's interview fact sheet, format and tailored questions. onGo, when
+   given, adds a Go button that launches that single question full screen. */
+function UniFactSheet({ d, uni, onGo }) {
+  const initials = uni ? uni.name.replace("University of ", "").replace("Queen's University ", "").replace("Queen Mary University of London", "QM").replace("King's College London", "KC").replace("University College London", "UC").replace("Imperial College London", "IC").slice(0, 2).toUpperCase() : "";
   return (
-    <>
-      <div className="ud-sec"><h2>Interview by university</h2><i /><span>format, fact sheet and tailored questions</span></div>
-
-      <div className="iv-unipick">
-        <label>Choose a school
-          <select value={sel} onChange={(e) => setSel(e.target.value)}>
-            <option value="generic">Generic practice, all schools</option>
-            {list.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </label>
-
-        <div className="iv-unibox">
-          <div className="uf-head">
-            {uni ? <span className="uni-mono" style={{ background: uni.col + "22", color: uni.col, borderColor: uni.col }}>{uni.name.replace("University of ", "").replace("Queen's University ", "").replace("Queen Mary University of London", "QM").replace("King's College London", "KC").replace("University College London", "UC").replace("Imperial College London", "IC").slice(0, 2).toUpperCase()}</span> : null}
-            <div>
-              <h3>{uni ? uni.name : "Generic practice"}</h3>
-              <span className={`uf-style ${d.style}`}>{d.style === "mmi" ? "MMI circuit" : d.style === "panel" ? "Panel interview" : "Both formats"}</span>
-            </div>
-          </div>
-
-          <div className="uf-grid">
-            <div><b>Format</b><p>{d.fmt}</p></div>
-            <div><b>The course</b><p>{d.course}</p></div>
-            {(d.hosp || (uni && uni.hosp)) && <div><b>Where you train</b><p>{d.hosp || `${uni.hosp} ${uni.plc}`}</p></div>}
-            <div><b>The place</b><p>{d.scene}</p></div>
-            <div><b>Student life</b><ul>{d.socs.map((x) => <li key={x}>{x}</li>)}</ul></div>
-            {uni && uni.rent && <div><b>Costs</b><p>Rent roughly £{uni.rent[0]} to £{uni.rent[1]} a month. International fees {uni.intl}. Post-interview offer rate {uni.pi}%.</p></div>}
-          </div>
-
-          <p className="fmt" style={{ marginTop: 14 }}><b>What they weight</b></p>
-          <div className="chips">{d.focus.map((f) => <span key={f}>{f}</span>)}</div>
-
-          <p className="fmt" style={{ marginTop: 16 }}><b>Tailored questions</b></p>
-          {d.qs.map((q, n) => (
-            <div className="iv-uniq" key={n}>
-              <span>{q}</span>
-              {onPractise && <button className="ud-quit" onClick={() => onPractise(q)}>write it</button>}
-            </div>
-          ))}
-
-          <p className="fmt" style={{ marginTop: 16, color: "var(--stop)" }}><b>Curveballs</b></p>
-          <p className="fmt" style={{ color: "var(--mute)", marginTop: -4 }}>
-            {d.style === "mmi" ? "MMI stations throw these to see how you think when you have nowhere to hide. Twenty seconds of visible thinking beats a fast non-answer."
-              : d.style === "panel" ? "Panels use these as follow-ups once you are comfortable. They are testing whether your earlier answers were memorised."
-              : "Every format uses these. There is no right answer, only whether you stay composed and reason out loud."}
-          </p>
-          {d.curve.map((q, n) => (
-            <div className="iv-uniq curve" key={n}>
-              <span>{q}</span>
-              {onPractise && <button className="ud-quit" onClick={() => onPractise(q)}>write it</button>}
-            </div>
-          ))}
+    <div className="iv-unibox">
+      <div className="uf-head">
+        {uni ? <span className="uni-mono" style={{ background: uni.col + "22", color: uni.col, borderColor: uni.col }}>{initials}</span> : null}
+        <div>
+          <h3>{uni ? uni.name : "Generic practice"}</h3>
+          <span className={`uf-style ${d.style}`}>{d.style === "mmi" ? "MMI circuit" : d.style === "panel" ? "Panel interview" : "Both formats"}</span>
         </div>
       </div>
-    </>
+
+      <div className="uf-grid">
+        <div><b>Format</b><p>{d.fmt}</p></div>
+        <div><b>The course</b><p>{d.course}</p></div>
+        {(d.hosp || (uni && uni.hosp)) && <div><b>Where you train</b><p>{d.hosp || `${uni.hosp} ${uni.plc}`}</p></div>}
+        <div><b>The place</b><p>{d.scene}</p></div>
+        <div><b>Student life</b><ul>{d.socs.map((x) => <li key={x}>{x}</li>)}</ul></div>
+        {uni && uni.rent && <div><b>Costs</b><p>Rent roughly £{uni.rent[0]} to £{uni.rent[1]} a month. International fees {uni.intl}. Post-interview offer rate {uni.pi}%.</p></div>}
+      </div>
+
+      <p className="fmt" style={{ marginTop: 14 }}><b>What they weight</b></p>
+      <div className="chips">{d.focus.map((f) => <span key={f}>{f}</span>)}</div>
+
+      <p className="fmt" style={{ marginTop: 16 }}><b>Tailored questions</b></p>
+      {d.qs.map((q, n) => (
+        <div className="iv-uniq" key={n}>
+          <span>{q}</span>
+          {onGo && <button className="ud-btn iv-goq" onClick={() => onGo(q, "Tailored")}>Go</button>}
+        </div>
+      ))}
+
+      <p className="fmt" style={{ marginTop: 16, color: "var(--stop)" }}><b>Curveballs</b></p>
+      <p className="fmt" style={{ color: "var(--mute)", marginTop: -4 }}>
+        {d.style === "mmi" ? "MMI stations throw these to see how you think when you have nowhere to hide. Twenty seconds of visible thinking beats a fast non-answer."
+          : d.style === "panel" ? "Panels use these as follow-ups once you are comfortable. They are testing whether your earlier answers were memorised."
+          : "Every format uses these. There is no right answer, only whether you stay composed and reason out loud."}
+      </p>
+      {d.curve.map((q, n) => (
+        <div className="iv-uniq curve" key={n}>
+          <span>{q}</span>
+          {onGo && <button className="ud-btn iv-goq" onClick={() => onGo(q, "Curveball")}>Go</button>}
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -4673,7 +4655,7 @@ function useDictation() {
         mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunksRef.current.push(ev.data); };
         mr.onstop = () => { try { setAudioUrl(URL.createObjectURL(new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" }))); } catch (e) { /* ignore */ } };
         mr.start(); mediaRef.current = mr;
-      } catch (e) { setMicState("denied"); return; }
+      } catch (e) { /* audio recording unavailable; carry on with the live transcript only */ }
     }
     interimRef.current = ""; wantRef.current = true; startRef.current = Date.now();
     try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { setListening(true); }
@@ -4837,6 +4819,9 @@ function InterviewLauncher({ track }) {
   const [mistakes, setMistakes] = useState([]);
   useEffect(() => { getJSON("ucat:ivmistakes", []).then((a) => setMistakes(Array.isArray(a) ? a : [])); }, [running]);
 
+  const d = source === "general" ? null : IVTABLE[source];
+  const uniObj = source === "general" ? null : IVLIST.find((u) => u.id === source);
+
   const startGeneral = () => setRunning(buildInterviewCircuit(mode, track, panelPool, null));
   const startUni = () => {
     const uni = IVTABLE[source];
@@ -4844,6 +4829,7 @@ function InterviewLauncher({ track }) {
     setRunning(buildInterviewCircuit("uni", track, null, qs));
   };
   const start = () => (source === "general" ? startGeneral() : startUni());
+  const launchSingle = (q, type) => setRunning([{ id: "t-" + q, topic: "panel", type, prompt: q, guide: "Structure it, give one specific first-person example, and land a reflection on what it taught you.", mmi: false }]);
   const retry = () => {
     const qs = mistakes.slice(0, 4).map((m) => {
       const T = ivTopics(track);
@@ -4853,7 +4839,17 @@ function InterviewLauncher({ track }) {
     if (qs.length) setRunning(qs);
   };
 
-  if (running) return <InterviewRunner title={source === "general" ? (mode === "mmi" ? "MMI circuit" : "Panel circuit") : "Tailored circuit"} questions={running} track={track} onExit={() => setRunning(null)} />;
+  if (running) {
+    const single = running.length === 1;
+    const title = single ? "Practice question" : source === "general" ? (mode === "mmi" ? "MMI circuit" : "Panel circuit") : (d && d.style === "panel" ? "Panel circuit" : "MMI circuit");
+    return <InterviewRunner title={title} questions={running} track={track} onExit={() => setRunning(null)} />;
+  }
+
+  const startLabel = source === "general"
+    ? "Start the circuit"
+    : d && d.style === "panel" ? "Start the panel"
+    : d && d.style === "both" ? "Start the circuit"
+    : "Start MMI";
 
   return (
     <>
@@ -4878,12 +4874,14 @@ function InterviewLauncher({ track }) {
         <p className="ud-empty" style={{ margin: "12px 0 0" }}>
           {source === "general"
             ? (mode === "mmi" ? "Four stations, one from each MMI topic: ethics, role play, prioritisation and reflection. Timed like the real thing, marked at the end." : "Four panel questions back to back, timed and marked at the end.")
-            : "A tailored circuit built around this school's reported format and themes."}
+            : "A tailored circuit built around this school's reported format and themes. Or press Go on any single question below to run it on its own."}
         </p>
         <div className="row" style={{ marginTop: 14 }}>
-          <button className="ud-btn" onClick={start}>Start the circuit</button>
+          <button className="ud-btn" onClick={start}>{startLabel}</button>
         </div>
       </div>
+
+      {d && <UniFactSheet d={d} uni={uniObj} onGo={launchSingle} />}
 
       {mistakes.length > 0 && (
         <>
@@ -4906,29 +4904,6 @@ function InterviewView({ track, onSwitch }) {
   const themes = IV_THEMES.filter((t) => t.tracks.includes(track));
   const [openQ, setOpenQ] = useState(null);
   const [warnHidden, setWarnHidden] = useState(false);
-  const [uni, setUni] = useState("");
-  const [uniSel, setUniSel] = useState("generic");
-  const [practice, setPractice] = useState(null); /* {q, theme} */
-  const [phase, setPhase] = useState("prep");
-  const [left, setLeft] = useState(30);
-
-  useEffect(() => {
-    if (!practice) return;
-    if (left <= 0) {
-      if (phase === "prep") { setPhase("answer"); setLeft(120); }
-      else setPhase("done");
-      return;
-    }
-    const t = setTimeout(() => setLeft((n) => n - 1), 1000);
-    return () => clearTimeout(t);
-  }, [practice, phase, left]);
-
-  const startPractice = () => {
-    const pool = [];
-    themes.forEach((th) => th.qs.forEach((q) => { if (!q.t || q.t === track) pool.push({ ...q, theme: th.name }); }));
-    setPractice(pool[Math.floor(Math.random() * pool.length)]);
-    setPhase("prep"); setLeft(30);
-  };
 
   return (
     <div className="ud-wrap">
@@ -4957,10 +4932,12 @@ function InterviewView({ track, onSwitch }) {
       </p>
       <SiteDisclaimer />
 
-      <div className="ud-sec"><h2>Practice, timed and marked</h2><i /><span>one circuit, MMI or panel, marked at the end</span></div>
+      <div className="ud-sec"><h2>Interview practice</h2><i /><span>pick a school or the general bank, then run it timed and marked</span></div>
+      <p className="ud-learn-intro" style={{ marginTop: 0 }}>
+        Choose a school to see its reported format, what it weights and a set of tailored questions, or stay on the general bank.
+        Press <b>Start</b> to run a full timed circuit, or <b>Go</b> next to any single question to rehearse it on its own in full screen.
+      </p>
       <InterviewLauncher track={track} />
-
-      <UniInterviewDeck track={track} sel={uniSel} setSel={setUniSel} onPractise={null} />
 
       <div className="ud-sec"><h2>How to present yourself</h2><i /><span>delivery carries real marks</span></div>
       <div className="iv-grid">

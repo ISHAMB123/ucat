@@ -54,4 +54,17 @@ describe("InterviewLauncher", () => {
     expect(screen.getByText(/Station 1 \/ 4/i)).toBeTruthy();
     expect(screen.getByRole("button", { name: /^Go$/i })).toBeTruthy();
   });
+  it("shows the fact sheet and a single-question Go when a school is picked", () => {
+    render(<InterviewLauncher track="med" />);
+    const select = screen.getByRole("combobox");
+    fireEvent.change(select, { target: { value: "m_manchester" } });
+    // start button relabels to the school's format
+    expect(screen.getByRole("button", { name: /Start MMI/i })).toBeTruthy();
+    // tailored questions each carry a Go button
+    const gos = screen.getAllByRole("button", { name: /^Go$/i });
+    expect(gos.length).toBeGreaterThan(0);
+    // pressing one drops into a single-station fullscreen runner
+    fireEvent.click(gos[0]);
+    expect(screen.getByText(/Station 1 \/ 1/i)).toBeTruthy();
+  });
 });

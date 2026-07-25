@@ -455,6 +455,7 @@ button.nav-row:hover { background:var(--signal)14; }
 .iv-unibox .chips span { font-family:'Inter',sans-serif; font-size:10.5px; border:1px solid var(--signal); color:var(--signal); padding:4px 8px; border-radius:2px; }
 .iv-uniq { display:flex; gap:10px; align-items:baseline; border-top:1px solid var(--line); padding:9px 0; font-size:13px; color:var(--body); line-height:1.5; }
 .iv-uniq span { flex:1; }
+.iv-goq { flex:0 0 auto; padding:5px 14px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; align-self:center; }
 .wp-tools { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 .wp-mic { display:flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--line); color:var(--body); font-size:12.5px; padding:9px 13px; border-radius:3px; transition:border-color .15s, color .15s; }
 .wp-mic:hover:not(:disabled) { border-color:var(--signal); color:var(--signal); }

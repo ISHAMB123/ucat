@@ -3898,9 +3898,14 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
   const [tLeft, setTLeft] = useState(0);
   const [lines, setLines] = useState(null);
   const [micState, setMicState] = useState("idle");
+  const [audioUrl, setAudioUrl] = useState("");
   const recRef = useRef(null);
   const baseRef = useRef("");
+  const interimRef = useRef("");
   const wantRef = useRef(false);
+  const mediaRef = useRef(null);
+  const streamRef = useRef(null);
+  const chunksRef = useRef([]);
 
   const uniData = src !== "general" ? IVTABLE[src] : null;
   const pool = uniData
@@ -3941,6 +3946,7 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
         if (e.results[i].isFinal) baseRef.current = (baseRef.current + " " + seg).replace(/\s+/g, " ").trim();
         else interim += seg;
       }
+      interimRef.current = interim;
       setText((baseRef.current + (interim ? " " + interim : "")).replace(/\s+/g, " ").trim());
       setResult(null);
     };
@@ -3952,32 +3958,56 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
       }
     };
     rec.onend = () => {
-      /* Chrome ends the session on every pause. If the user still wants
-         to dictate, restart so they can carry on speaking seamlessly. */
-      if (wantRef.current) { try { rec.start(); } catch (err) { /* mid-restart */ } }
+      /* Commit any in-progress words before restarting so a mid-sentence
+         cut is not lost, then restart at once to minimise the audio gap. */
+      if (interimRef.current) { baseRef.current = (baseRef.current + " " + interimRef.current).replace(/\s+/g, " ").trim(); interimRef.current = ""; setText(baseRef.current); }
+      if (wantRef.current) { try { rec.start(); } catch (err) { setTimeout(() => { if (wantRef.current) { try { rec.start(); } catch (e2) { /* give up quietly */ } } }, 120); } }
       else setListening(false);
     };
     recRef.current = rec;
     return () => { wantRef.current = false; try { rec.stop(); } catch (err) { /* already stopped */ } };
   }, []);
 
+  useEffect(() => () => { if (audioUrl) URL.revokeObjectURL(audioUrl); }, [audioUrl]);
+
+  const stopAudio = () => {
+    try { if (mediaRef.current && mediaRef.current.state !== "inactive") mediaRef.current.stop(); } catch (e) { /* ignore */ }
+    try { if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); } catch (e) { /* ignore */ }
+  };
+
   const stopMic = () => {
     wantRef.current = false;
     const rec = recRef.current;
     if (rec) { try { rec.stop(); } catch (e) { /* ignore */ } }
+    stopAudio();
     setListening(false);
   };
 
-  const toggleMic = () => {
+  const toggleMic = async () => {
     const rec = recRef.current;
     if (!rec) return;
     if (listening) { stopMic(); return; }
+    /* Record the raw audio in parallel so nothing said is ever missed. */
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); }
+    if (typeof navigator !== "undefined" && navigator.mediaDevices && navigator.mediaDevices.getUserMedia && typeof MediaRecorder !== "undefined") {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        const mr = new MediaRecorder(stream);
+        chunksRef.current = [];
+        mr.ondataavailable = (ev) => { if (ev.data && ev.data.size) chunksRef.current.push(ev.data); };
+        mr.onstop = () => { try { const blob = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" }); setAudioUrl(URL.createObjectURL(blob)); } catch (e) { /* ignore */ } };
+        mr.start();
+        mediaRef.current = mr;
+      } catch (e) { setMicState("denied"); return; }
+    }
     baseRef.current = text ? text.replace(/\s+/g, " ").trim() : "";
+    interimRef.current = "";
     wantRef.current = true;
-    try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* already running */ }
+    try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* already running */ setListening(true); }
   };
 
-  const nextQ = () => { stopMic(); setQi((n) => (n + 1) % pool.length); setText(""); setResult(null); setLines(null); setTPhase("off"); };
+  const nextQ = () => { stopMic(); if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(""); } setQi((n) => (n + 1) % pool.length); setText(""); setResult(null); setLines(null); setTPhase("off"); };
 
   useEffect(() => {
     if (tPhase === "off" || tPhase === "done") return;
@@ -4070,6 +4100,13 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
         </button>
         {listening && <span className="wp-live">recording</span>}
       </div>
+      {listening && <p className="mmi-rechint">Recording the full audio and transcribing as you go. The transcript can miss the odd word, so glance over it; your recording below always has everything.</p>}
+      {audioUrl && !listening && (
+        <div className="mmi-playback" style={{ marginTop: 8 }}>
+          <span className="k">Your recording, everything you said</span>
+          <audio controls src={audioUrl} preload="metadata" />
+        </div>
+      )}
       {micState === "denied" && <p className="wp-note" style={{ color: "var(--stop)" }}>Microphone access was blocked. Allow it in your browser settings, or type the answer instead.</p>}
 
       <div className={`wp-boxwrap${tPhase === "write" && tLeft <= 30 ? " glow" : ""}`}>

@@ -2009,17 +2009,17 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
               <circle cx="112" cy="66" r="47" fill="#2F71B81f" stroke="#2F71B8" strokeWidth="1.4" />
               <circle cx="182" cy="66" r="47" fill="#F5A5241f" stroke="#B97A0E" strokeWidth="1.4" />
               <circle cx="147" cy="118" r="47" fill="#3ECF8E1f" stroke="#1E8E5A" strokeWidth="1.4" />
-              <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.la}</text>
-              <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lb}</text>
-              <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lc}</text>
-              <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.a}</text>
-              <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.b}</text>
-              <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.c}</text>
-              <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ab}</text>
-              <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ac}</text>
-              <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.bc}</text>
-              <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.abc}</text>
-              <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="Arial, sans-serif">{q.venn3.none} neither</text>
+              <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn3.la}</text>
+              <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn3.lb}</text>
+              <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn3.lc}</text>
+              <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.a}</text>
+              <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.b}</text>
+              <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.c}</text>
+              <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.ab}</text>
+              <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.ac}</text>
+              <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.bc}</text>
+              <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.abc}</text>
+              <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="Inter, system-ui, sans-serif">{q.venn3.none} neither</text>
             </svg>
           )}
           {q.venn && (
@@ -2027,12 +2027,12 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
               <rect x="1" y="1" width="298" height="138" fill="#fff" stroke="#9DB2C8" rx="4" />
               <circle cx="115" cy="70" r="48" fill="#2F71B822" stroke="#2F71B8" strokeWidth="1.5" />
               <circle cx="185" cy="70" r="48" fill="#F5A52422" stroke="#B97A0E" strokeWidth="1.5" />
-              <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.la}</text>
-              <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.lb}</text>
-              <text x="90" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyA}</text>
-              <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.both}</text>
-              <text x="210" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyB}</text>
-              <text x="264" y="128" fontSize="11" fill="#5A6675" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.neither} neither</text>
+              <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn.la}</text>
+              <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn.lb}</text>
+              <text x="90" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.onlyA}</text>
+              <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.both}</text>
+              <text x="210" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.onlyB}</text>
+              <text x="264" y="128" fontSize="11" fill="#5A6675" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.neither} neither</text>
             </svg>
           )}
           {q.table && (
@@ -6195,7 +6195,7 @@ function MockLeaderboard({ entries, you, boardGlobal }) {
   const avgBin = Math.min(9, Math.floor(avg / 10));
 
   const RankCell = (place) => place <= 3
-    ? <span className="lb-medal" style={{ color: MEDAL_COL[place - 1] }} aria-label={`Rank ${place}`}><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8.5 2l1.8 5M15.5 2l-1.8 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><circle cx="12" cy="15" r="6.4" fill="currentColor" opacity="0.16" stroke="currentColor" strokeWidth="1.5" /><text x="12" y="18" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="Arial, sans-serif">{place}</text></svg></span>
+    ? <span className="lb-medal" style={{ color: MEDAL_COL[place - 1] }} aria-label={`Rank ${place}`}><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8.5 2l1.8 5M15.5 2l-1.8 5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" /><circle cx="12" cy="15" r="6.4" fill="currentColor" opacity="0.16" stroke="currentColor" strokeWidth="1.5" /><text x="12" y="18" textAnchor="middle" fontSize="7.5" fontWeight="700" fill="currentColor" fontFamily="Inter, system-ui, sans-serif">{place}</text></svg></span>
     : <span className="lb-rank mono">{place}</span>;
 
   const Row = (e, place) => {
@@ -6389,17 +6389,17 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
       g.fillStyle = "#0E1319"; g.fillRect(0, 0, S, S);
       g.fillStyle = "#F5A524"; g.fillRect(0, 0, S, 12);
       g.textAlign = "left";
-      g.fillStyle = "#F5A524"; g.font = "700 44px Arial, sans-serif"; g.fillText("Tempo", 80, 130);
-      g.fillStyle = "#6B7C90"; g.font = "500 26px Arial, sans-serif"; g.fillText("UCAT trainer", 80, 168);
-      g.fillStyle = "#98AABD"; g.font = "600 34px Arial, sans-serif";
+      g.fillStyle = "#F5A524"; g.font = "700 44px Inter, system-ui, sans-serif"; g.fillText("Tempo", 80, 130);
+      g.fillStyle = "#6B7C90"; g.font = "500 26px Inter, system-ui, sans-serif"; g.fillText("UCAT trainer", 80, 168);
+      g.fillStyle = "#98AABD"; g.font = "600 34px Inter, system-ui, sans-serif";
       g.fillText(`${type.toUpperCase()} ${mini ? "Mini" : "Mock " + "ABC"[slot]} · week ${week % 1000}`, 80, 300);
       g.textAlign = "center";
-      g.fillStyle = "#E9F0F8"; g.font = "800 320px Arial, sans-serif"; g.fillText(`${pct}`, S / 2 - 40, 640);
-      g.fillStyle = "#F5A524"; g.font = "800 90px Arial, sans-serif"; g.fillText("%", S / 2 + 210, 600);
-      g.fillStyle = "#98AABD"; g.font = "500 30px Arial, sans-serif";
+      g.fillStyle = "#E9F0F8"; g.font = "800 320px Inter, system-ui, sans-serif"; g.fillText(`${pct}`, S / 2 - 40, 640);
+      g.fillStyle = "#F5A524"; g.font = "800 90px Inter, system-ui, sans-serif"; g.fillText("%", S / 2 + 210, 600);
+      g.fillStyle = "#98AABD"; g.font = "500 30px Inter, system-ui, sans-serif";
       g.fillText(`${score} of ${mock.flat.length} correct  ·  ~${marksToScale(pct, 100)} scaled est.`, S / 2, 720);
-      if (delta && delta.isPB && !delta.first) { g.fillStyle = "#3ECF8E"; g.font = "700 40px Arial, sans-serif"; g.fillText("New personal best", S / 2, 810); }
-      g.fillStyle = "#47596E"; g.font = "500 24px Arial, sans-serif"; g.fillText("Original UCAT practice on a replica exam screen", S / 2, 1000);
+      if (delta && delta.isPB && !delta.first) { g.fillStyle = "#3ECF8E"; g.font = "700 40px Inter, system-ui, sans-serif"; g.fillText("New personal best", S / 2, 810); }
+      g.fillStyle = "#47596E"; g.font = "500 24px Inter, system-ui, sans-serif"; g.fillText("Original UCAT practice on a replica exam screen", S / 2, 1000);
       const blob = await new Promise((res) => cv.toBlob(res, "image/png"));
       if (!blob) return;
       const file = new File([blob], "tempo-result.png", { type: "image/png" });
@@ -6555,17 +6555,17 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
                 <circle cx="112" cy="66" r="47" fill="#2F71B81f" stroke="#2F71B8" strokeWidth="1.4" />
                 <circle cx="182" cy="66" r="47" fill="#F5A5241f" stroke="#B97A0E" strokeWidth="1.4" />
                 <circle cx="147" cy="118" r="47" fill="#3ECF8E1f" stroke="#1E8E5A" strokeWidth="1.4" />
-                <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.la}</text>
-                <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lb}</text>
-                <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn3.lc}</text>
-                <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.a}</text>
-                <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.b}</text>
-                <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.c}</text>
-                <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ab}</text>
-                <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.ac}</text>
-                <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.bc}</text>
-                <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn3.abc}</text>
-                <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="Arial, sans-serif">{q.venn3.none} neither</text>
+                <text x="66" y="18" fontSize="10.5" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn3.la}</text>
+                <text x="196" y="18" fontSize="10.5" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn3.lb}</text>
+                <text x="188" y="164" fontSize="10.5" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn3.lc}</text>
+                <text x="86" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.a}</text>
+                <text x="208" y="60" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.b}</text>
+                <text x="147" y="146" fontSize="13" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.c}</text>
+                <text x="147" y="52" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.ab}</text>
+                <text x="113" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.ac}</text>
+                <text x="181" y="106" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.bc}</text>
+                <text x="147" y="88" fontSize="12" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn3.abc}</text>
+                <text x="34" y="164" fontSize="10.5" fill="#5A6675" fontFamily="Inter, system-ui, sans-serif">{q.venn3.none} neither</text>
               </svg>
             )}
             {q.venn && (
@@ -6573,12 +6573,12 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
                 <rect x="1" y="1" width="298" height="138" fill="#fff" stroke="#9DB2C8" rx="4" />
                 <circle cx="115" cy="70" r="48" fill="#2F71B822" stroke="#2F71B8" strokeWidth="1.5" />
                 <circle cx="185" cy="70" r="48" fill="#F5A52422" stroke="#B97A0E" strokeWidth="1.5" />
-                <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.la}</text>
-                <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="Arial, sans-serif">{q.venn.lb}</text>
-                <text x="95" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyA}</text>
-                <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.both}</text>
-                <text x="205" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Arial, sans-serif" textAnchor="middle">{q.venn.onlyB}</text>
-                <text x="252" y="130" fontSize="11" fill="#5A6675" fontFamily="Arial, sans-serif">{q.venn.neither} neither</text>
+                <text x="90" y="20" fontSize="11" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn.la}</text>
+                <text x="178" y="20" fontSize="11" fill="#10233A" fontFamily="Inter, system-ui, sans-serif">{q.venn.lb}</text>
+                <text x="95" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.onlyA}</text>
+                <text x="150" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.both}</text>
+                <text x="205" y="75" fontSize="14" fontWeight="700" fill="#10233A" fontFamily="Inter, system-ui, sans-serif" textAnchor="middle">{q.venn.onlyB}</text>
+                <text x="252" y="130" fontSize="11" fill="#5A6675" fontFamily="Inter, system-ui, sans-serif">{q.venn.neither} neither</text>
               </svg>
             )}
             {q.scenarioText && <p className="ud-scenario">{q.scenarioText}</p>}
@@ -6708,7 +6708,7 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
               <p style={{ fontSize: 13.5, color: "var(--body)", lineHeight: 1.65, margin: "8px 0 12px" }}>{q.why || q.working}</p>
               {type === "vr" ? (
                 <div style={{ background: "var(--card)", borderRadius: 3, padding: "14px 16px" }}>
-                  <p style={{ fontFamily: "Arial, sans-serif", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#5A6675", margin: "0 0 8px" }}>Where the answer was hiding</p>
+                  <p style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#5A6675", margin: "0 0 8px" }}>Where the answer was hiding</p>
                   {highlightEvidence(q.passage.text, q.evidence)}
                 </div>
               ) : (

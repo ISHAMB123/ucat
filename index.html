@@ -258,6 +258,8 @@
   .give .bignum .w { font-family: var(--sans); font-size: 12px; font-weight: 800; line-height: 1.15; letter-spacing: 0.04em; text-transform: uppercase; }
   .give p { color: var(--soft); font-size: 15.5px; margin-top: 12px; max-width: 48ch; line-height: 1.6; }
   .give p b { color: var(--ink); }
+  .give .give-next { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--ink); margin-top: 12px; max-width: 50ch; }
+  .give .give-next .tag { flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent-fill) 55%, transparent); border-radius: 20px; padding: 2px 9px; position: relative; top: -1px; }
   .give .txt .btn { margin-top: 18px; }
 
   /* revolving door of clips */
@@ -422,6 +424,7 @@
           <span class="w">orphans<br>we feed</span>
         </div>
         <p>A large share of every sale goes straight to orphanages in Bangladesh, helping <b>feed 1,000 orphans</b>. Not a slogan: tap any clip to watch the meals handed out.</p>
+        <p class="give-next"><span class="tag">Next</span>Our next project is repairing these orphanages and installing proper showers. Every purchase helps get us there.</p>
         <a class="btn btn-primary" href="https://www.tiktok.com/" target="_blank" rel="noopener">See more on TikTok</a>
       </div>
       <div class="door-wrap">

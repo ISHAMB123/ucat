@@ -1233,6 +1233,26 @@ button.nav-row:hover { background:var(--signal)14; }
 .mmi-l.green { border-left-color:var(--go); }
 .mmi-l.amber { border-left-color:var(--signal); }
 .mmi-l.red { border-left-color:var(--stop); }
+.mmi-scoreline { display:flex; align-items:center; gap:14px; }
+.mmi-big b { font-family:'Bricolage Grotesque',sans-serif; font-size:34px; font-weight:800; letter-spacing:-0.03em; line-height:1; }
+.mmi-big b em { font-size:16px; font-weight:600; color:var(--mute); font-style:normal; }
+.mmi-big b.excellent, .mmi-big b.strong { color:var(--go); }
+.mmi-big b.medium { color:var(--signal); }
+.mmi-big b.weak { color:var(--stop); }
+.mmi-big span { display:block; font-size:12px; color:var(--mute); margin-top:3px; }
+.mmi-covers ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+.mmi-covers li { display:flex; gap:9px; align-items:flex-start; font-size:13px; line-height:1.5; }
+.mmi-covers li span { flex:none; font-weight:700; width:14px; }
+.mmi-covers li.hit { color:var(--body); }
+.mmi-covers li.hit span { color:var(--go); }
+.mmi-covers li.miss { color:var(--mute); }
+.mmi-covers li.miss span { color:var(--stop); }
+.mmi-guide { margin:10px 0 0; font-size:12.5px; line-height:1.55; color:var(--body); border-left:2px solid var(--signal); padding-left:10px; }
+.mmi-guide b { color:var(--paper); }
+.mmi-crit { display:flex; gap:10px; padding:7px 0; border-bottom:1px solid var(--line); }
+.mmi-crit .dot { width:10px; height:10px; border-radius:50%; margin-top:5px; flex:none; }
+.mmi-crit .dot.s2 { background:var(--go); } .mmi-crit .dot.s1 { background:var(--signal); } .mmi-crit .dot.s0 { background:var(--stop); }
+.mmi-crit b { font-size:12.5px; } .mmi-crit p { font-size:12.5px; color:var(--body); line-height:1.55; margin:3px 0 0; }
 
 /* Live countdown clocks stay monospace with tabular figures so the digits
    do not jitter as they tick. Everything else is Inter. */

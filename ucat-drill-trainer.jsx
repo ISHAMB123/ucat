@@ -4165,40 +4165,95 @@ function WritingPractice({ themes, track, uniSel, setUniSel, jump, clearJump }) 
    real questions. field/pro adapt the wording to the chosen track. */
 function mmiStations(track) {
   const field = track === "med" ? "medicine" : "dentistry";
-  const pro = track === "med" ? "doctor" : "dentist";
   return [
     {
       id: "motivation", type: "Motivation", label: `Why ${field}?`,
       prompt: `Why do you want to study ${field}, and how have you tested that it is right for you?`,
       framework: [["Honest reason", "One real reason, not a slogan. Where did it actually start?"], ["Evidence", "What you saw or did that tested it: work experience, volunteering, wider reading."], ["Realism", "One hard or unglamorous part of the job you have understood."], ["Reflection", "What it confirmed or changed, in your own words."]],
-      covers: ["A specific origin, not a childhood story", "Real evidence you explored it", "Awareness of the difficult side", "Why you still chose it"],
+      covers: [
+        ["A specific moment, not a childhood story", /\b(work experience|placement|volunteer(ed|ing)?|shadow(ed|ing)?|hospital|clinic|ward|care home|hospice|saw|witnessed|watched|when i|one (patient|day))\b/i],
+        ["Real evidence you explored it", /\b(work experience|volunteer|shadow|placement|read(ing)?|research|spoke to|talked to|conversation with|first[- ]?hand|observed)\b/i],
+        ["Awareness of the difficult side", /\b(hard|difficult|challeng|long hours|emotional|stress|pressure|burn ?out|not glamorous|unglamorous|tough|demanding|sacrifice|toll|deal(ing)? with death|bad news)\b/i],
+        ["Why you still chose it despite that", /\b(despite|even though|but still|nonetheless|what draws me|what appeals|the reason i|for me,|still chose|still want)\b/i],
+      ],
+      guide: `Open with the specific moment that started it, show the work experience or reading that tested it, name one hard reality of being a ${track === "med" ? "doctor" : "dentist"}, and finish on why you still chose it. Avoid "I want to help people" without a scene behind it.`,
     },
     {
       id: "ethics", type: "Ethics", label: "An ethical dilemma",
       prompt: `A close friend on your course tells you, in confidence, that they have been drinking heavily before placement shifts. They beg you not to say anything. What do you do, and why?`,
       framework: [["Autonomy", "Your friend's right to make their own choices."], ["Beneficence", "Acting in the interests of patients and of your friend."], ["Non-maleficence", "The harm risked if impaired care reaches a patient."], ["Justice", "Fairness, professional duty and the wider public."]],
-      covers: ["Names the principles in tension", "Puts patient safety first", "Shows compassion for the friend, not just rules", "Reaches a clear, professional action"],
+      covers: [
+        ["Names the principles in tension", /\b(autonomy|beneficence|non-?maleficence|confidential|justice|duty of care|four pillars|principle|ethic)\b/i],
+        ["Puts patient safety first", /\b(patient safety|patients?|harm|risk|safe|unsafe|impair|danger|fitness to practise)\b/i],
+        ["Compassion for the friend, not just rules", /\b(support|help (them|him|her)|wellbeing|talk to (them|him|her)|without judg|non-?judg|encourage (them|him|her)|struggling|check (in )?on|underlying|why they)\b/i],
+        ["Reaches a clear, professional action", /\b(i would|i'd|i will|speak to|report|escalate|encourage (them|him|her) to|advise|raise (it|this|concern)|seek help|occupational health|supervisor|tutor|welfare)\b/i],
+      ],
       note: "Weigh the four pillars, then decide. Consent, capacity and confidentiality often sit underneath them.",
+      guide: "Name the clash (confidentiality and your friend's autonomy against patient safety), gather what you would need to know, act with patient safety leading, but do it compassionately: support your friend to disclose or seek help rather than simply reporting them.",
     },
     {
       id: "roleplay", type: "Role play", label: "A difficult conversation",
       prompt: `A team-mate has been missing group deadlines and the rest of the group is angry. You have been asked to speak to them. Talk through how you would open and handle that conversation.`,
       framework: [["Acknowledge", "Open calmly and without accusation."], ["Explore", "Ask open questions; there may be something going on."], ["Empathise", "Show you have heard them before problem-solving."], ["Plan", "Agree a concrete next step together."]],
-      covers: ["Opens without blame", "Listens before fixing", "Genuine empathy", "A shared, specific plan"],
+      covers: [
+        ["Opens without blame", /\b(calm|without blame|not accus|non-?confrontational|start by|open by|privately|one to one|how are you|check (in|how))\b/i],
+        ["Listens before fixing", /\b(listen|ask|open question|understand|explore|why|find out|their side|hear (them|their)|what's going on|is everything)\b/i],
+        ["Genuine empathy", /\b(empath|acknowledge|i understand|that must|i can see|feel|reassure|support|no judg)\b/i],
+        ["Agrees a shared, specific plan", /\b(plan|agree|together|next step|going forward|check back|follow up|solution|share the|redistribute|catch up)\b/i],
+      ],
+      guide: "Open privately and without blame, ask what is going on before assuming, show you have heard them, then agree a concrete shared plan. The mark is in exploring before fixing.",
     },
     {
       id: "prioritise", type: "Prioritisation", label: "Competing demands",
-      prompt: `You are on a busy ward round as a student. Three things happen at once: a nurse asks for help, your supervisor wants you to present, and a visitor looks lost and upset. How do you prioritise?`,
+      prompt: `You are on a busy ward round as a student. Three things happen at once: a nurse asks for urgent help, your supervisor wants you to present, and a visitor looks lost and upset. How do you prioritise, and why?`,
       framework: [["Safety first", "What carries the greatest risk if it waits?"], ["Gather", "Quickly clarify what each actually needs."], ["Delegate / escalate", "You do not have to do everything yourself."], ["Communicate", "Tell people what you are doing and when."]],
-      covers: ["A clear safety-led order", "Recognises your own limits as a student", "Escalates appropriately", "Keeps everyone informed"],
+      covers: [
+        ["A clear, safety-led order", /\b(safety|safe|first|priorit|most urgent|urgent|risk|life-threatening|greatest (risk|harm|need)|clinical)\b/i],
+        ["Knows your limits as a student", /\b(student|within my|my role|not my place|beyond my|competence|qualified|i am not|i'm not|remit)\b/i],
+        ["Escalates or delegates", /\b(escalate|senior|supervisor|nurse|ask for help|inform|tell (the|my)|delegate|hand over|get help)\b/i],
+        ["Keeps everyone informed", /\b(let (them|him|her) know|communicat|explain|tell them|inform|update|apolog|reassure|come back|be with you)\b/i],
+      ],
+      guide: "Lead with the greatest clinical risk (the nurse's urgent request), recognise a student's limits and escalate rather than acting beyond competence, and keep the others informed with a quick word so nobody is ignored.",
     },
     {
       id: "reflection", type: "Reflection", label: "A time you failed",
       prompt: `Describe a time you failed at something that mattered to you. What did you do, and what did it teach you?`,
       framework: [["Situation", "One sentence of context, no more."], ["Task", "What was at stake and why it was hard."], ["Action", "What you did, in the first person."], ["Result and reflection", "The outcome, and what you genuinely changed since. The marks live here."]],
-      covers: ["A real failure, owned not deflected", "First-person actions", "An honest outcome", "A concrete lesson you have since applied"],
+      covers: [
+        ["A real failure, owned not deflected", /\b(i failed|my (mistake|fault|error)|i (did not|didn't|should have|could have)|i got (it )?wrong|i underestimated|i let|i struggled|i missed)\b/i],
+        ["First-person actions", /\bi (did|took|decided|spoke|asked|changed|worked|practi[sc]ed|tried|rebuilt|organis|planned|approached|reached out)\b/i],
+        ["An honest outcome", /\b(result|outcome|in the end|eventually|passed|failed|improved|the grade|the score|we (won|lost)|did not|still|better)\b/i],
+        ["A lesson you have since applied", /\b(learn|taught me|since then|now i|next time|i would|applied|used (this|that|it)|changed how|these days|ever since)\b/i],
+      ],
+      guide: "Pick a real failure and own it in one line, describe what you did in the first person, give the honest outcome, then land on the specific lesson and where you have used it since. The reflection is where the marks live.",
     },
   ];
+}
+
+/* Station-aware marking: the general marker for structure and reflection,
+   blended with how many of THIS station's key points the answer actually
+   hit. That coverage is the "focus on their answer" part, and it drives the
+   ticked checklist. */
+function scoreStation(text, station) {
+  const base = markAnswer(text); /* kept for structure/reflection notes, not the score */
+  const met = (station.covers || []).map(([label, re]) => ({ label, met: re.test(text) }));
+  const covered = met.filter((m) => m.met).length;
+  const cov = met.length ? covered / met.length : 0;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  /* Coverage of this station's key points drives the score. A modest quality
+     bump for adequate length and clear structure, and a bite for the tired
+     clichés. The general marker's harsh anecdote/number penalties are not
+     applied here, since ethics and role-play answers are not anecdotes. */
+  let quality = 0;
+  if (words >= 45) quality += 12; else if (words >= 25) quality += 6;
+  const structure = base.crits.find((c) => c.name === "Structure");
+  quality += structure ? structure.score * 5 : 0;
+  const cliches = (text.match(/\b(i want to help people|help people|make a difference|always wanted|from a young age)\b/i) || []).length;
+  quality -= cliches * 8;
+  const scorePct = Math.max(0, Math.min(100, Math.round(cov * 70 + quality)));
+  const out10 = Math.max(1, Math.min(10, Math.round(scorePct / 10)));
+  const band = scorePct >= 80 ? "Excellent" : scorePct >= 62 ? "Strong" : scorePct >= 40 ? "Medium" : "Weak";
+  return { base, met, covered, total: met.length, out10, band, blended: scorePct };
 }
 
 /* One collapsible MMI station: framework, an answer you type or speak,
@@ -4248,28 +4303,37 @@ function MmiStation({ st, open, onToggle, track }) {
     try { rec.start(); setListening(true); setMicState("idle"); } catch (e) { /* running */ }
   };
 
+  const stopListening = () => {
+    if (!listening) return;
+    wantRef.current = false;
+    try { recRef.current && recRef.current.stop(); } catch (e) { /* ignore */ }
+    secsRef.current += (Date.now() - startRef.current) / 1000;
+    setListening(false);
+  };
+
   const mark = () => {
-    if (listening) { wantRef.current = false; try { recRef.current.stop(); } catch (e) { /* ignore */ } secsRef.current += (Date.now() - startRef.current) / 1000; setListening(false); }
+    stopListening();
     const wc = text.trim().split(/\s+/).filter(Boolean).length;
     if (wc < 12) { setResult({ short: true }); return; }
-    const m = markAnswer(text);
+    const r = scoreStation(text, st);
     const lines = analyseAnswer(text);
     const delivery = secsRef.current > 3 ? analyseDelivery(text, secsRef.current) : null;
-    setResult({ m, lines, delivery });
+    setResult({ ...r, lines, delivery });
     getJSON("ucat:ivmarks", []).then((arr) => {
       const list = Array.isArray(arr) ? arr : [];
-      setJSON("ucat:ivmarks", [...list, { ts: Date.now(), out10: m.outOf10, band: m.band, track, mmi: st.id }].slice(-100));
+      setJSON("ucat:ivmarks", [...list, { ts: Date.now(), out10: r.out10, band: r.band, track, mmi: st.id }].slice(-100));
     });
   };
 
   const reset = () => { setText(""); setResult(null); secsRef.current = 0; baseRef.current = ""; };
+  const marked = result && !result.short;
 
   return (
     <div className={`mmi-station${open ? " open" : ""}`}>
       <button className="mmi-head" onClick={onToggle} aria-expanded={open}>
         <span className="mmi-type">{st.type}</span>
         <b>{st.label}</b>
-        {result && result.m && <span className={`mmi-scorepill ${result.m.band.toLowerCase()}`}>{result.m.outOf10}/10</span>}
+        {marked && <span className={`mmi-scorepill ${result.band.toLowerCase()}`}>{result.out10}/10</span>}
         <span className="mmi-chev" aria-hidden="true">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
@@ -4280,23 +4344,33 @@ function MmiStation({ st, open, onToggle, track }) {
             {st.framework.map(([h, d]) => (<div key={h}><b>{h}</b><span>{d}</span></div>))}
           </div>
           <div className="mmi-answer">
-            <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Speak it or type it, exactly as you would in the room. Spelling and grammar are never marked here." rows={4} />
+            <textarea value={text} onChange={(e) => { setText(e.target.value); if (result) setResult(null); }} placeholder="Speak it or type it, exactly as you would in the room. Spelling and grammar are never marked here." rows={5} />
             <div className="mmi-tools">
               <button className={`wp-mic${listening ? " on" : ""}`} onClick={toggleMic} disabled={micState === "unsupported"}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" strokeLinecap="round" /></svg>
                 {listening ? "Listening, tap to stop" : micState === "unsupported" ? "Dictation not supported" : "Speak your answer"}
               </button>
+              {listening && <span className="wp-live">recording</span>}
               <span className="mmi-toolspacer" />
               {result && <button className="ud-quit" onClick={reset}>reset</button>}
-              <button className="ud-btn" onClick={mark} disabled={text.trim().split(/\s+/).filter(Boolean).length < 12}>Mark it</button>
+              <button className="ud-btn" onClick={mark}>Mark it</button>
             </div>
+            {micState === "denied" && <p className="mmi-short" style={{ color: "var(--stop)" }}>Microphone access was blocked. Allow it in your browser settings, or type the answer instead.</p>}
           </div>
-          {result && result.short && <p className="mmi-short">Give it a real go first: a sentence or two is not enough to mark.</p>}
-          {result && result.m && (
+          {result && result.short && <p className="mmi-short">Give it a real go first, at least a couple of sentences (around 12 words), then tap Mark it.</p>}
+          {marked && (
             <div className="mmi-result">
+              <div className="mmi-scoreline">
+                <div className="mmi-big"><b className={result.band.toLowerCase()}>{result.out10}<em>/10</em></b><span>{result.band} · {result.covered}/{result.total} key points</span></div>
+              </div>
               <div className="mmi-covers">
-                <span className="k">What a strong answer covers</span>
-                <ul>{st.covers.map((c, n) => <li key={n}>{c}</li>)}</ul>
+                <span className="k">Did your answer hit this station's marks?</span>
+                <ul>
+                  {result.met.map((m, n) => (
+                    <li key={n} className={m.met ? "hit" : "miss"}><span aria-hidden="true">{m.met ? "✓" : "○"}</span>{m.label}</li>
+                  ))}
+                </ul>
+                {result.covered < result.total && <p className="mmi-guide"><b>To lift the mark:</b> {st.guide}</p>}
               </div>
               {result.delivery && (
                 <div className="mmi-delivery">
@@ -4309,6 +4383,15 @@ function MmiStation({ st, open, onToggle, track }) {
                   <p>{result.delivery.verdict}</p>
                 </div>
               )}
+              <div className="mmi-crits">
+                <span className="k">Structure and reflection notes</span>
+                {result.base.crits.map((c) => (
+                  <div className="mmi-crit" key={c.name}>
+                    <span className={`dot s${c.score}`} aria-hidden="true" />
+                    <div><b>{c.name} · {c.score}/2</b><p>{c.score === 2 ? c.good : c.fix}</p></div>
+                  </div>
+                ))}
+              </div>
               <div className="mmi-lines">
                 <span className="k">Line by line</span>
                 {result.lines.map((l, n) => (<p key={n} className={`mmi-l ${l.v}`}>{l.sn} <em>{l.n}</em></p>))}
@@ -7140,5 +7223,5 @@ export {
   generatePlan, currentStreak, DRILL_BY_ID, PlannerPanel,
   marksToScale, old3600to2700, ScoreConverter, dedupeBest, MockLeaderboard,
   analysePace, paceState, projectScore, readinessScore, schoolsInRange, OutlookPanel,
-  mmiStations, MmiCircuit,
+  mmiStations, MmiCircuit, scoreStation,
 };

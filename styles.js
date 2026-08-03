@@ -83,6 +83,31 @@ export const CSS = `
 .ud-config .row button.on { border-color:var(--signal); color:var(--signal); }
 .ud-config input[type=range] { width:150px; accent-color:var(--signal); }
 .ud-config .val { font-family:'Inter',sans-serif; font-size:14px; color:var(--paper); min-width:26px; text-align:center; }
+
+/* interview launcher: controls + animated mic panel */
+.iv-config { display:grid; grid-template-columns:minmax(0,1fr) 250px; gap:24px; align-items:stretch; flex-wrap:nowrap; }
+.iv-config-main { min-width:0; align-self:center; }
+.iv-mic { position:relative; display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; padding:20px 16px 14px; border:1.5px solid color-mix(in srgb, var(--signal) 55%, var(--line)); border-radius:8px; background:radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--signal) 12%, transparent), transparent 60%); overflow:hidden; }
+.iv-mic-orb { position:relative; width:56px; height:56px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--signal) 16%, transparent); color:var(--signal); margin-top:4px; }
+.iv-mic-orb svg { width:26px; height:26px; position:relative; z-index:2; }
+.iv-ring { position:absolute; inset:0; border-radius:50%; border:1.5px solid var(--signal); opacity:0; }
+.iv-mic.live .iv-ring { animation:ivring 2s ease-out infinite; }
+.iv-mic.live .iv-ring.r2 { animation-delay:1s; }
+@keyframes ivring { 0% { transform:scale(1); opacity:.5; } 100% { transform:scale(2.1); opacity:0; } }
+.iv-wave { display:flex; align-items:center; justify-content:center; gap:3px; height:34px; }
+.iv-wave i { width:3px; height:8px; border-radius:3px; background:var(--signal); opacity:.85; }
+.iv-mic.live .iv-wave i { animation:ivwave 1s ease-in-out infinite; }
+@keyframes ivwave { 0%,100% { height:7px; } 50% { height:28px; } }
+.iv-mic-cap { font-size:12px; line-height:1.5; color:var(--body); margin:0; max-width:22ch; }
+.iv-mic-cap b { color:var(--paper); }
+.iv-mic-toggle { display:inline-flex; align-items:center; gap:8px; background:transparent; border:1px solid var(--line); border-radius:20px; padding:5px 12px 5px 6px; font-family:'Inter',sans-serif; font-size:11px; color:var(--body); cursor:pointer; }
+.iv-mic-toggle:hover { border-color:var(--signal); color:var(--paper); }
+.iv-sw { width:28px; height:16px; border-radius:20px; background:var(--line); position:relative; transition:background .16s; flex:none; }
+.iv-sw i { position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:var(--mute); transition:transform .16s, background .16s; }
+.iv-sw.on { background:color-mix(in srgb, var(--signal) 55%, transparent); }
+.iv-sw.on i { transform:translateX(12px); background:var(--signal); }
+@media (max-width:720px) { .iv-config { grid-template-columns:1fr; } }
+@media (prefers-reduced-motion: reduce) { .iv-mic.live .iv-ring, .iv-mic.live .iv-wave i { animation:none; } }
 .ud-subs { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; padding-top:12px; }
 .ud-sub { background:var(--ink); border:1px solid var(--line); border-radius:3px; padding:13px 14px; text-align:left; color:inherit; }
 .ud-sub:hover { border-color:var(--signal); }

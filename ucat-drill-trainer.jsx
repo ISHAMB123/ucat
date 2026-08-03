@@ -5162,6 +5162,9 @@ function InterviewLauncher({ track }) {
   const [source, setSource] = useState("general");
   const [mode, setMode] = useState("mmi");
   const [running, setRunning] = useState(null);
+  const [motion, setMotion] = useState(true);
+  useEffect(() => { getJSON("ucat:ivmotion", true).then((v) => setMotion(v !== false)); }, []);
+  const toggleMotion = () => { const v = !motion; setMotion(v); setJSON("ucat:ivmotion", v); };
   const IVTABLE = track === "med" ? MED_IV : UNI_IV;
   const IVLIST = track === "med" ? MED_UNIS : UNIS.filter((u) => UNI_IV[u.id]);
   const panelPool = [];
@@ -5204,31 +5207,48 @@ function InterviewLauncher({ track }) {
 
   return (
     <>
-      <div className="ud-config" style={{ marginTop: 6 }}>
-        <div className="grp">
-          <label>Question source</label>
-          <div className="row">
-            <select className="ud-input" style={{ maxWidth: 320 }} value={source} onChange={(e) => setSource(e.target.value)}>
-              <option value="general">General bank, all schools</option>
-              <option disabled>Tailored to a school:</option>
-              {IVLIST.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
+      <div className="ud-config iv-config" style={{ marginTop: 6 }}>
+        <div className="iv-config-main">
+          <div className="grp">
+            <label>Question source</label>
+            <div className="row">
+              <select className="ud-input" style={{ maxWidth: 320 }} value={source} onChange={(e) => setSource(e.target.value)}>
+                <option value="general">General bank, all schools</option>
+                <option disabled>Tailored to a school:</option>
+                {IVLIST.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </div>
+          </div>
+          {source === "general" && (
+            <div className="ud-mode" style={{ paddingTop: 12 }}>
+              <span>Format</span>
+              <button className={mode === "mmi" ? "on" : ""} onClick={() => setMode("mmi")}>MMI circuit</button>
+              <button className={mode === "panel" ? "on" : ""} onClick={() => setMode("panel")}>Panel questions</button>
+            </div>
+          )}
+          <p className="ud-empty" style={{ margin: "12px 0 0" }}>
+            {source === "general"
+              ? (mode === "mmi" ? "Four stations, one from each MMI topic: ethics, role play, prioritisation and reflection. Timed like the real thing, marked at the end." : "Four panel questions back to back, timed and marked at the end.")
+              : "Four questions in this school's format, timed and marked at the end. Or hit Go on any single question below to run just that one."}
+          </p>
+          <div className="row" style={{ marginTop: 14 }}>
+            <button className="ud-btn" onClick={start}>{startLabel}</button>
           </div>
         </div>
-        {source === "general" && (
-          <div className="ud-mode" style={{ paddingTop: 12 }}>
-            <span>Format</span>
-            <button className={mode === "mmi" ? "on" : ""} onClick={() => setMode("mmi")}>MMI circuit</button>
-            <button className={mode === "panel" ? "on" : ""} onClick={() => setMode("panel")}>Panel questions</button>
+
+        <div className={`iv-mic${motion ? " live" : ""}`}>
+          <div className="iv-mic-orb" aria-hidden="true">
+            <span className="iv-ring" /><span className="iv-ring r2" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" /></svg>
           </div>
-        )}
-        <p className="ud-empty" style={{ margin: "12px 0 0" }}>
-          {source === "general"
-            ? (mode === "mmi" ? "Four stations, one from each MMI topic: ethics, role play, prioritisation and reflection. Timed like the real thing, marked at the end." : "Four panel questions back to back, timed and marked at the end.")
-            : "Four questions in this school's format, timed and marked at the end. Or hit Go on any single question below to run just that one."}
-        </p>
-        <div className="row" style={{ marginTop: 14 }}>
-          <button className="ud-btn" onClick={start}>{startLabel}</button>
+          <div className="iv-wave" aria-hidden="true">
+            {Array.from({ length: 11 }).map((_, n) => <i key={n} style={{ animationDelay: `${(n % 6) * 0.11}s` }} />)}
+          </div>
+          <p className="iv-mic-cap">Spoken practice. Answer <b>out loud</b> into your mic, and Tempo marks what you actually say.</p>
+          <button className="iv-mic-toggle" onClick={toggleMotion} aria-pressed={motion} title="Turn the animation on or off">
+            <span className={`iv-sw${motion ? " on" : ""}`} aria-hidden="true"><i /></span>
+            Motion {motion ? "on" : "off"}
+          </button>
         </div>
       </div>
 

@@ -49,4 +49,25 @@ describe("analyseDelivery reads spoken pace, fillers and length", () => {
     expect(d.fillers).toBeGreaterThanOrEqual(4);
     expect(d.verdict).toMatch(/filler/i);
   });
+  it("breaks fillers down by word and groups variants", () => {
+    const d = analyseDelivery("um umm ummm like like basically", 20);
+    expect(d.fillerCounts.um).toBe(3);
+    expect(d.fillerCounts.like).toBe(2);
+    expect(d.fillerCounts.basically).toBe(1);
+    expect(d.fillers).toBe(6);
+  });
+});
+
+import { fillerAdvice } from "../engine/marking.js";
+
+describe("fillerAdvice", () => {
+  it("returns null when there are no fillers", () => {
+    expect(fillerAdvice({}, 0)).toBe(null);
+  });
+  it("gives ordered tips naming the worst offender", () => {
+    const tips = fillerAdvice({ um: 4, like: 1 }, 5);
+    expect(Array.isArray(tips)).toBe(true);
+    expect(tips.length).toBeGreaterThanOrEqual(3);
+    expect(tips.some((t) => t.includes("um"))).toBe(true);
+  });
 });

@@ -46,13 +46,27 @@ export function analyseAnswer(text) {
 /* Delivery analysis for a spoken answer: pace, filler words and length.
    Interviews are spoken, so how it lands matters as much as what is said.
    Returns null unless there is real speech and a measured duration. */
-const FILLERS = /\b(um+|uh+|erm*|like|basically|literally|actually|you know|kind of|sort of|i mean|so yeah)\b/gi;
+const FILLERS = /\b(um+|uh+|erm*|hmm+|like|basically|literally|actually|obviously|honestly|you know|kind of|sort of|i mean|i guess|so yeah|sort a|kinda)\b/gi;
+/* Group raw matches so "um/umm/ummm" all count as one word, for a clean tally. */
+export function normaliseFiller(w) {
+  w = (w || "").toLowerCase().trim();
+  if (/^um+$/.test(w)) return "um";
+  if (/^uh+$/.test(w)) return "uh";
+  if (/^erm*$/.test(w)) return "erm";
+  if (/^hmm+$/.test(w)) return "hmm";
+  if (w === "kinda" || w === "kind of") return "kind of";
+  if (w === "sort a" || w === "sort of") return "sort of";
+  return w;
+}
 export function analyseDelivery(text, seconds) {
   const words = (text || "").trim().split(/\s+/).filter(Boolean);
   const wc = words.length;
   if (!wc || !(seconds > 0)) return null;
   const wpm = Math.round(wc / (seconds / 60));
-  const fillers = (text.match(FILLERS) || []).length;
+  const rawFillers = (text.match(FILLERS) || []).map(normaliseFiller);
+  const fillerCounts = {};
+  rawFillers.forEach((w) => { fillerCounts[w] = (fillerCounts[w] || 0) + 1; });
+  const fillers = rawFillers.length;
   const paceTone = wpm < 110 ? "slow" : wpm > 170 ? "fast" : "good";
   const lenTone = seconds < 40 ? "short" : seconds > 150 ? "long" : "good";
   const bits = [];
@@ -62,7 +76,22 @@ export function analyseDelivery(text, seconds) {
   if (fillers >= 4) bits.push(`Heard ${fillers} filler words. A short silence to think reads far better than "um".`);
   if (lenTone === "short") bits.push("Quite short for a station. Develop one point with an example rather than stopping early.");
   else if (lenTone === "long") bits.push("Running long. Interviewers cut you off; make your point and land it.");
-  return { wc, seconds: Math.round(seconds), wpm, fillers, paceTone, lenTone, verdict: bits.join(" ") };
+  return { wc, seconds: Math.round(seconds), wpm, fillers, fillerCounts, paceTone, lenTone, verdict: bits.join(" ") };
+}
+
+/* Concrete, ordered advice for cutting filler words, tailored to the worst
+   offender when there is one. Returns null when there is nothing to fix. */
+export function fillerAdvice(fillerCounts, total) {
+  if (!total) return null;
+  const top = Object.entries(fillerCounts || {}).sort((a, b) => b[1] - a[1]);
+  const worst = top.length ? top[0][0] : null;
+  const tips = [
+    "Swap the filler for a pause. A second of silence while you think reads as composure; “um” reads as nerves.",
+  ];
+  if (worst) tips.push(`Your most frequent was “${worst}”. It tends to slip out the instant before you decide what to say, so let that moment be a silent beat instead of a sound.`);
+  tips.push("Plan the first sentence before you open your mouth. Most fillers come from starting to talk before you know where the sentence is going.");
+  tips.push("Record one answer and play it back. Hearing your own fillers is the fastest way to notice, and then stop, them.");
+  return tips;
 }
 
 export const MODEL_SKELETON = {

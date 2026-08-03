@@ -1219,7 +1219,7 @@ button.nav-row:hover { background:var(--signal)14; }
 .mmi-body { padding:16px; border-top:1px solid var(--line); }
 .mmi-prompt { margin:0 0 8px; font-size:16px; line-height:1.4; font-weight:600; color:var(--paper); }
 .mmi-note { margin:0 0 12px; font-size:12.5px; color:var(--mute); border-left:2px solid var(--line); padding-left:10px; }
-.mmi-frame { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:14px; }
+.mmi-frame { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-bottom:14px; text-align:left; }
 .mmi-frame > div { background:var(--slate); border:1px solid var(--line); border-radius:5px; padding:9px 11px; }
 .mmi-frame b { display:block; font-size:12px; color:var(--signal); margin-bottom:2px; }
 .mmi-frame span { font-size:11.5px; color:var(--body); line-height:1.45; }
@@ -1289,8 +1289,8 @@ button.nav-row:hover { background:var(--signal)14; }
 .ivr-q.blur { filter:blur(11px); user-select:none; pointer-events:none; opacity:0.75; }
 .ivr-ready p { color:var(--body); font-size:14px; line-height:1.6; margin:0 0 18px; max-width:52ch; }
 .ivr-think { text-align:center; padding:20px 0; }
-.ivr-think b { font-family:'Bricolage Grotesque',sans-serif; font-size:60px; font-weight:800; color:var(--signal); line-height:1; }
-.ivr-think span { display:block; margin-top:8px; color:var(--body); font-size:14px; }
+.ivr-think > b { font-family:'Bricolage Grotesque',sans-serif; font-size:60px; font-weight:800; color:var(--signal); line-height:1; }
+.ivr-think > span { display:block; margin-top:8px; color:var(--body); font-size:14px; }
 .ivr-write textarea { width:100%; background:var(--slate); border:1px solid var(--line); color:var(--paper); border-radius:6px; padding:14px; font-family:'Inter',sans-serif; font-size:15px; line-height:1.55; resize:vertical; }
 .ivr-stars { position:absolute; inset:0; pointer-events:none; z-index:5; }
 .ivr-stars s { position:absolute; font-size:26px; color:var(--signal); text-decoration:none; animation:ivstar .62s ease forwards; }
@@ -1310,6 +1310,17 @@ button.nav-row:hover { background:var(--signal)14; }
 .ivr-covers li.hit { color:var(--body); } .ivr-covers li.hit span { color:var(--go); }
 .ivr-covers li.miss { color:var(--mute); } .ivr-covers li.miss span { color:var(--stop); }
 .ivr-noans { margin:8px 0 0; font-size:12.5px; color:var(--stop); }
+.ivr-fillers { margin:10px 0 0; font-size:12px; color:var(--body); background:var(--slate); border-radius:5px; padding:7px 10px; }
+.ivr-delivery { margin-top:16px; border:1px solid var(--line); border-radius:8px; padding:16px 18px; background:var(--slate); }
+.ivr-dhead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+.ivr-dhead b { font-family:'Bricolage Grotesque',sans-serif; font-size:16px; }
+.ivr-fpill { font-family:'Inter',sans-serif; font-size:11px; font-weight:700; letter-spacing:0.04em; padding:4px 10px; border-radius:20px; border:1px solid; }
+.ivr-fpill.clean { color:var(--go); border-color:var(--go); }
+.ivr-fpill.some { color:var(--signal); border-color:var(--signal); }
+.ivr-fpill.high { color:var(--stop); border-color:var(--stop); }
+.ivr-dsub { font-size:13px; color:var(--body); line-height:1.55; margin:0; }
+.ivr-advice { margin:8px 0 0; padding-left:18px; display:flex; flex-direction:column; gap:6px; }
+.ivr-advice li { font-size:12.5px; color:var(--body); line-height:1.55; }
 @media (prefers-reduced-motion: reduce) {
   .ivr-stage.sl-out, .ivr-stage.sl-in, .ivr-stars s, .ivr-results, .ivr-rcard { animation:none !important; }
   .ivr-stage.sl-out { opacity:1; transform:none; }

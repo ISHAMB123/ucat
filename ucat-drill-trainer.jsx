@@ -14,7 +14,7 @@ import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UN
 import { MED_SCHOOLS, MED_CHECKED } from "./data/medicine.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
 import { PS_TOTAL, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
-import { markAnswer, analyseAnswer, analyseDelivery, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
+import { markAnswer, analyseAnswer, analyseDelivery, fillerAdvice, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
 import { WorkDiagram, BrandMark, ExitGuard, LastChecked, MarkingNotice, SiteDisclaimer, Monogram, Locked } from "./components/ui.jsx";
 
 /* ================================================================== */
@@ -4772,21 +4772,51 @@ function InterviewRunner({ title, questions, track, onExit }) {
 
   if (phase === "results") {
     const avg = answers.length ? Math.round(answers.reduce((a, s) => a + s.r.out10, 0) / answers.length) : 0;
+    /* Delivery: spoken answers only (a typed answer has no real speaking time). */
+    const deliveries = answers.map((s) => (s.secs > 3 ? analyseDelivery(s.text, s.secs) : null));
+    const spoken = deliveries.filter(Boolean);
+    const totalFillers = spoken.reduce((n, dv) => n + dv.fillers, 0);
+    const fillerAgg = {};
+    spoken.forEach((dv) => Object.entries(dv.fillerCounts).forEach(([k, v]) => { fillerAgg[k] = (fillerAgg[k] || 0) + v; }));
+    const topFillers = Object.entries(fillerAgg).sort((a, b) => b[1] - a[1]);
+    const advice = fillerAdvice(fillerAgg, totalFillers);
     return (
       <div className="ivr">
         <div className="ivr-top"><span className="ivr-ttl">{title} · results</span><button className="ivr-exit" onClick={onExit}>Done</button></div>
         <div className="ivr-results">
           <div className="ivr-overall"><b className="mono">{avg}<em>/10</em></b><span>average across {answers.length} stations</span></div>
-          {answers.map((s, n) => (
-            <div className="ivr-rcard" key={n} style={{ animationDelay: `${n * 70}ms` }}>
-              <div className="ivr-rhead"><span className="mmi-type">{s.q.type}</span><b>{s.q.prompt}</b><span className={`mmi-scorepill ${s.r.band.toLowerCase()}`}>{s.r.out10}/10</span></div>
-              {s.r.met && (
-                <ul className="ivr-covers">{s.r.met.map((m, i) => <li key={i} className={m.met ? "hit" : "miss"}><span aria-hidden="true">{m.met ? "✓" : "○"}</span>{m.label}</li>)}</ul>
+          {answers.map((s, n) => {
+            const dv = deliveries[n];
+            return (
+              <div className="ivr-rcard" key={n} style={{ animationDelay: `${n * 70}ms` }}>
+                <div className="ivr-rhead"><span className="mmi-type">{s.q.type}</span><b>{s.q.prompt}</b><span className={`mmi-scorepill ${s.r.band.toLowerCase()}`}>{s.r.out10}/10</span></div>
+                {s.r.met && (
+                  <ul className="ivr-covers">{s.r.met.map((m, i) => <li key={i} className={m.met ? "hit" : "miss"}><span aria-hidden="true">{m.met ? "✓" : "○"}</span>{m.label}</li>)}</ul>
+                )}
+                {dv && dv.fillers > 0 && (
+                  <p className="ivr-fillers">{dv.fillers} filler {dv.fillers === 1 ? "word" : "words"}: {Object.entries(dv.fillerCounts).sort((a, b) => b[1] - a[1]).map(([w, c]) => `“${w}”${c > 1 ? " ×" + c : ""}`).join(", ")}</p>
+                )}
+                {s.r.out10 < 7 && <p className="mmi-guide"><b>To improve:</b> {s.q.guide}</p>}
+                {!s.text.trim() && <p className="ivr-noans">No answer recorded for this station.</p>}
+              </div>
+            );
+          })}
+
+          {spoken.length > 0 && (
+            <div className="ivr-delivery">
+              <div className="ivr-dhead"><b>Delivery</b><span className={`ivr-fpill ${totalFillers === 0 ? "clean" : totalFillers >= 6 ? "high" : "some"}`}>{totalFillers} filler {totalFillers === 1 ? "word" : "words"}</span></div>
+              {totalFillers === 0 ? (
+                <p className="ivr-dsub">Not a single filler word across your spoken answers. That is exactly how it should sound.</p>
+              ) : (
+                <>
+                  <p className="ivr-dsub">Across your spoken answers: {topFillers.map(([w, c]) => `“${w}” ×${c}`).join(", ")}.</p>
+                  <p className="ivr-dsub" style={{ marginTop: 8 }}><b>How to cut them:</b></p>
+                  <ul className="ivr-advice">{advice.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                </>
               )}
-              {s.r.out10 < 7 && <p className="mmi-guide"><b>To improve:</b> {s.q.guide}</p>}
-              {!s.text.trim() && <p className="ivr-noans">No answer recorded for this station.</p>}
             </div>
-          ))}
+          )}
+
           <p className="ok-note">Anything under 7/10 has been added to your interview mistake bank to come back to.</p>
         </div>
       </div>

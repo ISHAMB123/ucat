@@ -238,6 +238,45 @@ export const CSS = `
 .ud-lopt.wrong b { border-color:var(--stop); color:var(--stop); }
 .ud-lfeed { border-left:3px solid var(--signal); padding:9px 13px; margin:12px 0 4px; font-size:13.5px; color:var(--body); line-height:1.65; background:var(--ink); border-radius:0 3px 3px 0; }
 .ud-lnav { display:flex; gap:10px; margin-top:18px; align-items:center; justify-content:space-between; }
+
+/* SJT trainer: mode chooser, practice questions and summary */
+.sjt-modes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0 22px; }
+.sjt-mode { text-align:left; background:var(--card); border:1px solid var(--line); border-radius:6px; padding:16px 18px; cursor:pointer; transition:border-color .15s, transform .12s, box-shadow .15s; display:flex; flex-direction:column; gap:2px; }
+.sjt-mode:hover { border-color:var(--signal); transform:translateY(-2px); box-shadow:0 6px 22px -14px rgba(0,0,0,.5); }
+.sjt-mode.on { border-color:var(--signal); box-shadow:inset 0 0 0 1px var(--signal); }
+.sjt-mode-ico { width:38px; height:38px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--signal) 14%, transparent); color:var(--signal); margin-bottom:8px; }
+.sjt-mode b { font-family:'Bricolage Grotesque',sans-serif; font-size:16px; color:var(--paper); }
+.sjt-mode-sub { font-size:12.5px; color:var(--body); line-height:1.5; }
+@media (max-width:560px) { .sjt-modes { grid-template-columns:1fr; } }
+
+.sjt-practice { max-width:700px; margin:6px auto 0; }
+.sjt-phead { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.sjt-dots { display:inline-flex; gap:5px; }
+.sjt-dots i { width:7px; height:7px; border-radius:50%; background:var(--line); }
+.sjt-dots i.done { background:var(--signal); }
+.sjt-dots i.now { background:var(--signal); box-shadow:0 0 0 3px color-mix(in srgb, var(--signal) 25%, transparent); }
+.sjt-prog { font-size:12px; color:var(--mute); font-variant-numeric:tabular-nums; }
+.sjt-scn { border-left:3px solid var(--signal); background:var(--slate); border-radius:0 5px 5px 0; padding:12px 15px; margin-bottom:16px; }
+.sjt-kind { display:block; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--signal); margin-bottom:6px; font-weight:600; }
+.sjt-scn p { margin:0; font-size:14px; line-height:1.62; color:var(--body); }
+.sjt-stem { font-size:13px; color:var(--mute); margin:0 0 4px; }
+.sjt-action { font-size:16px; font-weight:600; color:var(--paper); line-height:1.45; margin:0 0 14px; }
+.sjt-rankopt { justify-content:flex-start; }
+.sjt-rankopt .sjt-rankt { flex:1; }
+.sjt-rankopt .sjt-rankright { flex:none; font-size:11px; color:var(--go); }
+.sjt-hint { font-size:12px; color:var(--mute); margin:6px 0 0; }
+.sjt-fix { border-left:3px solid var(--go); background:var(--ink); border-radius:0 3px 3px 0; padding:9px 13px; margin:9px 0 4px; font-size:13px; color:var(--body); line-height:1.6; }
+.sjt-fix b { color:var(--go); }
+.sjt-summary { max-width:560px; margin:20px auto 0; text-align:center; }
+.ss-score b { font-family:'Bricolage Grotesque',sans-serif; font-size:52px; font-weight:800; color:var(--signal); letter-spacing:-.03em; }
+.ss-score b em { font-size:22px; color:var(--mute); font-style:normal; }
+.ss-score span { display:block; font-size:13px; color:var(--mute); margin-top:2px; }
+.ss-break { display:flex; justify-content:center; gap:26px; margin:20px 0; }
+.ss-break div { display:flex; flex-direction:column; }
+.ss-break b { font-family:'Bricolage Grotesque',sans-serif; font-size:26px; }
+.ss-break span { font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.06em; }
+.ss-line { font-size:14.5px; line-height:1.6; color:var(--body); max-width:46ch; margin:0 auto 20px; }
+
 .ud-markbtn { background:none; border:none; padding:0; cursor:pointer; }
 .ud-modal { position:fixed; inset:0; background:#0E1319D9; display:flex; align-items:center; justify-content:center; z-index:60; padding:20px; }
 .ud-modal .box { background:var(--slate); border:1px solid var(--line); border-radius:4px; padding:22px; max-width:360px; width:100%; }

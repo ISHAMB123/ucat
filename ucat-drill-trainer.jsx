@@ -2823,14 +2823,16 @@ function subtestProgress(section, best) {
 
 function LearnView({ unlocked, best, onStart, onUnlock }) {
   const [open, setOpen] = useState(null);
+  const [sjtMode, setSjtMode] = useState("read");
 
   if (open) {
     const meta = GUIDE_META[open];
     const blocks = GUIDE[open] || [];
     const lesson = LEARN.find((s) => s.id === open); /* vr/qr/sjt also carry drillable techniques */
+    const trainSjt = open === "sjt" && sjtMode === "train";
     return (
       <div className="ud-wrap">
-        <button className="learn-back" onClick={() => { setOpen(null); window.scrollTo(0, 0); }}>
+        <button className="learn-back" onClick={() => { setOpen(null); setSjtMode("read"); window.scrollTo(0, 0); }}>
           <svg {...svgProps} width="15" height="15"><path d="M15 18l-6-6 6-6" /></svg>
           All of the guide
         </button>
@@ -2842,9 +2844,24 @@ function LearnView({ unlocked, best, onStart, onUnlock }) {
           </div>
         </div>
 
-        <GuideBlocks blocks={blocks} />
+        {open === "sjt" && (
+          <div className="sjt-modes">
+            <button className={`sjt-mode${sjtMode === "read" ? " on" : ""}`} onClick={() => { setSjtMode("read"); window.scrollTo(0, 0); }}>
+              <span className="sjt-mode-ico"><svg {...svgProps} width="20" height="20"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" /></svg></span>
+              <b>Read the guide</b>
+              <span className="sjt-mode-sub">The framework and the rules, explained.</span>
+            </button>
+            <button className={`sjt-mode${sjtMode === "train" ? " on" : ""}`} onClick={() => { setSjtMode("train"); window.scrollTo(0, 0); }}>
+              <span className="sjt-mode-ico"><svg {...svgProps} width="20" height="20"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg></span>
+              <b>Learn &amp; quiz</b>
+              <span className="sjt-mode-sub">Interactive lessons, then marked practice questions.</span>
+            </button>
+          </div>
+        )}
 
-        {lesson && (
+        {trainSjt ? <SjtTrainer /> : <GuideBlocks blocks={blocks} />}
+
+        {!trainSjt && lesson && (
           <>
             <div className="ud-sec" style={{ paddingTop: 30 }}><h2>Practise these techniques</h2><i /><span>{lesson.cards.length} drills</span></div>
             <div className="learn-tech">
@@ -3576,7 +3593,9 @@ function MistakesView({ mistakes, active, onRetry, onClear }) {
 
 /* ------------------------------ SJT LEARN ------------------------- */
 
-function SjtLearn({ onPractice, onBack }) {
+/* The interactive lesson flow: info cards interleaved with quick quizzes,
+   built from SJT_LESSONS. Ends by handing off to the practice questions. */
+function SjtLessons({ onDone }) {
   const slides = [];
   SJT_LESSONS.forEach((m, mi) => m.slides.forEach((sl) => slides.push({ ...sl, module: m.module, mi })));
   const [idx, setIdx] = useState(0);
@@ -3604,65 +3623,218 @@ function SjtLearn({ onPractice, onBack }) {
   };
 
   return (
-    <div className="ud-wrap">
-      <div className="ud-lesson">
-        <div className="ud-dots" aria-hidden="true">
-          {slides.map((_, n) => <i key={n} className={n < idx ? "done" : n === idx ? "now" : ""} />)}
-        </div>
-        <p className="mod">Lesson {sl.mi + 1} of {SJT_LESSONS.length} · {sl.module} · {idx + 1}/{slides.length}</p>
+    <div className="ud-lesson">
+      <div className="ud-dots" aria-hidden="true">
+        {slides.map((_, n) => <i key={n} className={n < idx ? "done" : n === idx ? "now" : ""} />)}
+      </div>
+      <p className="mod">Lesson {sl.mi + 1} of {SJT_LESSONS.length} · {sl.module} · {idx + 1}/{slides.length}</p>
 
-        {sl.t === "info" && (
-          <>
-            <h3>{sl.h}</h3>
-            <p className="body">{sl.p}</p>
-            {sl.stats && (
-              <div className="ud-stats" style={{ marginBottom: 6 }}>
-                {sl.stats.map(([b, l]) => (
-                  <div className="ud-stat" key={l}><b className="mono">{b}</b><span>{l}</span></div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+      {sl.t === "info" && (
+        <>
+          <h3>{sl.h}</h3>
+          <p className="body">{sl.p}</p>
+          {sl.stats && (
+            <div className="ud-stats" style={{ marginBottom: 6 }}>
+              {sl.stats.map(([b, l]) => (
+                <div className="ud-stat" key={l}><b className="mono">{b}</b><span>{l}</span></div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
-        {sl.t === "quiz" && (
-          <>
-            <p className="qtext">{sl.q}</p>
-            {sl.opts.map((o, n) => {
-              let cls = "ud-lopt";
-              if (chosen !== null) {
-                if (n === sl.a) cls += " right";
-                else if (n === chosen) cls += " wrong";
-              }
-              return (
-                <button key={n} className={cls} disabled={chosen !== null} onClick={() => setChosen(n)}>
-                  <b>{String.fromCharCode(65 + n)}</b>{o}
-                </button>
-              );
-            })}
-            {chosen !== null && (
-              <p className="ud-lfeed">
-                {chosen === sl.a ? "Right. " : "Not quite. "}{sl.why}
-              </p>
-            )}
-          </>
-        )}
+      {sl.t === "quiz" && (
+        <>
+          <p className="qtext">{sl.q}</p>
+          {sl.opts.map((o, n) => {
+            let cls = "ud-lopt";
+            if (chosen !== null) {
+              if (n === sl.a) cls += " right";
+              else if (n === chosen) cls += " wrong";
+            }
+            return (
+              <button key={n} className={cls} disabled={chosen !== null} onClick={() => setChosen(n)}>
+                <b>{String.fromCharCode(65 + n)}</b>{o}
+              </button>
+            );
+          })}
+          {chosen !== null && (
+            <p className="ud-lfeed">
+              {chosen === sl.a ? "Right. " : "Not quite. "}{sl.why}
+            </p>
+          )}
+        </>
+      )}
 
-        <div className="ud-lnav">
-          <button className="ud-btn ghost" onClick={() => (idx === 0 ? onBack() : go(idx - 1))}>
-            {idx === 0 ? "Back" : "Previous"}
+      <div className="ud-lnav">
+        <button className="ud-btn ghost" onClick={() => go(idx - 1)} disabled={idx === 0}>Previous</button>
+        {!atEnd && (
+          <button className="ud-btn" disabled={!answered} onClick={() => go(idx + 1)}>
+            {answered ? "Next" : "Answer to continue"}
           </button>
-          {!atEnd && (
-            <button className="ud-btn" disabled={!answered} onClick={() => go(idx + 1)}>
-              {answered ? "Next" : "Answer to continue"}
-            </button>
-          )}
-          {atEnd && answered && (
-            <button className="ud-btn" onClick={onPractice}>Practise the SJT now</button>
-          )}
-        </div>
+        )}
+        {atEnd && answered && (
+          <button className="ud-btn" onClick={onDone}>Start the practice questions →</button>
+        )}
       </div>
     </div>
+  );
+}
+
+/* Marked practice built from the real SJT scenarios: appropriateness,
+   importance and ranking, each graded with partial marks for a one-step
+   miss (matching how the real section scores) and its own why and fix. */
+function SjtPractice() {
+  const buildSet = () => {
+    const qs = [];
+    SJT_SCENARIOS.forEach((s) => {
+      if (s.ranking) qs.push({ sid: s.id, theme: s.theme, text: s.text, kind: "ranking", d: s.ranking });
+      (s.items || []).forEach((it) => qs.push({ sid: s.id, theme: s.theme, text: s.text, kind: it.type, d: it }));
+    });
+    return shuffle(qs).slice(0, 10);
+  };
+  const [set, setSet] = useState(buildSet);
+  const [i, setI] = useState(0);
+  const [picked, setPicked] = useState(null); /* index for scale, array for ranking */
+  const [rank, setRank] = useState([]);
+  const [log, setLog] = useState([]); /* "full" | "part" | "miss" */
+  const [done, setDone] = useState(false);
+
+  const q = set[i];
+  const isRank = q.kind === "ranking";
+  const scale = q.kind === "importance" ? IMPORT : APPROP;
+  const done1 = picked !== null;
+
+  const answerScale = (p) => {
+    if (done1) return;
+    const dist = Math.abs(p - q.d.answer);
+    setPicked(p);
+    setLog([...log, dist === 0 ? "full" : dist === 1 ? "part" : "miss"]);
+  };
+  const chooseRank = (optIdx) => {
+    if (done1 || rank.includes(optIdx)) return;
+    const nextRank = [...rank, optIdx];
+    setRank(nextRank);
+    if (nextRank.length === q.d.options.length) {
+      const matches = nextRank.filter((v, n) => v === q.d.order[n]).length;
+      setPicked(nextRank);
+      setLog([...log, matches === nextRank.length ? "full" : matches >= 1 ? "part" : "miss"]);
+    }
+  };
+  const advance = () => {
+    if (i + 1 >= set.length) { setDone(true); window.scrollTo(0, 0); return; }
+    setI(i + 1); setPicked(null); setRank([]); window.scrollTo(0, 0);
+  };
+  const restart = () => { setSet(buildSet()); setI(0); setPicked(null); setRank([]); setLog([]); setDone(false); window.scrollTo(0, 0); };
+
+  if (done) {
+    const full = log.filter((x) => x === "full").length;
+    const part = log.filter((x) => x === "part").length;
+    const miss = log.filter((x) => x === "miss").length;
+    const score = full * 2 + part;
+    const outOf = set.length * 2;
+    const pct = Math.round((score / outOf) * 100);
+    const line = pct >= 85 ? "Panel-level judgement. This is a strong Band 1 habit."
+      : pct >= 65 ? "Solid. You are landing in the right half almost every time; tighten the one-step misses."
+      : "Work the framework: decide the half first, judge each option alone, put patient safety and honesty above everything.";
+    return (
+      <div className="sjt-summary">
+        <div className="ss-score"><b className="mono">{score}<em>/{outOf}</em></b><span>across {set.length} questions</span></div>
+        <div className="ss-break">
+          <div><b className="mono" style={{ color: "var(--go)" }}>{full}</b><span>spot on</span></div>
+          <div><b className="mono" style={{ color: "var(--signal)" }}>{part}</b><span>one step off</span></div>
+          <div><b className="mono" style={{ color: "var(--stop)" }}>{miss}</b><span>wrong half</span></div>
+        </div>
+        <p className="ss-line">{line}</p>
+        <div className="ud-lnav" style={{ justifyContent: "center" }}>
+          <button className="ud-btn" onClick={restart}>Practise another set</button>
+        </div>
+      </div>
+    );
+  }
+
+  const scoreSoFar = log.reduce((a, x) => a + (x === "full" ? 2 : x === "part" ? 1 : 0), 0);
+
+  return (
+    <div className="sjt-practice">
+      <div className="sjt-phead">
+        <span className="sjt-dots" aria-hidden="true">{set.map((_, n) => <i key={n} className={n < i ? "done" : n === i ? "now" : ""} />)}</span>
+        <span className="sjt-prog mono">Q {i + 1} / {set.length} · {scoreSoFar} pts</span>
+      </div>
+
+      <div className="sjt-scn">
+        <span className="sjt-kind">{isRank ? "Ranking" : q.kind === "importance" ? "Importance" : "Appropriateness"}</span>
+        <p>{q.text}</p>
+      </div>
+
+      {!isRank && (
+        <>
+          <p className="sjt-stem">{q.kind === "importance" ? "How important is this consideration?" : "How appropriate is this response?"}</p>
+          <p className="sjt-action">{q.d.stem}</p>
+          {scale.map((label, n) => {
+            let cls = "ud-lopt";
+            if (done1) { if (n === q.d.answer) cls += " right"; else if (n === picked) cls += " wrong"; }
+            return (
+              <button key={n} className={cls} disabled={done1} onClick={() => answerScale(n)}>
+                <b>{String.fromCharCode(65 + n)}</b>{label}
+              </button>
+            );
+          })}
+        </>
+      )}
+
+      {isRank && (
+        <>
+          <p className="sjt-stem">{q.d.stem}</p>
+          {q.d.options.map((o, n) => {
+            const chosenPos = rank.indexOf(n);
+            const correctPos = q.d.order.indexOf(n);
+            let cls = "ud-lopt sjt-rankopt";
+            if (done1) cls += chosenPos === correctPos ? " right" : " wrong";
+            else if (chosenPos >= 0) cls += " picked";
+            return (
+              <button key={n} className={cls} disabled={done1} onClick={() => chooseRank(n)}>
+                <b>{chosenPos >= 0 ? chosenPos + 1 : "·"}</b>
+                <span className="sjt-rankt">{o}</span>
+                {done1 && <span className="sjt-rankright mono">#{correctPos + 1}</span>}
+              </button>
+            );
+          })}
+          {!done1 && <p className="sjt-hint">Tap them in order, most appropriate first.</p>}
+        </>
+      )}
+
+      {done1 && (
+        <>
+          <p className="ud-lfeed">
+            <b>{log[log.length - 1] === "full" ? "Spot on. " : log[log.length - 1] === "part" ? "One step off, still the right half. " : "Wrong half. "}</b>
+            {isRank ? q.d.why : q.d.why}
+          </p>
+          {(isRank ? q.d.fix : q.d.fix) && <p className="sjt-fix"><b>Remember:</b> {isRank ? q.d.fix : q.d.fix}</p>}
+          <div className="ud-lnav" style={{ justifyContent: "flex-end" }}>
+            <button className="ud-btn" onClick={advance}>{i + 1 >= set.length ? "See your result" : "Next question"}</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/* The two-mode SJT trainer body: interactive lessons and marked practice.
+   Header and back button are supplied by whichever screen embeds it. */
+function SjtTrainer() {
+  const [tab, setTab] = useState("lessons");
+  return (
+    <>
+      <div className="ud-mode" style={{ paddingTop: 8, marginBottom: 4 }}>
+        <span>Mode</span>
+        <button className={tab === "lessons" ? "on" : ""} onClick={() => setTab("lessons")}>Lessons</button>
+        <button className={tab === "practice" ? "on" : ""} onClick={() => setTab("practice")}>Practice questions</button>
+      </div>
+      {tab === "lessons"
+        ? <SjtLessons onDone={() => { setTab("practice"); window.scrollTo(0, 0); }} />
+        : <SjtPractice />}
+    </>
   );
 }
 
@@ -7768,7 +7940,18 @@ export default function UcatDrillTrainer() {
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
       {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
-      {view === "sjtlearn" && (<><Header /><SjtLearn onBack={() => setView("drills")} onPractice={() => start(DRILL_BY_ID.sjt, prefs.exam, Math.min(prefs.count, 25), null, null, null)} /></>)}
+      {view === "sjtlearn" && (<><Header /><div className="ud-wrap">
+        <button className="learn-back" onClick={() => setView("learn")}>
+          <svg {...svgProps} width="15" height="15"><path d="M15 18l-6-6 6-6" /></svg>
+          The UCAT guide
+        </button>
+        <div className="learn-detailhead">
+          <span className="learn-ico" data-sec="sjt">{SUBTEST_ICON.sjt}</span>
+          <div><h2>SJT interactive trainer</h2><span className="learn-count">learn the framework, then prove it</span></div>
+        </div>
+        <SjtTrainer />
+        <div style={{ height: 50 }} />
+      </div></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} best={best} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}
       {view === "interview" && (<><Header />{unlocked ? <InterviewView track={prefs.track || "dent"} onSwitch={(t) => setPrefs({ ...prefs, track: t })} />

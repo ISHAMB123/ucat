@@ -2382,6 +2382,69 @@ function launchForGroup(g, fallbackDrill) {
   return { id: DRILL_BY_ID[g.drill] ? g.drill : fallbackDrill, sub: null };
 }
 
+/* Vertical time chart for the results screen: one bar per question, height
+   is seconds, colour is correctness, with a dashed average-time line and a
+   soft grid. Falls back to equal-height state bars when a drill was untimed. */
+function TimeChart({ log, fmt }) {
+  const noTimes = log.every((l) => !l.ms);
+  const times = log.map((l) => l.ms || 0);
+  const avg = times.length ? times.reduce((a, b) => a + b, 0) / times.length : 0;
+  const maxT = Math.max(...times, 1);
+  const scaleMax = maxT * 1.15;
+  const stateOf = (l) => l.given === "no answer" ? "skip" : l.correct ? "ok" : (l.score > 0 ? "part" : "bad");
+  const present = { ok: false, part: false, bad: false, skip: false };
+  log.forEach((l) => { present[stateOf(l)] = true; });
+  const legend = [["ok", "Correct"], ["part", "Partial"], ["bad", "Wrong"], ["skip", "Skipped"]].filter(([k]) => present[k]);
+  const n = log.length;
+  const showEvery = n <= 22 ? 1 : n <= 33 ? 3 : 5;
+  const ticks = [1, 0.75, 0.5, 0.25, 0].map((f) => ({ f, ms: scaleMax * f }));
+
+  return (
+    <div className={`tchart${n > 26 ? " dense" : ""}`}>
+      {(legend.length > 0 || !noTimes) && (
+        <div className="tc-legend">
+          {legend.map(([k, label]) => <span key={k} className={`tc-key ${k}`}>{label}</span>)}
+          {!noTimes && <span className="tc-key avg">Average</span>}
+        </div>
+      )}
+      <div className="tc-plot">
+        {!noTimes && (
+          <div className="tc-yaxis" aria-hidden="true">
+            {ticks.map((t, i) => <span key={i} style={{ bottom: `${t.f * 100}%` }}>{fmt(t.ms)}</span>)}
+          </div>
+        )}
+        <div className="tc-area">
+          {!noTimes && ticks.map((t, i) => <div key={i} className="tc-grid" style={{ bottom: `${t.f * 100}%` }} />)}
+          {!noTimes && avg > 0 && (
+            <div className="tc-avg" style={{ bottom: `${(avg / scaleMax) * 100}%` }}>
+              <span className="tc-avg-tag mono">avg {fmt(avg)}</span>
+            </div>
+          )}
+          <div className="tc-cols" style={{ ["--gap"]: n > 26 ? "2px" : n > 14 ? "4px" : "7px" }}>
+            {log.map((l, i) => {
+              const st = stateOf(l);
+              const h = noTimes ? 62 : Math.max((l.ms / scaleMax) * 100, 2.5);
+              const tip = noTimes ? (st === "ok" ? "Correct" : st === "part" ? "Partial" : st === "bad" ? "Wrong" : "Skipped")
+                : `Q${i + 1}: ${fmt(l.ms)}${st === "part" ? " · partial" : ""}`;
+              return (
+                <div className="tc-col" key={i} title={tip}>
+                  <span className={`tc-val mono${n <= 10 ? " on" : ""}`}>{noTimes ? "" : fmt(l.ms)}</span>
+                  <div className={`tc-bar ${st}`} style={{ height: `${h}%`, animationDelay: `${Math.min(i * 22, 500)}ms` }} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="tc-xrow" style={{ ["--gap"]: n > 26 ? "2px" : n > 14 ? "4px" : "7px" }}>
+        {log.map((l, i) => (
+          <span key={i} className="tc-x mono">{(i + 1) % showEvery === 0 || showEvery === 1 ? i + 1 : ""}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, budget, onDiagDrill }) {
   const [showReview, setShowReview] = useState(false);
   const vrDiag = diagnoseVR(log, exam, budget);
@@ -2389,7 +2452,6 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
   const pct = log.length ? Math.round((points / log.length) * 100) : 0;
   const times = log.map((l) => l.ms);
   const med = median(times);
-  const max = Math.max(...times, 1);
   const prior = history.filter((h) => h.drill === drill.id).slice(0, -1);
   const lastPct = prior.length ? prior[prior.length - 1].pct : null;
   const delta = lastPct === null ? null : pct - lastPct;
@@ -2428,19 +2490,10 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
       </div>
       {(() => {
         const noTimes = log.every((l) => !l.ms);
-        const labelOf = (l) => l.given === "no answer" ? "Skipped" : l.correct ? "Correct" : l.score > 0 ? "Partial" : "Wrong";
         return (
           <>
-            <div className="ud-sec"><h2>{noTimes ? "Question by question" : "Where the time went"}</h2><i /><span>{noTimes ? "answered or skipped" : "bar width = seconds"}</span></div>
-            <div className="ud-strip">
-              {log.map((l, i) => (
-                <div className="ud-row" key={i}>
-                  <span>{String(i + 1).padStart(2, "0")}</span>
-                  <div className="ud-bar" style={{ width: noTimes ? "18%" : `${Math.max((l.ms / max) * 76, 2)}%`, background: l.given === "no answer" ? "var(--mute)" : l.correct ? "var(--go)" : l.score > 0 ? "var(--signal)" : "var(--stop)" }} />
-                  <em>{noTimes ? labelOf(l) : `${fmt(l.ms)}${l.score > 0 && l.score < 1 ? " · partial" : ""}`}</em>
-                </div>
-              ))}
-            </div>
+            <div className="ud-sec"><h2>{noTimes ? "Question by question" : "Where the time went"}</h2><i /><span>{noTimes ? "answered or skipped" : "seconds per question"}</span></div>
+            <TimeChart log={log} fmt={fmt} />
           </>
         );
       })()}

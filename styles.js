@@ -214,6 +214,40 @@ export const CSS = `
 .ud-row span { font-family:'Inter',sans-serif; font-size:10px; color:var(--mute); width:22px; flex-shrink:0; }
 .ud-bar { height:14px; border-radius:2px; min-width:3px; }
 .ud-row em { font-family:'Inter',sans-serif; font-size:10px; color:var(--mute); font-style:normal; }
+
+/* vertical per-question time chart */
+.tchart { margin:18px 0 30px; }
+.tc-legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:16px; }
+.tc-key { display:inline-flex; align-items:center; gap:7px; font-family:'Inter',sans-serif; font-size:11.5px; color:var(--body); }
+.tc-key::before { content:""; width:11px; height:11px; border-radius:3px; }
+.tc-key.ok::before { background:var(--go); }
+.tc-key.part::before { background:var(--signal); }
+.tc-key.bad::before { background:var(--stop); }
+.tc-key.skip::before { background:var(--mute); }
+.tc-key.avg::before { width:14px; height:0; border-radius:0; border-top:2px dashed var(--paper); opacity:.6; }
+.tc-plot { position:relative; display:flex; gap:10px; height:210px; }
+.tc-yaxis { position:relative; width:34px; flex:none; }
+.tc-yaxis span { position:absolute; right:0; transform:translateY(50%); font-family:'Inter',sans-serif; font-variant-numeric:tabular-nums; font-size:10px; color:var(--mute); white-space:nowrap; }
+.tc-area { position:relative; flex:1; min-width:0; border-bottom:1px solid var(--line); }
+.tc-grid { position:absolute; left:0; right:0; height:0; border-top:1px solid var(--line); opacity:.5; }
+.tc-avg { position:absolute; left:0; right:0; height:0; border-top:2px dashed color-mix(in srgb, var(--paper) 55%, transparent); z-index:3; }
+.tc-avg-tag { position:absolute; right:0; top:-9px; background:var(--slate); border:1px solid var(--line); border-radius:20px; padding:1px 8px; font-size:10px; color:var(--paper); letter-spacing:.02em; }
+.tc-cols { position:absolute; inset:0; display:flex; align-items:flex-end; gap:var(--gap,7px); z-index:2; }
+.tc-col { position:relative; flex:1; min-width:0; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
+.tc-val { font-variant-numeric:tabular-nums; font-size:9.5px; color:var(--mute); margin-bottom:3px; opacity:0; transition:opacity .12s; white-space:nowrap; }
+.tc-val.on { opacity:1; }
+.tc-col:hover .tc-val { opacity:1; }
+.tc-bar { width:100%; border-radius:4px 4px 0 0; min-height:3px; transform-origin:bottom; animation:tcgrow .55s cubic-bezier(.2,.8,.25,1) both; transition:filter .12s, transform .12s; }
+.tc-col:hover .tc-bar { filter:brightness(1.12); }
+.tc-bar.ok { background:linear-gradient(var(--go), color-mix(in srgb, var(--go) 62%, transparent)); }
+.tc-bar.part { background:linear-gradient(var(--signal), color-mix(in srgb, var(--signal) 60%, transparent)); }
+.tc-bar.bad { background:linear-gradient(var(--stop), color-mix(in srgb, var(--stop) 62%, transparent)); }
+.tc-bar.skip { background:repeating-linear-gradient(45deg, var(--mute), var(--mute) 3px, transparent 3px, transparent 6px); opacity:.7; }
+@keyframes tcgrow { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+.tc-xrow { display:flex; gap:var(--gap,7px); margin:7px 0 0 44px; }
+.tc-x { flex:1; min-width:0; text-align:center; font-variant-numeric:tabular-nums; font-size:10px; color:var(--mute); overflow:hidden; }
+.tchart.dense .tc-x { font-size:8.5px; }
+@media (prefers-reduced-motion: reduce) { .tc-bar { animation:none; } }
 .ud-tip { border-left:2px solid var(--signal); padding:2px 0 2px 15px; margin:22px 0 28px; color:var(--body); font-size:13.5px; line-height:1.65; max-width:64ch; }
 .ud-foot { border-top:1px solid var(--line); padding:20px 0 40px; font-size:11px; color:var(--mute); font-family:'Inter',sans-serif; line-height:1.7; }
 .ud-mrow { display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:3px; background:var(--slate); padding:12px 15px; margin-top:8px; }

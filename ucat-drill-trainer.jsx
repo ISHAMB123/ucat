@@ -5162,9 +5162,6 @@ function InterviewLauncher({ track }) {
   const [source, setSource] = useState("general");
   const [mode, setMode] = useState("mmi");
   const [running, setRunning] = useState(null);
-  const [motion, setMotion] = useState(true);
-  useEffect(() => { getJSON("ucat:ivmotion", true).then((v) => setMotion(v !== false)); }, []);
-  const toggleMotion = () => { const v = !motion; setMotion(v); setJSON("ucat:ivmotion", v); };
   const IVTABLE = track === "med" ? MED_IV : UNI_IV;
   const IVLIST = track === "med" ? MED_UNIS : UNIS.filter((u) => UNI_IV[u.id]);
   const panelPool = [];
@@ -5236,7 +5233,7 @@ function InterviewLauncher({ track }) {
           </div>
         </div>
 
-        <div className={`iv-mic${motion ? " live" : ""}`}>
+        <div className="iv-mic live">
           <div className="iv-mic-orb" aria-hidden="true">
             <span className="iv-ring" /><span className="iv-ring r2" />
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8" /></svg>
@@ -5245,10 +5242,6 @@ function InterviewLauncher({ track }) {
             {Array.from({ length: 11 }).map((_, n) => <i key={n} style={{ animationDelay: `${(n % 6) * 0.11}s` }} />)}
           </div>
           <p className="iv-mic-cap">Spoken practice. Answer <b>out loud</b> into your mic, and Tempo marks what you actually say.</p>
-          <button className="iv-mic-toggle" onClick={toggleMotion} aria-pressed={motion} title="Turn the animation on or off">
-            <span className={`iv-sw${motion ? " on" : ""}`} aria-hidden="true"><i /></span>
-            Motion {motion ? "on" : "off"}
-          </button>
         </div>
       </div>
 
@@ -7984,12 +7977,17 @@ export default function UcatDrillTrainer() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
         </button>
       </div>
+      <button className="ud-side-motion" onClick={() => setPrefs({ ...prefs, motion: prefs.motion === false })} aria-pressed={prefs.motion !== false} title="Turn animations on or off">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 8-8"/><path d="M20 12a8 8 0 0 1-8 8"/><path d="M12 8v4l2.5 1.5"/></svg>
+        <span className="lbl">Motion {prefs.motion === false ? "off" : "on"}</span>
+        <span className={`iv-sw${prefs.motion !== false ? " on" : ""}`} aria-hidden="true"><i /></span>
+      </button>
     </nav>
   );
 
   if (!ready) {
     return (
-      <div className={`ud${prefs.theme === "light" ? " light" : ""}`}><style>{CSS}</style>
+      <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}`}><style>{CSS}</style>
         <div className="ud-wrap" style={{ padding: "80px 20px" }}>
           <p className="mono" style={{ color: "var(--mute)", fontSize: 13 }}>Loading your progress…</p>
         </div>
@@ -7998,7 +7996,7 @@ export default function UcatDrillTrainer() {
   }
 
   return (
-    <div className={`ud${prefs.theme === "light" ? " light" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}`}>
+    <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}`}>
       <style>{CSS}</style>
       {!authDone && (
         <AuthScreen

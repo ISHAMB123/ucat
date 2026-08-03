@@ -934,6 +934,14 @@ button.nav-row:hover { background:var(--signal)14; }
 .ud-side-foot { border-top:1px solid var(--line); padding-top:12px; margin-top:10px; display:flex; align-items:center; gap:8px; }
 .ud-side-foot .ud-badge { flex:1; text-align:center; padding:7px 6px; }
 .ud-signout:hover { color:var(--stop); border-color:var(--stop); }
+.ud-side-motion { display:flex; align-items:center; gap:10px; width:100%; margin-top:8px; padding:8px 11px; background:transparent; border:1px solid var(--line); border-radius:8px; color:var(--body); font-family:'Inter',sans-serif; font-size:12.5px; cursor:pointer; transition:border-color .15s, color .15s; }
+.ud-side-motion:hover { border-color:var(--signal); color:var(--paper); }
+.ud-side-motion svg { width:16px; height:16px; flex:none; color:var(--mute); }
+.ud-side-motion:hover svg { color:var(--signal); }
+.ud-side-motion .lbl { flex:1; text-align:left; }
+/* global "reduce motion" switch, driven by the sidebar toggle */
+.no-motion .iv-mic .iv-ring, .no-motion .iv-mic .iv-wave i, .no-motion .tc-bar,
+.no-motion .ivr-stars s, .no-motion .ivr-stage.sl-out, .no-motion .ivr-stage.sl-in { animation:none !important; }
 .bill-acct { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-top:22px; padding:16px 18px; border:1px solid var(--line); border-radius:4px; background:var(--slate); font-size:13.5px; color:var(--body); }
 .bill-acct b { color:var(--paper); }
 @media (max-width:820px) {
@@ -945,6 +953,8 @@ button.nav-row:hover { background:var(--signal)14; }
   .ud-side-nav button.on::before { left:-8px; }
   .ud-side-nav .dot { right:6px; top:6px; transform:none; }
   .ud-side-foot { flex-direction:column; }
+  .ud-side-motion { justify-content:center; padding:9px 0; border:0; }
+  .ud-side-motion .lbl, .ud-side-motion .iv-sw { display:none; }
 }
 
 /* ---- Learn overview: subtest cards then technique detail ---- */

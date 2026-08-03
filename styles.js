@@ -2,7 +2,7 @@
 
 export const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
-.ud * { box-sizing: border-box; }
+.ud, .ud * { box-sizing: border-box; }
 .ud {
   --ink:#0E1319; --slate:#18202B; --line:#2A3441; --paper:#EDEFF2; --paperline:#C6CDD7;
   --signal:#F5A524; --go:#3ECF8E; --stop:#F2555A; --mute:#8794A5;
@@ -942,6 +942,8 @@ button.nav-row:hover { background:var(--signal)14; }
 /* global "reduce motion" switch, driven by the sidebar toggle */
 .no-motion .iv-mic .iv-ring, .no-motion .iv-mic .iv-wave i, .no-motion .tc-bar,
 .no-motion .ivr-stars s, .no-motion .ivr-stage.sl-out, .no-motion .ivr-stage.sl-in { animation:none !important; }
+/* the app root never pans horizontally; content stays centred and neutral */
+.ud { overflow-x:clip; }
 .bill-acct { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-top:22px; padding:16px 18px; border:1px solid var(--line); border-radius:4px; background:var(--slate); font-size:13.5px; color:var(--body); }
 .bill-acct b { color:var(--paper); }
 @media (max-width:820px) {

@@ -1,8 +1,8 @@
 (function () {
   var clips = ["/give/give1.mp4", "/give/give2.mp4", "/give/give3.mp4", "/give/give4.mp4"];
   var box = document.getElementById("vbox"), v = document.getElementById("vv");
-  var opener = document.getElementById("doorOpen"), dots = document.getElementById("vdots");
-  if (!box || !opener) return;
+  var clipsEl = document.getElementById("clips"), dots = document.getElementById("vdots");
+  if (!box || !clipsEl) return;
   var i = 0;
   dots.innerHTML = clips.map(function () { return "<i></i>"; }).join("");
   function load(play) {
@@ -13,7 +13,9 @@
   function open(n) { i = n; box.classList.add("on"); box.setAttribute("aria-hidden", "false"); load(true); }
   function close() { box.classList.remove("on"); box.setAttribute("aria-hidden", "true"); v.pause(); v.removeAttribute("src"); v.load(); }
   function step(dir) { i = (i + dir + clips.length) % clips.length; load(true); }
-  opener.addEventListener("click", function () { open(0); });
+  Array.prototype.slice.call(clipsEl.querySelectorAll(".clip")).forEach(function (btn) {
+    btn.addEventListener("click", function () { open(parseInt(btn.getAttribute("data-i"), 10) || 0); });
+  });
   document.getElementById("vx").addEventListener("click", close);
   document.getElementById("vprev").addEventListener("click", function () { step(-1); });
   document.getElementById("vnext").addEventListener("click", function () { step(1); });
@@ -112,4 +114,49 @@
   }
   tick();
   t = setInterval(tick, 1000);
+})();
+
+/* report a problem (isolated) */
+(function () {
+  var openBtn = document.getElementById("reportOpen");
+  var rbox = document.getElementById("rbox");
+  if (!openBtn || !rbox) return;
+  var form = document.getElementById("rform"),
+      msg = document.getElementById("rmsg"),
+      email = document.getElementById("remail"),
+      status = document.getElementById("rstatus"),
+      sendBtn = document.getElementById("rsend");
+  function open() { rbox.classList.add("on"); rbox.setAttribute("aria-hidden", "false"); status.textContent = ""; status.className = "rstatus"; setTimeout(function () { msg.focus(); }, 50); }
+  function close() { rbox.classList.remove("on"); rbox.setAttribute("aria-hidden", "true"); }
+  openBtn.addEventListener("click", open);
+  document.getElementById("rx").addEventListener("click", close);
+  rbox.addEventListener("click", function (e) { if (e.target === rbox) close(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && rbox.classList.contains("on")) close(); });
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var text = (msg.value || "").trim();
+    if (!text) { status.textContent = "Please describe the problem first."; status.className = "rstatus err"; msg.focus(); return; }
+    sendBtn.disabled = true; status.textContent = "Sending…"; status.className = "rstatus";
+    fetch("/api/report", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, from: (email.value || "").trim(), url: location.href })
+    }).then(function (r) {
+      return r.text().then(function (body) {
+        var j = {};
+        try { j = body ? JSON.parse(body) : {}; } catch (e) { j = {}; }
+        if (!r.ok) throw new Error(j.error || "Could not send right now. Please try again later.");
+        return j;
+      });
+    }).then(function () {
+      status.textContent = "Thanks. Your report has been sent.";
+      status.className = "rstatus ok";
+      form.reset(); sendBtn.disabled = false;
+      setTimeout(close, 1800);
+    }).catch(function (err) {
+      status.textContent = (err && err.message) || "Could not send right now. Please try again later.";
+      status.className = "rstatus err";
+      sendBtn.disabled = false;
+    });
+  });
 })();

@@ -246,9 +246,9 @@
 
   /* ---- giving band ---- */
   .give { border-top: 1px solid var(--line); }
-  .give .box { position: relative; overflow: hidden; border-radius: 18px; padding: 34px 36px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); display: grid; grid-template-columns: 1.05fr .95fr; gap: 34px; align-items: center; }
+  .give .box { position: relative; overflow: hidden; border-radius: 18px; padding: 34px 36px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); }
   .give .box::before { content: ""; position: absolute; inset: 0; background: radial-gradient(80% 120% at 4% 0%, var(--accent-soft), transparent 52%); pointer-events: none; }
-  .give .txt { position: relative; }
+  .give-head { position: relative; max-width: 640px; }
   .give h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 820; }
   /* highlighted 1,000 */
   .give .bignum { display: inline-flex; align-items: center; gap: 12px; margin: 16px 0 4px; padding: 10px 18px 10px 14px; border-radius: 14px; background: var(--accent-fill); color: #0E1B2A; box-shadow: 0 8px 22px var(--accent-soft); }
@@ -260,23 +260,17 @@
   .give p b { color: var(--ink); }
   .give .give-next { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--ink); margin-top: 12px; max-width: 50ch; }
   .give .give-next .tag { flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent-fill) 55%, transparent); border-radius: 20px; padding: 2px 9px; position: relative; top: -1px; }
-  .give .txt .btn { margin-top: 18px; }
+  .give-head .btn { margin-top: 18px; }
 
-  /* revolving door of clips */
-  .door-wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .door-stage { position: relative; width: 168px; height: 300px; perspective: 1100px; }
-  .door { position: absolute; inset: 0; transform-style: preserve-3d; animation: revolve 22s linear infinite; }
-  .door-stage:hover .door { animation-play-state: paused; }
-  @keyframes revolve { from { transform: rotateY(0); } to { transform: rotateY(-360deg); } }
-  .door .panel { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 14px 34px rgba(0,0,0,.34); transform: rotateY(calc(var(--i) * 90deg)) translateZ(150px); backface-visibility: hidden; }
-  .door .panel img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .door .panel .play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: #fff; background: rgba(8,14,22,.26); padding-left: 3px; }
-  .door .panel::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(255,255,255,.18); border-radius: 14px; }
-  /* one big reliable tap target over the whole door */
-  .door-open { position: absolute; inset: -14px; z-index: 2; border: 0; background: transparent; cursor: pointer; border-radius: 20px; }
-  .door-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-  .door-stage:hover .door-open ~ *, .door-open:hover { }
-  .door-hint { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--faint); }
+  /* clip filmstrip */
+  .clips { position: relative; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 14px; margin-top: 26px; }
+  .clip { position: relative; width: 168px; aspect-ratio: 9 / 16; border: 0; padding: 0; border-radius: 14px; overflow: hidden; cursor: pointer; background: #000; box-shadow: 0 10px 26px rgba(0,0,0,.22); transition: transform .16s ease, box-shadow .16s ease; }
+  .clip:hover { transform: translateY(-4px); box-shadow: 0 16px 34px rgba(0,0,0,.3); }
+  .clip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .clip .play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 22px; color: #fff; background: rgba(8,14,22,.24); padding-left: 3px; transition: background .16s; }
+  .clip:hover .play { background: rgba(8,14,22,.1); }
+  .clip::after { content: ""; position: absolute; inset: 0; border: 1px solid rgba(255,255,255,.16); border-radius: 14px; pointer-events: none; }
 
   /* lightbox player */
   .vbox { position: fixed; inset: 0; z-index: 90; display: none; align-items: center; justify-content: center; gap: 8px; background: rgba(6,12,20,.85); backdrop-filter: blur(4px); padding: 20px; }
@@ -289,6 +283,26 @@
   .vbox .vdots { position: absolute; bottom: 26px; left: 0; right: 0; display: flex; justify-content: center; gap: 7px; }
   .vbox .vdots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.35); }
   .vbox .vdots i.on { background: #fff; }
+
+  /* ---- report a problem ---- */
+  .foot-report { font-family: var(--mono); font-size: 12px; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-align: right; }
+  .foot-report:hover { text-decoration: underline; }
+  .rbox { position: fixed; inset: 0; z-index: 95; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(6,12,20,.7); backdrop-filter: blur(4px); }
+  .rbox.on { display: flex; }
+  .rcard { position: relative; width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 30px 80px rgba(0,0,0,.4); padding: 26px 26px 24px; }
+  .rcard h3 { font-size: 20px; font-weight: 800; }
+  .rcard .rsub { color: var(--soft); font-size: 14px; margin-top: 8px; line-height: 1.55; }
+  .rcard form { margin-top: 18px; display: flex; flex-direction: column; }
+  .rcard label { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--ink); margin-bottom: 6px; }
+  .rcard label span { font-weight: 400; color: var(--faint); }
+  .rcard textarea, .rcard input { font-family: var(--sans); font-size: 15px; color: var(--ink); background: var(--card-2); border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; margin-bottom: 14px; resize: vertical; }
+  .rcard textarea:focus, .rcard input:focus { outline: none; border-color: var(--accent); }
+  .rcard .btn { justify-content: center; }
+  .rx { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--card-2); color: var(--soft); font-size: 15px; cursor: pointer; }
+  .rx:hover { color: var(--ink); }
+  .rstatus { font-size: 13px; margin-top: 12px; min-height: 18px; }
+  .rstatus.ok { color: var(--go); }
+  .rstatus.err { color: var(--stop); }
 
   /* ---- try-a-question demo ---- */
   .demo-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: start; margin-top: 34px; }
@@ -387,9 +401,8 @@
   .cost-legend .k i { width: 15px; height: 3px; border-radius: 2px; display: inline-block; }
 
   @media (max-width: 900px) {
-    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .give .box, .demo-grid { grid-template-columns: 1fr; }
-    .give .box { text-align: center; gap: 22px; padding: 36px 26px; }
-    .give p { margin-left: auto; margin-right: auto; }
+    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .demo-grid { grid-template-columns: 1fr; }
+    .give .box { padding: 30px 24px; }
     .hero { gap: 32px; padding-top: 48px; }
     .three, .drills, .tk, .stat-row, .compare, .prog-grid { grid-template-columns: 1fr 1fr; }
     .nav-links a:not(.nav-cta) { display: none; }
@@ -406,10 +419,7 @@
     .mtrack { animation: none; }
     .marquee { overflow-x: auto; }
     .btn:hover { transform: none; }
-    /* lay the revolving door flat as a grid so every clip is reachable without motion */
-    .door-stage { perspective: none; width: 100%; height: auto; }
-    .door { position: relative; inset: auto; animation: none; transform: none; transform-style: flat; width: 100%; height: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .door .panel { position: relative; inset: auto; height: 200px; transform: none; }
+    .clip:hover { transform: none; }
   }
 </style>
 </head>
@@ -460,7 +470,7 @@
 <section id="giving" class="give">
   <div class="wrap">
     <div class="box">
-      <div class="txt">
+      <div class="give-head">
         <span class="kicker">Where your money goes</span>
         <h2>Buy Tempo, help feed a child.</h2>
         <div class="bignum">
@@ -472,17 +482,11 @@
         <p class="give-next"><span class="tag">Next</span>Our next project is repairing these orphanages and installing proper showers. Every purchase helps get us there.</p>
         <a class="btn btn-primary" href="https://www.tiktok.com/" target="_blank" rel="noopener">See more on TikTok</a>
       </div>
-      <div class="door-wrap">
-        <div class="door-stage">
-          <div class="door" id="door">
-            <span class="panel" style="--i:0"><img src="/give/give1.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></span>
-            <span class="panel" style="--i:1"><img src="/give/give2.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></span>
-            <span class="panel" style="--i:2"><img src="/give/give3.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></span>
-            <span class="panel" style="--i:3"><img src="/give/give4.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></span>
-          </div>
-          <button class="door-open" id="doorOpen" aria-label="Watch the clips from Bangladesh"></button>
-        </div>
-        <span class="door-hint">Tap to watch</span>
+      <div class="clips" id="clips">
+        <button class="clip" data-i="0" type="button" aria-label="Watch clip 1 from Bangladesh"><img src="/give/give1.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></button>
+        <button class="clip" data-i="1" type="button" aria-label="Watch clip 2 from Bangladesh"><img src="/give/give2.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></button>
+        <button class="clip" data-i="2" type="button" aria-label="Watch clip 3 from Bangladesh"><img src="/give/give3.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></button>
+        <button class="clip" data-i="3" type="button" aria-label="Watch clip 4 from Bangladesh"><img src="/give/give4.jpg" alt="" loading="lazy"><span class="play" aria-hidden="true">▶</span></button>
       </div>
     </div>
   </div>
@@ -916,7 +920,7 @@
     </div>
     <div class="foot-meta">
       Isham Bari<br>
-      <a href="mailto:ishambari6@gmail.com">ishambari6@gmail.com</a><br>
+      <button class="foot-report" id="reportOpen" type="button">Report a problem</button><br>
       <span style="color:var(--faint)">© 2026 Tempo</span>
     </div>
   </div>
@@ -928,6 +932,22 @@
   <video id="vv" controls playsinline preload="metadata"></video>
   <button class="vnav" id="vnext" aria-label="Next clip">›</button>
   <div class="vdots" id="vdots" aria-hidden="true"></div>
+</div>
+
+<div class="rbox" id="rbox" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Report a problem">
+  <div class="rcard">
+    <button class="rx" id="rx" aria-label="Close">✕</button>
+    <h3>Report a problem</h3>
+    <p class="rsub">Found a bug or something not working? Tell us what happened and we will look into it.</p>
+    <form id="rform" novalidate>
+      <label for="rmsg">What went wrong?</label>
+      <textarea id="rmsg" rows="4" required placeholder="Describe the problem, and what you were doing when it happened."></textarea>
+      <label for="remail">Your email <span>(optional, only if you want a reply)</span></label>
+      <input id="remail" type="email" placeholder="you@example.com" autocomplete="email" />
+      <button class="btn btn-primary" type="submit" id="rsend">Send report</button>
+      <p class="rstatus" id="rstatus" aria-live="polite"></p>
+    </form>
+  </div>
 </div>
 <script type="module" src="./landing.js"></script>
 </body>

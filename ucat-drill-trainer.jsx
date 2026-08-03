@@ -14,6 +14,7 @@ import { DATA_CHECKED, UNIS, GRAD_ENTRY, INTL, AU_DENT, AU_MED, AU_BANDS, MED_UN
 import { MED_SCHOOLS, MED_CHECKED } from "./data/medicine.js";
 import { IV_THEMES, MED_IV, UNI_IV, IV_SAMPLES } from "./data/interview.js";
 import { PS_TOTAL, PS_SECTIONS, PS_FRAMES, PS_HOWTO, PS_ROUTER } from "./data/statement.js";
+import { GUIDE, GUIDE_META, GUIDE_ORDER, EXAM_FORMAT } from "./data/guide.js";
 import { markAnswer, analyseAnswer, analyseDelivery, fillerAdvice, checkGeneric, MODEL_SKELETON, STARR_STEPS } from "./engine/marking.js";
 import { WorkDiagram, BrandMark, ExitGuard, LastChecked, MarkingNotice, SiteDisclaimer, Monogram, Locked } from "./components/ui.jsx";
 
@@ -2822,58 +2823,52 @@ function subtestProgress(section, best) {
 
 function LearnView({ unlocked, best, onStart, onUnlock }) {
   const [open, setOpen] = useState(null);
-  const sec = open ? LEARN.find((s) => s.id === open) : null;
 
-  if (sec) {
+  if (open) {
+    const meta = GUIDE_META[open];
+    const blocks = GUIDE[open] || [];
+    const lesson = LEARN.find((s) => s.id === open); /* vr/qr/sjt also carry drillable techniques */
     return (
       <div className="ud-wrap">
-        <button className="learn-back" onClick={() => setOpen(null)}>
+        <button className="learn-back" onClick={() => { setOpen(null); window.scrollTo(0, 0); }}>
           <svg {...svgProps} width="15" height="15"><path d="M15 18l-6-6 6-6" /></svg>
-          All subtests
+          All of the guide
         </button>
         <div className="learn-detailhead">
-          <span className="learn-ico" data-sec={sec.id}>{SUBTEST_ICON[sec.id]}</span>
+          <span className="learn-ico" data-sec={open}>{SUBTEST_ICON[open]}</span>
           <div>
-            <h2>{sec.title}</h2>
-            <span className="learn-count">{sec.cards.length + (sec.extra ? sec.extra.length : 0)} techniques</span>
+            <h2>{meta.title}</h2>
+            <span className="learn-count">{meta.tag}</span>
           </div>
         </div>
-        <p className="ud-learn-intro">{sec.intro}</p>
-        <div className="learn-tech">
-          {sec.cards.map((c, n) => (
-            <div className="tech-card" key={n}>
-              <span className="tech-num">{String(n + 1).padStart(2, "0")}</span>
-              <div className="tech-body">
-                <h4>{c.h}</h4>
-                {unlocked ? <p>{c.p}</p> : (
-                  <Locked onUnlock={onUnlock} label="Full technique with access">
+
+        <GuideBlocks blocks={blocks} />
+
+        {lesson && (
+          <>
+            <div className="ud-sec" style={{ paddingTop: 30 }}><h2>Practise these techniques</h2><i /><span>{lesson.cards.length} drills</span></div>
+            <div className="learn-tech">
+              {lesson.cards.map((c, n) => (
+                <div className="tech-card" key={n}>
+                  <span className="tech-num">{String(n + 1).padStart(2, "0")}</span>
+                  <div className="tech-body">
+                    <h4>{c.h}</h4>
                     <p>{c.p}</p>
-                  </Locked>
-                )}
-                {c.drill && (
-                  <button
-                    className="tech-drill"
-                    onClick={() => onStart(DRILL_BY_ID[c.drill], false, DRILL_BY_ID[c.drill].def, null, c.sub || null, c.theme || null)}
-                    disabled={!unlocked && !DRILL_BY_ID[c.drill].free}
-                  >
-                    {!unlocked && !DRILL_BY_ID[c.drill].free ? "Locked" : "Drill this →"}
-                  </button>
-                )}
-              </div>
+                    {c.drill && (
+                      <button
+                        className="tech-drill"
+                        onClick={() => onStart(DRILL_BY_ID[c.drill], false, DRILL_BY_ID[c.drill].def, null, c.sub || null, c.theme || null)}
+                        disabled={!unlocked && !DRILL_BY_ID[c.drill].free}
+                      >
+                        {!unlocked && !DRILL_BY_ID[c.drill].free ? "Locked" : "Drill this →"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-          {sec.extra && sec.extra.map((c, n) => (
-            <div className="tech-card tech-note" key={"x" + n}>
-              <span className="tech-num">·</span>
-              <div className="tech-body">
-                <h4>{c.h}</h4>
-                {unlocked ? <p>{c.p}</p> : (
-                  <Locked onUnlock={onUnlock} label="Full technique with access"><p>{c.p}</p></Locked>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+          </>
+        )}
         <div style={{ height: 50 }} />
       </div>
     );
@@ -2881,22 +2876,24 @@ function LearnView({ unlocked, best, onStart, onUnlock }) {
 
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Learn the method</h2><i /><span>3 subtests</span></div>
-      <p className="ud-learn-intro">Pick a subtest to see the techniques that actually move the score. Everything here is original method, written for this exam, not lifted from a bank.</p>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>The UCAT guide</h2><i /><span>format, scoring and method</span></div>
+      <p className="ud-learn-intro">Everything that actually moves a UCAT score: the format, the scoring, the test-day tools, and the technique behind every section. Original method, written for this exam and checked against the live 2025/26 format, not lifted from a bank.</p>
+      <ExamGlance />
       <div className="learn-grid">
-        {LEARN.map((s) => {
-          const pct = subtestProgress(s.id.toUpperCase(), best);
-          const topics = s.cards.length + (s.extra ? s.extra.length : 0);
+        {GUIDE_ORDER.map((id) => {
+          const meta = GUIDE_META[id];
+          const isSub = id === "vr" || id === "qr" || id === "sjt";
+          const pct = isSub ? subtestProgress(id.toUpperCase(), best) : null;
           return (
-            <button className="learn-card" key={s.id} onClick={() => setOpen(s.id)}>
-              <span className="learn-ico" data-sec={s.id}>{SUBTEST_ICON[s.id]}</span>
+            <button className="learn-card" key={id} onClick={() => { setOpen(id); window.scrollTo(0, 0); }}>
+              <span className="learn-ico" data-sec={id}>{SUBTEST_ICON[id]}</span>
               <span className="learn-body">
-                <span className="learn-title">{s.title}</span>
-                <span className="learn-blurb">{SUBTEST_BLURB[s.id]}</span>
-                <span className="learn-bar"><i style={{ width: (pct || 0) + "%" }} /></span>
+                <span className="learn-title">{meta.title}</span>
+                <span className="learn-blurb">{meta.blurb}</span>
+                {isSub && <span className="learn-bar"><i style={{ width: (pct || 0) + "%" }} /></span>}
                 <span className="learn-meta">
-                  <span>{pct == null ? "Not started" : `Best ${pct}%`}</span>
-                  <span>{topics} techniques →</span>
+                  <span>{isSub ? (pct == null ? "Not started" : `Best ${pct}%`) : meta.tag}</span>
+                  <span>Read →</span>
                 </span>
               </span>
             </button>
@@ -2905,6 +2902,67 @@ function LearnView({ unlocked, best, onStart, onUnlock }) {
       </div>
       <UcatFacts />
       <div style={{ height: 50 }} />
+    </div>
+  );
+}
+
+/* Renders the structured guide blocks (see data/guide.js for the grammar). */
+function GuideBlocks({ blocks }) {
+  return (
+    <div className="gb">
+      {blocks.map((b, i) => {
+        const k = b[0];
+        if (k === "p") return <p className="gb-p" key={i}>{b[1]}</p>;
+        if (k === "h") return <h3 className="gb-h" key={i}>{b[1]}</h3>;
+        if (k === "list") return <ul className="gb-list" key={i}>{b[1].map((x, n) => <li key={n}>{x}</li>)}</ul>;
+        if (k === "steps") return <ol className="gb-steps" key={i}>{b[1].map((x, n) => <li key={n}>{x}</li>)}</ol>;
+        if (k === "key" || k === "trap" || k === "tip") return (
+          <div className={`gb-call ${k}`} key={i}>
+            <span className="gb-call-tag">{k === "trap" ? "Trap" : k === "tip" ? "Tip" : "Key"}</span>
+            <b>{b[1]}</b>
+            <span className="gb-call-body">{b[2]}</span>
+          </div>
+        );
+        if (k === "table") return (
+          <div className="gb-tablewrap" key={i}>
+            <table className="gb-table">
+              <thead><tr>{b[1].map((h, n) => <th key={n}>{h}</th>)}</tr></thead>
+              <tbody>{b[2].map((row, n) => <tr key={n}>{row.map((c, m) => <td key={m} className={m === 0 ? "" : "mono"}>{c}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+        );
+        return null;
+      })}
+    </div>
+  );
+}
+
+/* The exam-at-a-glance panel on the Learn landing. */
+function ExamGlance() {
+  return (
+    <div className="glance">
+      <div className="glance-head"><b>The exam at a glance</b><span>2025/26 format, verified</span></div>
+      <div className="glance-tablewrap">
+        <table className="glance-table">
+          <thead><tr><th>Section</th><th>Qs</th><th>Time</th><th>Per Q</th></tr></thead>
+          <tbody>
+            {EXAM_FORMAT.map((s) => (
+              <tr key={s.code}>
+                <td><b>{s.code}</b> <span className="gl-name">{s.name}</span></td>
+                <td className="mono">{s.q}</td>
+                <td className="mono">{s.time}</td>
+                <td className="mono">{s.per}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="glance-foot">
+        <span><b className="mono">184</b> questions total</span>
+        <span>Cognitive <b className="mono">900–2700</b></span>
+        <span>SJT <b className="mono">Bands 1–4</b></span>
+        <span>No negative marking</span>
+      </div>
     </div>
   );
 }
@@ -7378,13 +7436,9 @@ const SUBTEST_ICON = {
   vr: (<svg {...learnIco}><path d="M4 6h9M4 10h7M4 14h5" /><circle cx="15.5" cy="14.5" r="4" /><path d="M18.4 17.4 21.5 20.5" /></svg>),
   qr: (<svg {...learnIco}><path d="M4 4v16h16" /><rect x="7" y="12" width="2.6" height="5" rx=".4" /><rect x="11.7" y="9" width="2.6" height="8" rx=".4" /><rect x="16.4" y="6" width="2.6" height="11" rx=".4" /><path d="M7 10.5 12 7l3 2 4-3.5" /></svg>),
   sjt: (<svg {...learnIco}><path d="M12 3v16" /><path d="M7 19h10" /><path d="M4.5 7h15l-.5-.2M12 5.5 5 7M12 5.5 19 7" /><path d="M8 7 5.4 12c1.7 1.2 3.5 1.2 5.2 0z" /><path d="M16 7 13.4 12c1.7 1.2 3.5 1.2 5.2 0z" /></svg>),
-};
-
-/* One honest line per subtest for the overview cards. */
-const SUBTEST_BLURB = {
-  vr: "The weakest subtest nationally, so the cheapest marks. Learn to search a passage instead of reading it.",
-  qr: "Arithmetic under time pressure, not maths. Estimation beats the on-screen calculator on nearly every question.",
-  sjt: "Feels subjective, is not. A panel applies fixed professional standards, and those standards can be learned.",
+  overview: (<svg {...learnIco}><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" /></svg>),
+  dm: (<svg {...learnIco}><path d="M6 4v6a4 4 0 0 0 4 4h4" /><circle cx="6" cy="4" r="1.6" /><circle cx="18" cy="8" r="1.6" /><path d="M16.5 8H10a4 4 0 0 0-4 4v8" /><circle cx="6" cy="20" r="1.6" /></svg>),
+  cheat: (<svg {...learnIco}><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>),
 };
 
 /* First-payment walkthrough of the main features, shown once after

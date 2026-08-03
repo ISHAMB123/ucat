@@ -882,6 +882,49 @@ button.nav-row:hover { background:var(--signal)14; }
 .tech-drill:disabled { color:var(--mute); cursor:not-allowed; }
 @media (min-width:720px) { .learn-tech { grid-template-columns:1fr 1fr; } }
 
+/* exam-at-a-glance panel */
+.glance { border:1px solid var(--line); border-radius:8px; overflow:hidden; margin:18px 0 30px; background:var(--card); }
+.glance-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.glance-head b { font-family:'Bricolage Grotesque',sans-serif; font-size:16px; }
+.glance-head span { font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--signal); }
+.glance-tablewrap { overflow-x:auto; }
+.glance-table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:420px; }
+.glance-table th { text-align:left; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); font-weight:600; padding:10px 18px; border-bottom:1px solid var(--line); }
+.glance-table th:not(:first-child), .glance-table td:not(:first-child) { text-align:right; }
+.glance-table td { padding:11px 18px; border-bottom:1px solid var(--line); color:var(--body); }
+.glance-table tr:last-child td { border-bottom:0; }
+.glance-table td b { color:var(--paper); font-weight:700; }
+.glance-table .gl-name { color:var(--mute); font-size:12.5px; }
+.glance-table .mono { font-variant-numeric:tabular-nums; }
+.glance-foot { display:flex; flex-wrap:wrap; gap:8px 20px; padding:12px 18px; border-top:1px solid var(--line); background:var(--slate); font-size:12px; color:var(--body); }
+.glance-foot b { color:var(--paper); }
+
+/* structured guide blocks */
+.gb { margin-top:8px; }
+.gb-p { font-size:14.5px; line-height:1.68; color:var(--body); margin:0 0 14px; }
+.gb-h { font-family:'Bricolage Grotesque',sans-serif; font-size:18px; font-weight:800; color:var(--paper); letter-spacing:-.01em; margin:26px 0 12px; padding-top:6px; border-top:1px solid var(--line); }
+.gb-h:first-child { border-top:0; padding-top:0; margin-top:6px; }
+.gb-list, .gb-steps { margin:0 0 15px; padding-left:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+.gb-list li, .gb-steps li { position:relative; padding-left:26px; font-size:14px; line-height:1.62; color:var(--body); }
+.gb-list li::before { content:""; position:absolute; left:8px; top:9px; width:6px; height:6px; border-radius:50%; background:var(--signal); }
+.gb-steps { counter-reset:gbs; }
+.gb-steps li { counter-increment:gbs; }
+.gb-steps li::before { content:counter(gbs); position:absolute; left:0; top:1px; width:19px; height:19px; border-radius:50%; background:color-mix(in srgb, var(--signal) 16%, transparent); color:var(--signal); font-family:'Inter',sans-serif; font-size:11px; font-weight:700; display:grid; place-items:center; }
+.gb-call { position:relative; margin:0 0 16px; padding:14px 16px 14px 17px; border-radius:6px; border:1px solid var(--line); border-left:3px solid var(--signal); background:var(--card); }
+.gb-call.trap { border-left-color:var(--stop); }
+.gb-call.tip { border-left-color:var(--go); }
+.gb-call-tag { display:inline-block; font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--signal); margin-bottom:5px; }
+.gb-call.trap .gb-call-tag { color:var(--stop); }
+.gb-call.tip .gb-call-tag { color:var(--go); }
+.gb-call b { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:15px; font-weight:700; color:var(--paper); margin-bottom:4px; }
+.gb-call-body { display:block; font-size:13.5px; line-height:1.6; color:var(--body); }
+.gb-tablewrap { overflow-x:auto; margin:0 0 16px; border:1px solid var(--line); border-radius:6px; }
+.gb-table { width:100%; border-collapse:collapse; font-size:13.5px; min-width:320px; }
+.gb-table th { text-align:left; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); font-weight:600; padding:9px 14px; background:var(--slate); border-bottom:1px solid var(--line); }
+.gb-table td { padding:9px 14px; border-bottom:1px solid var(--line); color:var(--body); }
+.gb-table tr:last-child td { border-bottom:0; }
+.gb-table .mono { font-variant-numeric:tabular-nums; color:var(--paper); }
+
 /* A-level custom entry and subject-fit banner */
 .al-entry { display:flex; flex-direction:column; gap:8px; margin-top:7px; }
 .al-row { display:flex; gap:8px; align-items:center; }

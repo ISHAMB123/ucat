@@ -15,13 +15,17 @@ export function loadTracker() {
   loader = (async () => {
     const { FaceLandmarker, FilesetResolver } = await import("@mediapipe/tasks-vision");
     const fileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
-    return FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: "/mediapipe/face_landmarker.task" },
+    const opts = (delegate) => ({
+      baseOptions: { modelAssetPath: "/mediapipe/face_landmarker.task", delegate },
       runningMode: "VIDEO",
       numFaces: 1,
       outputFaceBlendshapes: false,
       outputFacialTransformationMatrixes: false,
     });
+    /* GPU inference is far lower latency, so the mesh keeps up with the face.
+       Fall back to CPU where WebGL is unavailable. */
+    try { return await FaceLandmarker.createFromOptions(fileset, opts("GPU")); }
+    catch (e) { return await FaceLandmarker.createFromOptions(fileset, opts("CPU")); }
   })().catch((e) => { loader = null; throw e; });
   return loader;
 }

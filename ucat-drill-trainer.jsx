@@ -5590,12 +5590,8 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const overlayRef = useRef(null);
   const boardRef = useRef(null);
   const barRef = useRef(null);
-  const sparkRef = useRef(null);
-  const sparkBuf = useRef([]);
   const pctRef = useRef(null);
   const statusRef = useRef(null);
-  const gxRef = useRef(null);
-  const gyRef = useRef(null);
   const avgRef = useRef(null);
   const rafRef = useRef(null);
 
@@ -5694,18 +5690,24 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const qColor = (q) => (q >= 70 ? "#3ECF8E" : q >= 40 ? "#F5A524" : "#F2555A");
 
   const drawOverlay = (a) => {
-    const c = overlayRef.current;
+    const c = overlayRef.current, v = videoRef.current;
     if (!c) return;
     const { w, h } = fitCanvas(c);
     const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, w, h);
-    if (!a) return;
+    if (!a || !v || !v.videoWidth) return;
+    /* The video uses object-fit:cover, so it is scaled up and cropped. Map
+       the normalised landmarks through the same transform so the mesh lands
+       exactly on the displayed face rather than the un-cropped frame. */
+    const s = Math.max(w / v.videoWidth, h / v.videoHeight);
+    const dw = v.videoWidth * s, dh = v.videoHeight * s;
+    const ox = (w - dw) / 2, oy = (h - dh) / 2;
+    const mx = (nx) => ox + nx * dw, my = (ny) => oy + ny * dh;
     ctx.fillStyle = "rgba(245,165,36,0.6)";
-    for (const q of a.pts) ctx.fillRect(q.x * w - 0.7, q.y * h - 0.7, 1.6, 1.6);
-    /* eye boxes with corner ticks */
+    for (const q of a.pts) ctx.fillRect(mx(q.x) - 0.7, my(q.y) - 0.7, 1.6, 1.6);
     ctx.strokeStyle = "rgba(62,207,142,0.95)"; ctx.lineWidth = 1.5;
     [a.eyeL, a.eyeR].forEach((b) => {
-      const x = b.x * w, y = b.y * h, bw = b.w * w, bh = b.h * h, t = Math.min(bw, bh) * 0.35;
+      const x = mx(b.x), y = my(b.y), bw = b.w * dw, bh = b.h * dh, t = Math.min(bw, bh) * 0.35;
       ctx.beginPath();
       ctx.moveTo(x, y + t); ctx.lineTo(x, y); ctx.lineTo(x + t, y);
       ctx.moveTo(x + bw - t, y); ctx.lineTo(x + bw, y); ctx.lineTo(x + bw, y + t);
@@ -5713,10 +5715,9 @@ function LiveInterview({ track, prefs, setPrefs }) {
       ctx.moveTo(x + t, y + bh); ctx.lineTo(x, y + bh); ctx.lineTo(x, y + bh - t);
       ctx.stroke();
     });
-    /* iris reticle */
-    const r = Math.max(w, h) * 0.016;
+    const r = dw * 0.016;
     [a.irisL, a.irisR].forEach((ir) => {
-      const ix = ir.x * w, iy = ir.y * h;
+      const ix = mx(ir.x), iy = my(ir.y);
       ctx.strokeStyle = "#F5A524"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(ix, iy, r, 0, 7); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(ix - r * 1.6, iy); ctx.lineTo(ix - r * 0.6, iy); ctx.moveTo(ix + r * 0.6, iy); ctx.lineTo(ix + r * 1.6, iy);
@@ -5761,28 +5762,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
       ctx.fillRect(0, y, w, sh);
     }
   };
-  /* Rolling contact-trend line. */
-  const drawSpark = (buf) => {
-    const c = sparkRef.current;
-    if (!c) return;
-    const { w, h } = fitCanvas(c);
-    const ctx = c.getContext("2d");
-    ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = "rgba(135,148,165,0.14)"; ctx.lineWidth = 1;
-    for (let i = 1; i < 3; i++) { const y = (i / 3) * h; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-    if (buf.length < 2) return;
-    ctx.strokeStyle = qColor(buf[buf.length - 1]); ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    buf.forEach((v, i) => { const x = (i / (buf.length - 1)) * w, y = h - (v / 100) * h; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
-    ctx.stroke();
-  };
-
   useEffect(() => {
     if (phase !== "live" || !eyeOn || !camReady) return;
     let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastText = 0; let lastFace = 0; let lastA = null;
     setEyeErr(""); setEyeReady(false);
     const setTxt = (ref, t) => { if (ref.current) ref.current.textContent = t; };
-    const signed = (n) => (n >= 0 ? "+" : "") + n.toFixed(2);
     loadTracker().then((landmarker) => {
       if (stop) return;
       lm = landmarker; setEyeReady(true);
@@ -5805,15 +5789,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
         const cur = a || (now - lastFace < 260 ? lastA : null);
         const q = quality(cur);
         drawOverlay(cur); drawBoard(cur); drawBar(q, !!cur);
-        const buf = sparkBuf.current; buf.push(cur ? q : 0); if (buf.length > 90) buf.shift();
-        drawSpark(buf);
         if (a) { eyeAccum.current.total++; eyeAccum.current.qSum += q; }
         if (now - lastText > 130) {
           lastText = now;
           if (pctRef.current) { pctRef.current.textContent = cur ? q + "%" : "--"; pctRef.current.style.color = cur ? qColor(q) : "var(--mute)"; }
           if (statusRef.current) { statusRef.current.textContent = cur ? "LOCKED" : "SEARCHING"; statusRef.current.style.color = cur ? "#3ECF8E" : "#F2555A"; }
-          setTxt(gxRef, cur ? signed(cur.gaze.x - 0.5) : "--");
-          setTxt(gyRef, cur ? signed(cur.gaze.y - 0.5) : "--");
           const avg = eyeAccum.current.total ? Math.round(eyeAccum.current.qSum / eyeAccum.current.total) : 0;
           setTxt(avgRef, avg + "%");
         }
@@ -5867,7 +5847,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const begin = async () => {
     if (!enough) { setBuyOpen(true); return; }
     setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
-    eyeAccum.current = { total: 0, qSum: 0 }; sparkBuf.current = [];
+    eyeAccum.current = { total: 0, qSum: 0 };
     setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyeReady(false); setEyeErr("");
     /* MMI is a scenario you read and role-play, so the panel does not read it
        aloud; the reading voice is for the conversational panel format. */
@@ -5884,7 +5864,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     const eyeFinal = eyeAccum.current.total > 5 ? Math.round(eyeAccum.current.qSum / eyeAccum.current.total) : null;
     const parsed = parseDebrief(debrief, eyeFinal);
     setResult(parsed);
-    setMessages([]); setDraft(""); eyeAccum.current = { total: 0, qSum: 0 }; sparkBuf.current = [];
+    setMessages([]); setDraft(""); eyeAccum.current = { total: 0, qSum: 0 };
     const entry = { ts: Date.now(), band: parsed.band, track, format, dna: parsed.dna };
     const next = [...hist, entry].slice(-30);
     setHist(next);
@@ -5908,7 +5888,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     }
   };
 
-  const exitLive = () => { stopCam(); stopListening(); hush(); stopThink(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyeReady(false); eyeAccum.current = { total: 0, qSum: 0 }; sparkBuf.current = []; };
+  const exitLive = () => { stopCam(); stopListening(); hush(); stopThink(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyeReady(false); eyeAccum.current = { total: 0, qSum: 0 }; };
   const reset = () => { exitLive(); setResult(null); if (enough) begin(); };
 
   const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendAnswer(); } };
@@ -6054,9 +6034,6 @@ function LiveInterview({ track, prefs, setPrefs }) {
       <div className="li-hud-readouts">
         <div className="li-hud-cell"><span className="k">Status</span><b ref={statusRef} className="mono">SEARCHING</b></div>
         <div className="li-hud-cell"><span className="k">Session avg</span><b ref={avgRef} className="mono">0%</b></div>
-        <div className="li-hud-cell"><span className="k">Gaze X</span><b ref={gxRef} className="mono">--</b></div>
-        <div className="li-hud-cell"><span className="k">Gaze Y</span><b ref={gyRef} className="mono">--</b></div>
-        <div className="li-hud-cell span2"><span className="k">Contact trend</span><canvas ref={sparkRef} className="li-hud-spark" /></div>
         <div className="li-hud-cell span2"><span className="k">Gaze map</span><canvas ref={boardRef} className="li-board-c" /></div>
       </div>
       {eyeErr && <div className="li-hud-err">{eyeErr}</div>}

@@ -7447,9 +7447,12 @@ function MockCentre({ unlocked, prefs, setPrefs }) {
         <p className="ud-learn-intro">{note} No feedback until the end, one clock, no pausing. Your score joins this week's board, {boardGlobal ? "shared with everyone sitting it" : "kept on this device"}.</p>
         <div className="ud-subs" style={{ paddingTop: 16 }}>
           {slots.map((sl) => (
-            <button key={sl} className="ud-sub" disabled={!unlocked} onClick={() => startMock(type, sl, mini)} style={{ padding: "16px 15px" }}>
-              <b>{type.toUpperCase()} {mini ? `Mini ${sl + 1}` : `Mock ${"ABC"[sl]}`}</b>
-              <span>{mini ? "quick timed paper" : `${full.count} questions · ${full.mins}:00`} · this week's paper{unlocked ? "" : " · locked"}</span>
+            <button key={sl} className="ud-sub" disabled={!unlocked} onClick={() => startMock(type, sl, mini)}>
+              <span className="sub-ico">{SUBTEST_ICON[type]}</span>
+              <span className="sub-txt">
+                <b>{type.toUpperCase()} {mini ? `Mini ${sl + 1}` : `Mock ${"ABC"[sl]}`}</b>
+                <span>{mini ? "quick timed paper" : `${full.count} questions · ${full.mins}:00`} · this week's paper{unlocked ? "" : " · locked"}</span>
+              </span>
             </button>
           ))}
         </div>

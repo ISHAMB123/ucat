@@ -5744,7 +5744,12 @@ function LiveInterview({ track, prefs, setPrefs }) {
     if (!a || !a.gaze) return 0;
     const dx = a.gaze.x - 0.5, dy = a.gaze.y - 0.5;
     const d = Math.sqrt(dx * dx + dy * dy);
-    return Math.max(0, Math.min(100, Math.round(100 - d * 230)));
+    /* A tolerance zone around the centre so a candidate looking straight at
+       the screen reads a solid 100 rather than flickering with landmark
+       noise; contact then falls off past the zone. */
+    const dz = 0.13;
+    const eff = Math.max(0, d - dz);
+    return Math.max(0, Math.min(100, Math.round(100 - eff * 300)));
   };
   const qColor = (q) => (q >= 70 ? "#3ECF8E" : q >= 40 ? "#F5A524" : "#F2555A");
 
@@ -5810,6 +5815,8 @@ function LiveInterview({ track, prefs, setPrefs }) {
   useEffect(() => {
     if (phase !== "live" || !eyeOn || !camReady) return;
     let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastText = 0; let lastFace = 0; let lastA = null;
+    /* Exponential smoothing so the reading settles instead of flickering. */
+    let qSmooth = 0; let gxSmooth = 0.5; let gySmooth = 0.5; let primed = false;
     setEyeErr(""); setEyeReady(false);
     const setTxt = (ref, t) => { if (ref.current) ref.current.textContent = t; };
     loadTracker().then((landmarker) => {
@@ -5832,8 +5839,17 @@ function LiveInterview({ track, prefs, setPrefs }) {
         /* Hold the last read briefly so fast movement or a blink does not
            blank the tracker. */
         const cur = a || (now - lastFace < 260 ? lastA : null);
-        const q = quality(cur);
-        drawOverlay(cur); drawBar(q, !!cur, cur);
+        const qRaw = quality(cur);
+        if (cur) {
+          const k = primed ? 0.16 : 1; primed = true;
+          qSmooth += (qRaw - qSmooth) * k;
+          gxSmooth += (cur.gaze.x - gxSmooth) * (primed ? 0.22 : 1);
+          gySmooth += (cur.gaze.y - gySmooth) * (primed ? 0.22 : 1);
+        } else {
+          qSmooth += (0 - qSmooth) * 0.16;
+        }
+        const q = Math.round(qSmooth);
+        drawOverlay(cur); drawBar(q, !!cur, cur ? { gaze: { x: gxSmooth, y: gySmooth } } : null);
         if (a) { eyeAccum.current.total++; eyeAccum.current.qSum += q; }
         if (now - lastText > 130) {
           lastText = now;
@@ -6125,23 +6141,41 @@ function LiveInterview({ track, prefs, setPrefs }) {
           <div className="li-panel">
             <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i></div>
             <div className="li-stage-row">
+              <div className="li-doc-wrap">
               <div className={`li-doc${docTalking ? " talk" : ""}${loading ? " think" : ""}`} aria-hidden="true">
                 <svg viewBox="0 0 96 108">
-                  <path d="M14 108 V85 C14 71 29 65 48 65 C67 65 82 71 82 85 V108 Z" fill="#FFFFFF" stroke="#DCE3EC" strokeWidth="1.5" />
-                  <path d="M40 67 L36 108 M56 67 L60 108" stroke="#E2E8F0" strokeWidth="1.4" fill="none" />
-                  <path d="M40 66 L48 79 L56 66 Z" fill="#EDF1F6" />
-                  <path d="M48 79 l-3 5 3 15 3-15 z" fill="#F5A524" />
-                  <path d="M41 67 C37 83 35 91 41 97" stroke="#3ECF8E" strokeWidth="2.4" fill="none" />
-                  <path d="M55 67 C59 83 61 91 55 97" stroke="#3ECF8E" strokeWidth="2.4" fill="none" />
-                  <circle cx="48" cy="99" r="4.5" fill="#3ECF8E" />
-                  <rect x="42" y="55" width="12" height="13" rx="5" fill="#EBC39E" />
-                  <circle cx="48" cy="40" r="20" fill="#F2CBA4" />
-                  <path d="M27 39 C27 21 69 21 69 39 C64 30 59 27 48 27 C37 27 32 30 27 39 Z" fill="#4A3B31" />
-                  <circle cx="41" cy="41" r="2.2" fill="#2A2622" />
-                  <circle cx="55" cy="41" r="2.2" fill="#2A2622" />
-                  <path d="M37 35.5 q4 -2.4 8 0 M51 35.5 q4 -2.4 8 0" stroke="#4A3B31" strokeWidth="1.6" fill="none" />
-                  <ellipse className="li-doc-mouth" cx="48" cy="49" rx="5" ry="1.6" fill="#8A4A3A" />
+                  <path d="M10 108 V90 C10 76 25 69 48 69 C71 69 86 76 86 90 V108 Z" fill="#FBFCFE" stroke="#D5DCE6" strokeWidth="1.4" />
+                  <path d="M10 108 V90 C10 82 15 76 21 73 C16 80 15 92 15 108 Z" fill="#EDF1F7" />
+                  <path d="M86 108 V90 C86 82 81 76 75 73 C80 80 81 92 81 108 Z" fill="#EDF1F7" />
+                  <path d="M41 70 L48 86 L39 106 L33 82 Z" fill="#EAEFF6" />
+                  <path d="M55 70 L48 86 L57 106 L63 82 Z" fill="#EAEFF6" />
+                  <path d="M43 70 L48 83 L53 70 Z" fill="#DEE5EE" />
+                  <path d="M48 83 l-3 4.5 3 15 3 -15 z" fill="#F5A524" />
+                  <path d="M42 56 h12 v10 q-6 5 -12 0 z" fill="#EAB98E" />
+                  <path d="M42 62 q6 4 12 0 v-2 q-6 3 -12 0 z" fill="#D9A67E" />
+                  <circle cx="28" cy="42" r="4.2" fill="#EFC29B" />
+                  <circle cx="68" cy="42" r="4.2" fill="#EFC29B" />
+                  <ellipse cx="48" cy="41" rx="19" ry="21" fill="#F3CCA6" />
+                  <path d="M26 43 C24 17 72 17 70 43 C70 31 62 28 48 28 C34 28 26 31 26 43 Z" fill="#463830" />
+                  <path d="M37 38.5 q4.5 -2.6 9 0" stroke="#463830" strokeWidth="1.7" fill="none" strokeLinecap="round" />
+                  <path d="M50 38.5 q4.5 -2.6 9 0" stroke="#463830" strokeWidth="1.7" fill="none" strokeLinecap="round" />
+                  <circle cx="41.5" cy="43.5" r="2.4" fill="#2A2622" />
+                  <circle cx="54.5" cy="43.5" r="2.4" fill="#2A2622" />
+                  <circle cx="42.4" cy="42.6" r="0.8" fill="#FFFFFF" />
+                  <circle cx="55.4" cy="42.6" r="0.8" fill="#FFFFFF" />
+                  <path d="M48 45 v4.5 q-2 1 -3.4 1.4" fill="none" stroke="#D9A67E" strokeWidth="1.4" strokeLinecap="round" />
+                  <circle cx="38" cy="50" r="2.6" fill="#F0B58F" opacity="0.5" />
+                  <circle cx="58" cy="50" r="2.6" fill="#F0B58F" opacity="0.5" />
+                  <ellipse className="li-doc-mouth" cx="48" cy="54" rx="4.6" ry="1.7" fill="#B5675A" />
+                  <path d="M39 64 C34 78 37 90 45 93" fill="none" stroke="#2FA875" strokeWidth="2.6" strokeLinecap="round" />
+                  <path d="M57 64 C62 76 60 85 55 89" fill="none" stroke="#2FA875" strokeWidth="2.6" strokeLinecap="round" />
+                  <circle cx="39" cy="64" r="1.9" fill="#2FA875" />
+                  <circle cx="57" cy="64" r="1.9" fill="#2FA875" />
+                  <circle cx="46" cy="95" r="4.8" fill="#2FA875" />
+                  <circle cx="46" cy="95" r="2.1" fill="#EAF7F0" />
                 </svg>
+              </div>
+                <span className="li-doc-cap">Interviewer{docTalking && <i className="li-doc-live" />}</span>
               </div>
               <div className="li-bubble" aria-live="polite">
                 {loading && !lastQuestion ? "One moment, settling in…" : lastQuestion ? lastQuestion.content : ""}

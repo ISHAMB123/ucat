@@ -111,11 +111,16 @@ export const CSS = `
 .iv-sw.on i { transform:translateX(12px); background:var(--signal); }
 @media (max-width:720px) { .iv-config { grid-template-columns:1fr; } }
 @media (prefers-reduced-motion: reduce) { .iv-mic.live .iv-ring, .iv-mic.live .iv-wave i { animation:none; } }
-.ud-subs { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:10px; padding-top:12px; }
-.ud-sub { background:var(--ink); border:1px solid var(--line); border-radius:3px; padding:13px 14px; text-align:left; color:inherit; }
-.ud-sub:hover { border-color:var(--signal); }
-.ud-sub b { display:block; font-size:14px; font-family:'Bricolage Grotesque',sans-serif; margin-bottom:3px; }
-.ud-sub span { font-size:11.5px; color:var(--mute); line-height:1.4; display:block; }
+.ud-subs { display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:11px; padding-top:12px; }
+.ud-sub { display:flex; align-items:flex-start; gap:12px; background:var(--slate); border:1px solid var(--line); border-radius:10px; padding:14px 15px; text-align:left; color:inherit; transition:border-color .15s, transform .15s, box-shadow .15s; }
+.ud-sub:hover { border-color:var(--signal); transform:translateY(-3px); box-shadow:0 12px 28px -18px rgba(0,0,0,.6); }
+.sub-ico { flex:none; width:36px; height:36px; border-radius:10px; display:grid; place-items:center; background:color-mix(in srgb, var(--signal) 14%, transparent); color:var(--signal); }
+.sub-ico svg { width:19px; height:19px; }
+.sub-txt { min-width:0; }
+.ud-sub b { display:block; font-size:14px; font-family:'Bricolage Grotesque',sans-serif; margin-bottom:3px; color:var(--paper); letter-spacing:-0.01em; }
+.sub-txt span { font-size:11.5px; color:var(--mute); line-height:1.45; display:block; }
+.ud-sub.sub-feature { border-color:color-mix(in srgb, var(--signal) 42%, var(--line)); background:color-mix(in srgb, var(--signal) 7%, var(--slate)); }
+.ud-sub.sub-feature .sub-ico { background:var(--signal); color:var(--ink); }
 .ud-price { margin:40px 0 52px; border:1px solid var(--line); border-radius:3px; padding:24px; background:var(--slate); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
 .ud-price h3 { font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:28px; margin:0 0 6px; letter-spacing:-0.03em; }
 .ud-price p { margin:0; color:var(--mute); font-size:13px; max-width:46ch; line-height:1.55; }

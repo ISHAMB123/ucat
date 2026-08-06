@@ -976,9 +976,13 @@ button.nav-row:hover { background:var(--signal)14; }
 .cal-legend i { width:12px; height:12px; border-radius:3px; }
 
 /* Home: hero beside the countdown and streak */
-.ud-herorow { display:grid; grid-template-columns:1.35fr 1fr; gap:22px; align-items:start; }
-.ud-herostreak { display:flex; flex-direction:column; gap:14px; }
-@media (max-width: 860px) { .ud-herorow { grid-template-columns:1fr; } }
+.ud-herorow { display:grid; grid-template-columns:1.35fr 1fr; gap:22px; align-items:stretch; }
+/* Right column tracks the hero's own 52px top padding so the Test Day card
+   lines up with the eyebrow, then space-between drops the streak to the
+   bottom so it fills the gap instead of leaving dead space beneath it. */
+.ud-herostreak { display:flex; flex-direction:column; gap:14px; justify-content:space-between; padding:52px 0 40px; }
+.ud-herostreak .cd-strip { margin-top:0; }
+@media (max-width: 860px) { .ud-herorow { grid-template-columns:1fr; } .ud-herostreak { padding:0; justify-content:flex-start; } .ud-herostreak .cd-strip { margin-top:20px; } }
 
 /* ---- Left icon sidebar navigation ---- */
 .ud-hasside { padding-left:214px; }

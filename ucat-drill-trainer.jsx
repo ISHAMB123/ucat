@@ -6016,6 +6016,18 @@ function PsBuilder({ unlocked, onUnlock }) {
   const [tour, setTour] = useState(-1);
   const [hints, setHints] = useState(true);
   const [dismissed, setDismissed] = useState([]);
+  const [copied, setCopied] = useState("");
+
+  const copyText = (text, key) => {
+    const done = () => { setCopied(key); setTimeout(() => setCopied(""), 1700); };
+    if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => {
+        try { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); } catch (e) { /* clipboard unavailable */ }
+      });
+    } else {
+      try { const ta = document.createElement("textarea"); ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta); done(); } catch (e) { /* clipboard unavailable */ }
+    }
+  };
 
   useEffect(() => {
     getJSON("ucat:pstour", false).then((seen) => { if (!seen) setTour(0); });
@@ -6277,21 +6289,40 @@ function PsBuilder({ unlocked, onUnlock }) {
           </p>
           <div className="ps-preview">
             <div className="pv-head">
-              <span className="mono">{d.name}</span>
-              <span className="mono">{totalWords} words · {totalChars.toLocaleString()} characters</span>
+              <span className="pv-name">{d.name}</span>
+              <span className="pv-count mono">{totalWords} words · {totalChars.toLocaleString()} chars</span>
+              <button
+                className={`ud-btn pv-copyall${copied === "all" ? " done" : ""}`}
+                onClick={() => copyText(PS_SECTIONS.map((sec) => `${sec.title}\n${(d[sec.id] || "").trim()}`).join("\n\n"), "all")}
+                disabled={totalChars === 0}
+              >
+                {copied === "all"
+                  ? (<><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg> Copied</>)
+                  : (<><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg> Copy all</>)}
+              </button>
             </div>
-            {PS_SECTIONS.map((sec) => (
-              <div className="pv-sec" key={sec.id}>
-                <h4><span className="num">{sec.n}</span>{sec.title}</h4>
-                {(d[sec.id] || "").trim()
-                  ? (d[sec.id] || "").split(/\n{2,}/).map((para, n) => <p key={n}>{para}</p>)
-                  : <p className="empty">Nothing written for this section yet.</p>}
-              </div>
-            ))}
+            <div className="pv-paper">
+              {PS_SECTIONS.map((sec) => {
+                const body = (d[sec.id] || "").trim();
+                return (
+                  <div className="pv-sec" key={sec.id}>
+                    <div className="pv-sechead">
+                      <h4><span className="num">{sec.n}</span>{sec.title}</h4>
+                      <button className={`pv-copysec${copied === sec.id ? " done" : ""}`} onClick={() => copyText(body, sec.id)} disabled={!body} title="Copy this answer for its UCAS box">
+                        {copied === sec.id ? "Copied ✓" : "Copy"}
+                      </button>
+                    </div>
+                    {body
+                      ? body.split(/\n{2,}/).map((para, n) => <p key={n}>{para}</p>)
+                      : <p className="empty">Nothing written for this section yet.</p>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
           <p className="ud-empty" style={{ paddingTop: 12 }}>
-            Spelling is checked live by your browser while you type in the Write tab. Nothing here is submitted anywhere;
-            copy it into UCAS yourself when it is ready.
+            UCAS splits the statement into three boxes, so <b>Copy</b> next to each answer copies just that box. Nothing is submitted anywhere:
+            spelling is checked live by your browser as you type, and you paste it into UCAS yourself when it is ready.
           </p>
         </>
       )}

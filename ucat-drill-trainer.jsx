@@ -2633,7 +2633,32 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
 
 /* ------------------------------ HOME ------------------------------ */
 
-function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext }) {
+/* Sits between the countdown and the streak in the hero. A single honest
+   readiness figure with the factors behind it, so the right column reads
+   time -> readiness -> rhythm instead of leaving a gap. */
+function HeroReadiness({ best, history, plan, prefs, onGoto }) {
+  const r = readinessScore({ best, history, plan: plan || {}, customPlan: prefs.customPlan, examDate: prefs.examDate });
+  const tone = r.score >= 75 ? "go" : r.score >= 45 ? "mid" : "low";
+  return (
+    <button className="hero-ready" data-tone={tone} onClick={() => onGoto("progress")}>
+      <div className="hr-top">
+        <div className="hr-score"><b>{r.score}</b><span>/100</span></div>
+        <div className="hr-band"><span className="hr-eye">Readiness</span><b>{r.band}</b></div>
+        <span className="hr-go" aria-hidden="true">→</span>
+      </div>
+      <div className="hr-factors">
+        {r.factors.map((f) => (
+          <div className="hr-f" key={f.label}>
+            <i><b style={{ width: `${f.pct}%` }} /></i>
+            <span>{f.label}</span>
+          </div>
+        ))}
+      </div>
+    </button>
+  );
+}
+
+function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext, plan }) {
   const bestBars = Object.entries(best || {}).filter(([id]) => DRILL_BY_ID[id]).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const weakTop = dedupeWeak(Object.entries(weak || {}).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1])).slice(0, 6);
   const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
@@ -2711,6 +2736,7 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
         </div>
         <div className="ud-herostreak">
           <CountdownStrip prefs={prefs} setPrefs={setPrefs} />
+          <HeroReadiness best={best} history={history} plan={plan} prefs={prefs} onGoto={onGoto} />
           <StreakCalendar history={history || []} weeks={17} />
         </div>
       </div>
@@ -5329,10 +5355,11 @@ function InterviewLauncher({ track }) {
   );
 }
 
-function InterviewView({ track, onSwitch }) {
+function InterviewView({ track, onSwitch, prefs, setPrefs }) {
   const themes = IV_THEMES.filter((t) => t.tracks.includes(track));
   const [openQ, setOpenQ] = useState(null);
   const [warnHidden, setWarnHidden] = useState(false);
+  const [mode, setMode] = useState("live");
 
   return (
     <div className="ud-wrap">
@@ -5342,6 +5369,15 @@ function InterviewView({ track, onSwitch }) {
         <button className={track === "dent" ? "on" : ""} onClick={() => onSwitch("dent")}>Dentistry</button>
         <button className={track === "med" ? "on" : ""} onClick={() => onSwitch("med")}>Medicine</button>
       </div>
+      <div className="ud-mode" style={{ paddingTop: 4 }}>
+        <span>Mode</span>
+        <button className={mode === "live" ? "on" : ""} onClick={() => setMode("live")}>Live simulator</button>
+        <button className={mode === "bank" ? "on" : ""} onClick={() => setMode("bank")}>Practice bank</button>
+      </div>
+
+      {mode === "live" ? (
+        <LiveInterview track={track} prefs={prefs} setPrefs={setPrefs} />
+      ) : (<>
       {!warnHidden && (
         <div className="iv-warn">
           <span className="ic" aria-hidden="true">!</span>
@@ -5399,6 +5435,303 @@ function InterviewView({ track, onSwitch }) {
         ))}
       </div>
       <div style={{ height: 50 }} />
+      </>)}
+    </div>
+  );
+}
+
+/* ---------------------------- LIVE INTERVIEW ---------------------- */
+/* A real interviewer, driven by the model behind /api/interview. The camera
+   is a plain mirror so the candidate can watch their own delivery; if they
+   turn it off (or deny access) the microphone view takes its place. Each run
+   spends one credit; the first is free, more are bought from the panel. */
+
+const CREDIT_PACKS = [
+  { id: "single", n: 1, gbp: "1.49", each: "1.49", label: "Single" },
+  { id: "five", n: 5, gbp: "5.99", each: "1.20", label: "Five", tag: "Popular" },
+  { id: "fifteen", n: 15, gbp: "14.99", each: "1.00", label: "Fifteen", tag: "Best value" },
+];
+
+/* Everyone gets one interview free; after that the balance is whatever they
+   have added. Stored on prefs so it survives a refresh like the rest. */
+function creditsOf(prefs) {
+  return typeof prefs.credits === "number" ? prefs.credits : 1;
+}
+
+function BuyCreditsModal({ prefs, setPrefs, onClose }) {
+  const [added, setAdded] = useState(0);
+  const grant = (n) => { setPrefs({ ...prefs, credits: creditsOf(prefs) + n }); setAdded(n); };
+  return (
+    <div className="ud-modal" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="li-buy" onClick={(e) => e.stopPropagation()}>
+        <button className="li-x" onClick={onClose} aria-label="Close">✕</button>
+        <h3>Top up interviews</h3>
+        <p className="li-buy-sub">One credit runs one full simulated interview, panel or MMI, with a written debrief at the end.</p>
+        <div className="li-packs">
+          {CREDIT_PACKS.map((p) => (
+            <button className={`li-pack${p.tag === "Best value" ? " best" : ""}`} key={p.id} onClick={() => grant(p.n)}>
+              {p.tag && <span className="li-tag">{p.tag}</span>}
+              <span className="li-n">{p.n}</span>
+              <span className="li-lbl">{p.n === 1 ? "interview" : "interviews"}</span>
+              <span className="li-price">£{p.gbp}</span>
+              <span className="li-each">£{p.each} each</span>
+            </button>
+          ))}
+        </div>
+        {added > 0 && <p className="li-added">Added {added} {added === 1 ? "credit" : "credits"} (demo). Real card checkout arrives with the payment backend.</p>}
+        <p className="li-note">Checkout is not wired to a card processor yet, so these buttons add credits in demo mode for now. When Stripe is connected each button becomes a secure hosted checkout and nothing about this screen changes for you.</p>
+      </div>
+    </div>
+  );
+}
+
+function LiveInterview({ track, prefs, setPrefs }) {
+  const [format, setFormat] = useState("panel");
+  const [phase, setPhase] = useState("setup");
+  const [messages, setMessages] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [qCount, setQCount] = useState(0);
+  const [camOn, setCamOn] = useState(true);
+  const [camReady, setCamReady] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const recogRef = useRef(null);
+  const scrollRef = useRef(null);
+  const baseDraft = useRef("");
+
+  const credits = creditsOf(prefs);
+  const maxQ = format === "mmi" ? 4 : 6;
+  const speechOK = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  /* Camera is a mirror and nothing more. Start it only during a live run and
+     only when it is wanted; always stop the tracks when we are done with it. */
+  const stopCam = () => {
+    if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
+    setCamReady(false);
+  };
+  useEffect(() => {
+    if (phase !== "live" || !camOn) { stopCam(); return; }
+    let cancelled = false;
+    navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setCamReady(true);
+      })
+      .catch(() => { if (!cancelled) setCamOn(false); });
+    return () => { cancelled = true; };
+  }, [phase, camOn]);
+  useEffect(() => () => stopCam(), []);
+
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
+
+  const stopListening = () => {
+    if (recogRef.current) { try { recogRef.current.stop(); } catch (e) { /* ignore */ } recogRef.current = null; }
+    setListening(false);
+  };
+  const toggleMic = () => {
+    if (listening) { stopListening(); return; }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB";
+    baseDraft.current = draft ? draft + " " : "";
+    rec.onresult = (e) => {
+      let s = "";
+      for (let i = 0; i < e.results.length; i++) s += e.results[i][0].transcript;
+      setDraft(baseDraft.current + s);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => setListening(false);
+    recogRef.current = rec; setListening(true);
+    try { rec.start(); } catch (e) { setListening(false); }
+  };
+
+  const callInterviewer = async (msgs) => {
+    setLoading(true); setError("");
+    try {
+      const r = await fetch("/api/interview", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ track, format, messages: msgs }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || "The interviewer could not respond.");
+      return data.reply;
+    } catch (e) {
+      setError(e && e.message ? e.message : "The interviewer could not respond.");
+      return null;
+    } finally { setLoading(false); }
+  };
+
+  const begin = async () => {
+    if (credits <= 0) { setBuyOpen(true); return; }
+    setPrefs({ ...prefs, credits: credits - 1 });
+    setPhase("live"); setMessages([]); setQCount(0); setError("");
+    const reply = await callInterviewer([{ role: "user", content: "Please begin the interview with your first question." }]);
+    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); }
+    else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
+  };
+
+  const sendAnswer = async () => {
+    const text = draft.trim();
+    if (!text || loading) return;
+    stopListening();
+    const shown = [...messages, { role: "user", content: text }];
+    const willFinal = qCount >= maxQ;
+    setMessages(shown); setDraft("");
+    const forApi = [...messages, { role: "user", content: willFinal ? text + "\n\n[FINAL]" : text }];
+    const reply = await callInterviewer(forApi);
+    if (reply) {
+      setMessages([...shown, { role: "assistant", content: reply }]);
+      if (willFinal) { stopCam(); setPhase("done"); } else setQCount(qCount + 1);
+    } else {
+      setDraft(text);
+    }
+  };
+
+  const reset = () => { stopCam(); stopListening(); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); };
+
+  const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendAnswer(); } };
+
+  const lastQuestion = [...messages].reverse().find((m) => m.role === "assistant");
+  const progress = Math.min(qCount, maxQ);
+
+  return (
+    <div className="li">
+      <div className="li-head">
+        <div>
+          <span className="ud-eyebrow" style={{ marginBottom: 6, display: "inline-flex" }}><span className="eb-dot" aria-hidden="true" />Live simulator</span>
+          <h3 className="li-title">Sit a real interview, right now</h3>
+          <p className="li-lede">A live interviewer asks, listens and follows up, then marks you at the end. Your camera is just a mirror so you can watch your own delivery. Original questions only, never a real school's.</p>
+        </div>
+        <button className={`li-credits${credits <= 0 ? " empty" : ""}`} onClick={() => setBuyOpen(true)}>
+          <span className="li-credits-n">{credits}</span>
+          <span className="li-credits-l">{credits === 1 ? "interview left" : "interviews left"}</span>
+          <span className="li-credits-buy">Top up</span>
+        </button>
+      </div>
+
+      {phase === "setup" && (
+        <div className="li-setup">
+          <div className="li-formats">
+            <button className={`li-fmt${format === "panel" ? " on" : ""}`} onClick={() => setFormat("panel")}>
+              <span className="li-fmt-ico"><svg {...svgProps}><circle cx="7" cy="9" r="2.3" /><circle cx="17" cy="9" r="2.3" /><circle cx="12" cy="7.5" r="2.5" /><path d="M3 19a4.2 4.2 0 0 1 6-3.4M21 19a4.2 4.2 0 0 0-6-3.4M8 20.5a4.2 4.2 0 0 1 8 0" /></svg></span>
+              <b>Panel</b>
+              <span>Four to six questions across motivation, ethics, insight and teamwork.</span>
+            </button>
+            <button className={`li-fmt${format === "mmi" ? " on" : ""}`} onClick={() => setFormat("mmi")}>
+              <span className="li-fmt-ico"><svg {...svgProps}><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 9h6M9 13h6M9 17h3" /></svg></span>
+              <b>MMI station</b>
+              <span>One scenario, explored in depth with follow-ups. Includes role-play.</span>
+            </button>
+          </div>
+          <div className="li-start-row">
+            <button className="ud-btn" onClick={begin} disabled={loading}>{loading ? "Setting up…" : credits > 0 ? "Start the interview" : "Get credits to start"}</button>
+            <span className="li-cost">Uses 1 credit{credits > 0 ? `, ${credits} left` : ""}</span>
+          </div>
+          {error && <p className="li-err">{error}</p>}
+          <ul className="li-tips">
+            <li>Speak your answer aloud, or type it. Either works.</li>
+            <li>Follow-ups come when an answer is thin, exactly like the real thing.</li>
+            <li>Nothing you say leaves your device except the words sent for the reply.</li>
+          </ul>
+        </div>
+      )}
+
+      {phase === "live" && (
+        <div className="li-stage">
+          <div className="li-panel">
+            <div className="li-faces" data-live={loading ? "think" : "listen"}>
+              {[0, 1, 2].map((i) => (
+                <span className="li-face" key={i} style={{ animationDelay: `${i * 120}ms` }}>
+                  <svg {...svgProps}><circle cx="12" cy="8.5" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
+                </span>
+              ))}
+              <span className="li-face-glow" />
+            </div>
+            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i></div>
+            <div className="li-say" aria-live="polite">
+              {loading && !lastQuestion ? "The panel is getting ready…" : lastQuestion ? lastQuestion.content : ""}
+              {loading && lastQuestion && <span className="li-typing"><i /><i /><i /></span>}
+            </div>
+          </div>
+
+          <div className="li-you">
+            <div className="li-cam">
+              {camOn ? (
+                <video ref={videoRef} autoPlay playsInline muted className="li-video" />
+              ) : (
+                <div className="li-mic-view">
+                  <span className={`li-orb${listening ? " on" : ""}`}><svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg></span>
+                  <span className="li-mic-txt">{listening ? "Listening…" : "Microphone"}</span>
+                </div>
+              )}
+              {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
+              <button className="li-cam-toggle" onClick={() => setCamOn((v) => !v)}>{camOn ? "Camera on" : "Camera off"}</button>
+            </div>
+
+            <div className="li-answer">
+              <textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={onKey}
+                placeholder={phase === "done" ? "" : "Speak or type your answer, then send"}
+                rows={3}
+                disabled={loading}
+              />
+              <div className="li-controls">
+                {speechOK && (
+                  <button className={`li-mic-btn${listening ? " on" : ""}`} onClick={toggleMic} disabled={loading} title="Dictate your answer">
+                    <svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg>
+                    {listening ? "Stop" : "Speak"}
+                  </button>
+                )}
+                <button className="ud-btn" onClick={sendAnswer} disabled={loading || !draft.trim()}>{qCount >= maxQ ? "Finish and get marked" : "Send answer"}</button>
+              </div>
+              {error && <p className="li-err">{error} <button className="li-retry" onClick={sendAnswer}>Try again</button></p>}
+            </div>
+          </div>
+
+          {messages.length > 1 && (
+            <details className="li-log">
+              <summary>Transcript</summary>
+              <div className="li-log-body" ref={scrollRef}>
+                {messages.map((m, i) => (
+                  <div className={`li-line ${m.role}`} key={i}><b>{m.role === "assistant" ? "Panel" : "You"}</b><p>{m.content}</p></div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {phase === "done" && (
+        <div className="li-done">
+          <div className="li-done-head"><span className="li-done-ic"><svg {...svgProps}><path d="M20 6 9 17l-5-5" /></svg></span><h3>Interview complete</h3></div>
+          <div className="li-debrief">{lastQuestion ? lastQuestion.content : "Well done."}</div>
+          <details className="li-log open">
+            <summary>Full transcript</summary>
+            <div className="li-log-body">
+              {messages.map((m, i) => (
+                <div className={`li-line ${m.role}`} key={i}><b>{m.role === "assistant" ? "Panel" : "You"}</b><p>{m.content}</p></div>
+              ))}
+            </div>
+          </details>
+          <div className="li-done-row">
+            <button className="ud-btn" onClick={reset} disabled={credits <= 0 && creditsOf(prefs) <= 0}>Run another ({credits} left)</button>
+            <button className="ud-btn ghost" onClick={() => setBuyOpen(true)}>Top up</button>
+          </div>
+        </div>
+      )}
+
+      {buyOpen && <BuyCreditsModal prefs={prefs} setPrefs={setPrefs} onClose={() => setBuyOpen(false)} />}
     </div>
   );
 }
@@ -8135,7 +8468,7 @@ export default function UcatDrillTrainer() {
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
-      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} /></>)}
+      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} plan={plan} /></>)}
       {view === "sjtlearn" && (<><Header /><div className="ud-wrap">
         <button className="learn-back" onClick={() => setView("learn")}>
           <svg {...svgProps} width="15" height="15"><path d="M15 18l-6-6 6-6" /></svg>
@@ -8150,7 +8483,7 @@ export default function UcatDrillTrainer() {
       </div></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} best={best} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}
-      {view === "interview" && (<><Header />{unlocked ? <InterviewView track={prefs.track || "dent"} onSwitch={(t) => setPrefs({ ...prefs, track: t })} />
+      {view === "interview" && (<><Header />{unlocked ? <InterviewView track={prefs.track || "dent"} onSwitch={(t) => setPrefs({ ...prefs, track: t })} prefs={prefs} setPrefs={setPrefs} />
         : <div className="ud-wrap"><div className="ud-sec" style={{ paddingTop: 32 }}><h2>Interview preparation</h2><i /><span>locked</span></div>
           <Locked onUnlock={() => setView("billing")} label="Interview tools with access">
             <div className="ud-trend" style={{ padding: 20, minHeight: 220 }}><h3>Question banks, marked practice and university fact sheets</h3>

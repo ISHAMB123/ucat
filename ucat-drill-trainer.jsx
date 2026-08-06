@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
+import { secureSave, secureLoad } from "./secure.js";
 import { supabase, supabaseEnabled } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -5441,21 +5442,64 @@ function InterviewView({ track, onSwitch, prefs, setPrefs }) {
 }
 
 /* ---------------------------- LIVE INTERVIEW ---------------------- */
-/* A real interviewer, driven by the model behind /api/interview. The camera
-   is a plain mirror so the candidate can watch their own delivery; if they
-   turn it off (or deny access) the microphone view takes its place. Each run
-   spends one credit; the first is free, more are bought from the panel. */
+/* A real interviewer driven by /api/interview, run as a focused full-screen
+   session. The camera is a private on-device mirror with optional eye-contact
+   coaching; the video and the transcript never leave the device, and both are
+   wiped the moment the interview ends. Only an anonymised performance summary
+   (the feedback DNA) is kept, encrypted at rest via ./secure.js. */
+
+/* Cost is in credits and deliberately not surfaced to the candidate, so the
+   balance reads as a generous number rather than a small interview count. */
+const INTERVIEW_COST = 50;
+const FREE_CREDITS = 50;
 
 const CREDIT_PACKS = [
-  { id: "single", n: 1, gbp: "1.49", each: "1.49", label: "Single" },
-  { id: "five", n: 5, gbp: "5.99", each: "1.20", label: "Five", tag: "Popular" },
-  { id: "fifteen", n: 15, gbp: "14.99", each: "1.00", label: "Fifteen", tag: "Best value" },
+  { id: "single", credits: 50, gbp: "1.49" },
+  { id: "five", credits: 250, gbp: "5.99", tag: "Popular" },
+  { id: "fifteen", credits: 800, gbp: "14.99", tag: "Best value" },
 ];
 
-/* Everyone gets one interview free; after that the balance is whatever they
-   have added. Stored on prefs so it survives a refresh like the rest. */
 function creditsOf(prefs) {
-  return typeof prefs.credits === "number" ? prefs.credits : 1;
+  return typeof prefs.credits === "number" ? prefs.credits : FREE_CREDITS;
+}
+
+const DNA_DIMS = [
+  { k: "structure", label: "Structure" },
+  { k: "insight", label: "Insight" },
+  { k: "communication", label: "Communication" },
+  { k: "resilience", label: "Resilience" },
+  { k: "eye", label: "Eye contact" },
+];
+
+/* Pull the hidden machine-readable SCORES line and the band out of the model's
+   debrief, and return the debrief with that line stripped for display. */
+function parseDebrief(text, eyePct) {
+  let clean = (text || "").trim();
+  const dims = { structure: 3, insight: 3, communication: 3, resilience: 3 };
+  const m = clean.match(/SCORES\s+structure=(\d)\s+insight=(\d)\s+communication=(\d)\s+resilience=(\d)/i);
+  if (m) {
+    dims.structure = Number(m[1]); dims.insight = Number(m[2]);
+    dims.communication = Number(m[3]); dims.resilience = Number(m[4]);
+    clean = clean.replace(m[0], "").trim();
+  }
+  const bm = clean.match(/Band\s+(\d)\s+of\s+4/i);
+  const avg = (dims.structure + dims.insight + dims.communication + dims.resilience) / 4;
+  const band = bm ? Number(bm[1]) : Math.max(1, Math.min(4, Math.round((avg / 5) * 4)));
+  const eye = typeof eyePct === "number" ? Math.max(1, Math.min(5, Math.round(eyePct / 20))) : null;
+  return { clean, dna: { ...dims, eye }, band, eyePct: typeof eyePct === "number" ? eyePct : null };
+}
+
+/* Pick the most natural British voice the browser offers. Names vary by
+   platform, so try the good neural ones first, then any en-GB, then any
+   English voice. */
+function pickVoice() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return null;
+  const vs = window.speechSynthesis.getVoices() || [];
+  if (!vs.length) return null;
+  const gb = vs.filter((v) => /en[-_]GB/i.test(v.lang));
+  const prefer = ["Libby", "Sonia", "Google UK English Female", "Natural", "Hazel", "Serena", "Google UK English Male", "Daniel", "Kate"];
+  for (const name of prefer) { const hit = gb.find((v) => v.name.includes(name)); if (hit) return hit; }
+  return gb[0] || vs.find((v) => /^en/i.test(v.lang)) || vs[0];
 }
 
 function BuyCreditsModal({ prefs, setPrefs, onClose }) {
@@ -5463,17 +5507,17 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
   const [demo, setDemo] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const grant = (n) => { setPrefs({ ...prefs, credits: creditsOf(prefs) + n }); setMsg(`Added ${n} ${n === 1 ? "credit" : "credits"} in demo mode.`); };
+  const grant = (n) => { setPrefs({ ...prefs, credits: creditsOf(prefs) + n }); setMsg(`Added ${n} credits in demo mode.`); };
 
   const buy = async (p) => {
     if (busy) return;
-    if (demo) { grant(p.n); return; }
+    if (demo) { grant(p.credits); return; }
     setBusy(p.id); setMsg("");
     try {
       const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pack: p.id }) });
       const data = await r.json().catch(() => ({}));
       if (r.ok && data.url) { window.location.href = data.url; return; }
-      if (r.status === 503 || data.error === "not_configured") { setDemo(true); grant(p.n); return; }
+      if (r.status === 503 || data.error === "not_configured") { setDemo(true); grant(p.credits); return; }
       setMsg(data.error || "Could not start checkout. Please try again.");
     } catch (e) {
       setMsg("Could not reach checkout. Please try again.");
@@ -5484,16 +5528,16 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
     <div className="ud-modal" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="li-buy" onClick={(e) => e.stopPropagation()}>
         <button className="li-x" onClick={onClose} aria-label="Close">✕</button>
-        <h3>Top up interviews</h3>
-        <p className="li-buy-sub">One credit runs one full simulated interview, panel or MMI, with a written debrief at the end.</p>
+        <h3>Top up credits</h3>
+        <p className="li-buy-sub">Credits power your live interviews. Bigger packs carry more per pound.</p>
         <div className="li-packs">
           {CREDIT_PACKS.map((p) => (
             <button className={`li-pack${p.tag === "Best value" ? " best" : ""}`} key={p.id} onClick={() => buy(p)} disabled={!!busy}>
               {p.tag && <span className="li-tag">{p.tag}</span>}
-              <span className="li-n">{p.n}</span>
-              <span className="li-lbl">{p.n === 1 ? "interview" : "interviews"}</span>
+              <span className="li-n">{p.credits}</span>
+              <span className="li-lbl">credits</span>
               <span className="li-price">£{p.gbp}</span>
-              <span className="li-each">{busy === p.id ? "opening…" : `£${p.each} each`}</span>
+              <span className="li-each">{busy === p.id ? "opening…" : "one payment"}</span>
             </button>
           ))}
         </div>
@@ -5521,19 +5565,54 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [listening, setListening] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [demo, setDemo] = useState(false);
+  const [voiceOn, setVoiceOn] = useState(true);
+  const [eyeOn, setEyeOn] = useState(true);
+  const [eyePct, setEyePct] = useState(null);
+  const [result, setResult] = useState(null);
+  const [hist, setHist] = useState([]);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const recogRef = useRef(null);
-  const scrollRef = useRef(null);
   const baseDraft = useRef("");
+  const voiceRef = useRef(null);
+  const eyeAccum = useRef({ hits: 0, total: 0 });
 
   const credits = creditsOf(prefs);
+  const enough = credits >= INTERVIEW_COST;
   const maxQ = format === "mmi" ? 4 : 6;
   const speechOK = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const ttsOK = typeof window !== "undefined" && !!window.speechSynthesis;
+  const eyeSupported = typeof window !== "undefined" && "FaceDetector" in window;
+
+  /* Load the encrypted performance history once, for the trend on the results
+     screen. Never blocks the interview. */
+  useEffect(() => { secureLoad("ucat:ivdna", []).then((h) => setHist(Array.isArray(h) ? h : [])); }, []);
+
+  /* Voices load asynchronously in most browsers. */
+  useEffect(() => {
+    if (!ttsOK) return;
+    const set = () => { voiceRef.current = pickVoice(); };
+    set();
+    window.speechSynthesis.addEventListener("voiceschanged", set);
+    return () => { window.speechSynthesis.removeEventListener("voiceschanged", set); };
+  }, [ttsOK]);
+
+  const speak = (text) => {
+    if (!voiceOn || !ttsOK || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text.replace(/SCORES[\s\S]*$/i, "").trim());
+      if (voiceRef.current) u.voice = voiceRef.current;
+      u.lang = "en-GB"; u.rate = 0.97; u.pitch = 1.03;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ignore */ }
+  };
+  const hush = () => { if (ttsOK) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } };
+  useEffect(() => { if (!voiceOn) hush(); }, [voiceOn]);
 
   /* Camera is a mirror and nothing more. Start it only during a live run and
-     only when it is wanted; always stop the tracks when we are done with it. */
+     only when wanted; always stop the tracks when done. */
   const stopCam = () => {
     if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; }
     setCamReady(false);
@@ -5551,9 +5630,36 @@ function LiveInterview({ track, prefs, setPrefs }) {
       .catch(() => { if (!cancelled) setCamOn(false); });
     return () => { cancelled = true; };
   }, [phase, camOn]);
-  useEffect(() => () => stopCam(), []);
+  useEffect(() => () => { stopCam(); hush(); stopListening(); }, []); // eslint-disable-line
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [messages, loading]);
+  /* Eye-contact coaching. Entirely on-device: it reads video frames, keeps a
+     running ratio in a ref, and never stores or sends a single frame. */
+  useEffect(() => {
+    if (phase !== "live" || !eyeOn || !eyeSupported || !camOn) return;
+    let stop = false;
+    let fd;
+    try { fd = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 }); } catch (e) { return; }
+    const tick = async () => {
+      if (stop) return;
+      try {
+        const v = videoRef.current;
+        if (v && v.readyState >= 2 && v.videoWidth) {
+          const faces = await fd.detect(v);
+          eyeAccum.current.total++;
+          const f = faces && faces[0];
+          if (f && f.boundingBox) {
+            const cx = f.boundingBox.x + f.boundingBox.width / 2;
+            if (Math.abs(cx - v.videoWidth / 2) < v.videoWidth * 0.2) eyeAccum.current.hits++;
+          }
+          const a = eyeAccum.current;
+          setEyePct(Math.round((a.hits / Math.max(a.total, 1)) * 100));
+        }
+      } catch (e) { /* skip this frame */ }
+      if (!stop) setTimeout(tick, 700);
+    };
+    const id = setTimeout(tick, 900);
+    return () => { stop = true; clearTimeout(id); };
+  }, [phase, eyeOn, eyeSupported, camOn]);
 
   const stopListening = () => {
     if (recogRef.current) { try { recogRef.current.stop(); } catch (e) { /* ignore */ } recogRef.current = null; }
@@ -5563,6 +5669,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     if (listening) { stopListening(); return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
+    hush();
     const rec = new SR();
     rec.continuous = true; rec.interimResults = true; rec.lang = "en-GB";
     baseDraft.current = draft ? draft + " " : "";
@@ -5596,12 +5703,27 @@ function LiveInterview({ track, prefs, setPrefs }) {
   };
 
   const begin = async () => {
-    if (credits <= 0) { setBuyOpen(true); return; }
-    setPrefs({ ...prefs, credits: credits - 1 });
-    setPhase("live"); setMessages([]); setQCount(0); setError("");
+    if (!enough) { setBuyOpen(true); return; }
+    setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
+    eyeAccum.current = { hits: 0, total: 0 };
+    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyePct(eyeSupported ? 0 : null);
     const reply = await callInterviewer([{ role: "user", content: "Please begin the interview with your first question." }]);
-    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); }
+    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); speak(reply); }
     else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
+  };
+
+  /* Wipe every trace of the session and keep only the anonymised summary. */
+  const finishTo = async (debrief) => {
+    stopCam(); stopListening(); hush();
+    const eyeFinal = eyeAccum.current.total > 3 ? Math.round((eyeAccum.current.hits / eyeAccum.current.total) * 100) : null;
+    const parsed = parseDebrief(debrief, eyeFinal);
+    setResult(parsed);
+    setMessages([]); setDraft(""); eyeAccum.current = { hits: 0, total: 0 }; setEyePct(null);
+    const entry = { ts: Date.now(), band: parsed.band, track, format, dna: parsed.dna };
+    const next = [...hist, entry].slice(-30);
+    setHist(next);
+    await secureSave("ucat:ivdna", next);
+    setPhase("done");
   };
 
   const sendAnswer = async () => {
@@ -5614,36 +5736,45 @@ function LiveInterview({ track, prefs, setPrefs }) {
     const forApi = [...messages, { role: "user", content: willFinal ? text + "\n\n[FINAL]" : text }];
     const reply = await callInterviewer(forApi);
     if (reply) {
-      setMessages([...shown, { role: "assistant", content: reply }]);
-      if (willFinal) { stopCam(); setPhase("done"); } else setQCount(qCount + 1);
+      if (willFinal) { finishTo(reply); } else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); speak(reply); }
     } else {
       setDraft(text);
     }
   };
 
-  const reset = () => { stopCam(); stopListening(); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); };
+  const exitLive = () => { stopCam(); stopListening(); hush(); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyePct(null); eyeAccum.current = { hits: 0, total: 0 }; };
+  const reset = () => { exitLive(); setResult(null); if (enough) begin(); };
 
   const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendAnswer(); } };
 
   const lastQuestion = [...messages].reverse().find((m) => m.role === "assistant");
   const progress = Math.min(qCount, maxQ);
 
-  return (
-    <div className="li">
-      <div className="li-head">
-        <div>
-          <span className="ud-eyebrow" style={{ marginBottom: 6, display: "inline-flex" }}><span className="eb-dot" aria-hidden="true" />Live simulator{demo && <span className="li-demo">Demo mode</span>}</span>
-          <h3 className="li-title">Sit a real interview, right now</h3>
-          <p className="li-lede">A live interviewer asks, listens and follows up, then marks you at the end. Your camera is just a mirror so you can watch your own delivery. Original questions only, never a real school's.</p>
-        </div>
-        <button className={`li-credits${credits <= 0 ? " empty" : ""}`} onClick={() => setBuyOpen(true)}>
-          <span className="li-credits-n">{credits}</span>
-          <span className="li-credits-l">{credits === 1 ? "interview left" : "interviews left"}</span>
-          <span className="li-credits-buy">Top up</span>
-        </button>
-      </div>
+  const dnaBar = (dim, v) => (
+    <div className="li-dna-row" key={dim.k}>
+      <span className="li-dna-lbl">{dim.label}</span>
+      <i><b style={{ width: v == null ? "0%" : `${(v / 5) * 100}%` }} /></i>
+      <span className="li-dna-v">{v == null ? "–" : `${v}/5`}</span>
+    </div>
+  );
 
-      {phase === "setup" && (
+  /* ---- Setup, shown inline on the interview page ---- */
+  if (phase === "setup") {
+    return (
+      <div className="li">
+        <div className="li-head">
+          <div>
+            <span className="ud-eyebrow" style={{ marginBottom: 6, display: "inline-flex" }}><span className="eb-dot" aria-hidden="true" />Live simulator{demo && <span className="li-demo">Demo mode</span>}</span>
+            <h3 className="li-title">Sit a real interview, right now</h3>
+            <p className="li-lede">A live interviewer asks, listens and follows up, then marks you at the end. It opens in a focused full-screen room. Everything from your camera stays on your device and is wiped when you finish. Original questions only, never a real school's.</p>
+          </div>
+          <button className={`li-credits${!enough ? " empty" : ""}`} onClick={() => setBuyOpen(true)}>
+            <span className="li-credits-n">{credits}</span>
+            <span className="li-credits-l">credits</span>
+            <span className="li-credits-buy">Top up</span>
+          </button>
+        </div>
+
         <div className="li-setup">
           <div className="li-formats">
             <button className={`li-fmt${format === "panel" ? " on" : ""}`} onClick={() => setFormat("panel")}>
@@ -5657,21 +5788,71 @@ function LiveInterview({ track, prefs, setPrefs }) {
               <span>One scenario, explored in depth with follow-ups. Includes role-play.</span>
             </button>
           </div>
+
+          <div className="li-toggles">
+            <button className={`li-tog${camOn ? " on" : ""}`} onClick={() => setCamOn((v) => !v)}>
+              <svg {...svgProps}><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></svg>
+              <span><b>Camera</b>{camOn ? "on, private mirror" : "off, microphone only"}</span>
+              <i className={`li-sw${camOn ? " on" : ""}`}><b /></i>
+            </button>
+            <button className={`li-tog${voiceOn ? " on" : ""}`} onClick={() => setVoiceOn((v) => !v)} disabled={!ttsOK}>
+              <svg {...svgProps}><path d="M4 9v6h4l5 4V5L8 9z" /><path d="M16 9a3 3 0 0 1 0 6M18.5 7a6 6 0 0 1 0 10" /></svg>
+              <span><b>Spoken questions</b>{ttsOK ? (voiceOn ? "read aloud" : "text only") : "not on this browser"}</span>
+              <i className={`li-sw${voiceOn && ttsOK ? " on" : ""}`}><b /></i>
+            </button>
+            <button className={`li-tog${eyeOn && eyeSupported ? " on" : ""}`} onClick={() => setEyeOn((v) => !v)} disabled={!eyeSupported || !camOn}>
+              <svg {...svgProps}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
+              <span><b>Eye-contact coaching</b>{!eyeSupported ? "not on this browser" : !camOn ? "needs the camera" : eyeOn ? "on-device only" : "off"}</span>
+              <i className={`li-sw${eyeOn && eyeSupported && camOn ? " on" : ""}`}><b /></i>
+            </button>
+          </div>
+
           <div className="li-start-row">
-            <button className="ud-btn" onClick={begin} disabled={loading}>{loading ? "Setting up…" : credits > 0 ? "Start the interview" : "Get credits to start"}</button>
-            <span className="li-cost">Uses 1 credit{credits > 0 ? `, ${credits} left` : ""}</span>
+            <button className="ud-btn" onClick={begin} disabled={loading}>{loading ? "Setting up…" : enough ? "Enter the interview room" : "Top up to start"}</button>
+            <span className="li-cost">{enough ? "Opens full screen" : `${credits} credits, not enough`}</span>
           </div>
           {error && <p className="li-err">{error}</p>}
           <ul className="li-tips">
             <li>Speak your answer aloud, or type it. Either works.</li>
             <li>Follow-ups come when an answer is thin, exactly like the real thing.</li>
-            <li>Nothing you say leaves your device except the words sent for the reply.</li>
+            <li>Your video and answers never leave your device, and are deleted the second you finish. Only an anonymised score summary is kept, encrypted.</li>
           </ul>
         </div>
-      )}
+
+        {hist.length > 0 && (
+          <div className="li-trend">
+            <span className="li-trend-h">Your interviews so far</span>
+            <div className="li-trend-bars">
+              {hist.slice(-12).map((h, i) => (
+                <div className="li-trend-b" key={i} title={`Band ${h.band} of 4`}><b style={{ height: `${(h.band / 4) * 100}%` }} /></div>
+              ))}
+            </div>
+            <div className="li-trend-x"><span>older</span><span>latest</span></div>
+          </div>
+        )}
+
+        {buyOpen && <BuyCreditsModal prefs={prefs} setPrefs={setPrefs} onClose={() => setBuyOpen(false)} />}
+      </div>
+    );
+  }
+
+  /* ---- Full-screen interview room (live + results) ---- */
+  return (
+    <div className="li-room">
+      <div className="li-room-bar">
+        <span className="li-room-brand"><span className="eb-dot" aria-hidden="true" />Interview room{demo && <span className="li-demo">Demo</span>}</span>
+        <div className="li-room-tools">
+          {ttsOK && phase === "live" && (
+            <button className={`li-tool${voiceOn ? " on" : ""}`} onClick={() => setVoiceOn((v) => !v)} title="Spoken questions">
+              <svg {...svgProps}><path d="M4 9v6h4l5 4V5L8 9z" />{voiceOn && <path d="M16 9a3 3 0 0 1 0 6" />}</svg>
+            </button>
+          )}
+          <button className="li-tool" onClick={phase === "done" ? exitLive : exitLive} title="End and leave">✕</button>
+        </div>
+      </div>
 
       {phase === "live" && (
-        <div className="li-stage">
+        <div className="li-room-body">
           <div className="li-panel">
             <div className="li-faces" data-live={loading ? "think" : "listen"}>
               {[0, 1, 2].map((i) => (
@@ -5679,7 +5860,6 @@ function LiveInterview({ track, prefs, setPrefs }) {
                   <svg {...svgProps}><circle cx="12" cy="8.5" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
                 </span>
               ))}
-              <span className="li-face-glow" />
             </div>
             <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i></div>
             <div className="li-say" aria-live="polite">
@@ -5691,7 +5871,10 @@ function LiveInterview({ track, prefs, setPrefs }) {
           <div className="li-you">
             <div className="li-cam">
               {camOn ? (
-                <video ref={videoRef} autoPlay playsInline muted className="li-video" />
+                <>
+                  <video ref={videoRef} autoPlay playsInline muted className="li-video" />
+                  {eyeOn && eyeSupported && <span className="li-ring" aria-hidden="true" />}
+                </>
               ) : (
                 <div className="li-mic-view">
                   <span className={`li-orb${listening ? " on" : ""}`}><svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg></span>
@@ -5699,18 +5882,12 @@ function LiveInterview({ track, prefs, setPrefs }) {
                 </div>
               )}
               {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
+              {camOn && eyeOn && eyeSupported && eyePct != null && <span className="li-eye">Eye contact {eyePct}%</span>}
               <button className="li-cam-toggle" onClick={() => setCamOn((v) => !v)}>{camOn ? "Camera on" : "Camera off"}</button>
             </div>
 
             <div className="li-answer">
-              <textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={onKey}
-                placeholder={phase === "done" ? "" : "Speak or type your answer, then send"}
-                rows={3}
-                disabled={loading}
-              />
+              <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKey} placeholder="Speak or type your answer, then send" rows={4} disabled={loading} />
               <div className="li-controls">
                 {speechOK && (
                   <button className={`li-mic-btn${listening ? " on" : ""}`} onClick={toggleMic} disabled={loading} title="Dictate your answer">
@@ -5723,35 +5900,38 @@ function LiveInterview({ track, prefs, setPrefs }) {
               {error && <p className="li-err">{error} <button className="li-retry" onClick={sendAnswer}>Try again</button></p>}
             </div>
           </div>
-
-          {messages.length > 1 && (
-            <details className="li-log">
-              <summary>Transcript</summary>
-              <div className="li-log-body" ref={scrollRef}>
-                {messages.map((m, i) => (
-                  <div className={`li-line ${m.role}`} key={i}><b>{m.role === "assistant" ? "Panel" : "You"}</b><p>{m.content}</p></div>
-                ))}
-              </div>
-            </details>
-          )}
         </div>
       )}
 
-      {phase === "done" && (
-        <div className="li-done">
-          <div className="li-done-head"><span className="li-done-ic"><svg {...svgProps}><path d="M20 6 9 17l-5-5" /></svg></span><h3>Interview complete</h3></div>
-          <div className="li-debrief">{lastQuestion ? lastQuestion.content : "Well done."}</div>
-          <details className="li-log open">
-            <summary>Full transcript</summary>
-            <div className="li-log-body">
-              {messages.map((m, i) => (
-                <div className={`li-line ${m.role}`} key={i}><b>{m.role === "assistant" ? "Panel" : "You"}</b><p>{m.content}</p></div>
-              ))}
+      {phase === "done" && result && (
+        <div className="li-room-body li-result">
+          <div className="li-done-head"><span className="li-done-ic"><svg {...svgProps}><path d="M20 6 9 17l-5-5" /></svg></span><h3>Interview complete</h3><span className="li-band">Band {result.band} of 4</span></div>
+
+          <div className="li-dna">
+            <span className="li-dna-h">Your feedback DNA</span>
+            {DNA_DIMS.map((d) => dnaBar(d, result.dna[d.k]))}
+            {result.eyePct != null && <p className="li-dna-note">Eye contact held about {result.eyePct}% of the time, measured on your device and now discarded.</p>}
+          </div>
+
+          <div className="li-debrief">{result.clean || "Well done."}</div>
+
+          {hist.length > 1 && (
+            <div className="li-trend inroom">
+              <span className="li-trend-h">Band across your interviews</span>
+              <div className="li-trend-bars">
+                {hist.slice(-12).map((h, i) => (
+                  <div className="li-trend-b" key={i} title={`Band ${h.band} of 4`}><b style={{ height: `${(h.band / 4) * 100}%` }} /></div>
+                ))}
+              </div>
             </div>
-          </details>
+          )}
+
+          <p className="li-wiped">Your recording and transcript have been deleted. Only this summary is kept.</p>
+
           <div className="li-done-row">
-            <button className="ud-btn" onClick={reset} disabled={credits <= 0 && creditsOf(prefs) <= 0}>Run another ({credits} left)</button>
-            <button className="ud-btn ghost" onClick={() => setBuyOpen(true)}>Top up</button>
+            <button className="ud-btn" onClick={reset} disabled={!enough}>{enough ? "Run another" : "Out of credits"}</button>
+            {!enough && <button className="ud-btn ghost" onClick={() => setBuyOpen(true)}>Top up</button>}
+            <button className="ud-btn ghost" onClick={exitLive}>Leave the room</button>
           </div>
         </div>
       )}

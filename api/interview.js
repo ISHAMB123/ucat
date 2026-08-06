@@ -42,7 +42,8 @@ When the candidate's message ends with the token [FINAL], stop interviewing and 
 - "What worked" then two specific things the candidate did well, paraphrasing what they said.
 - "Sharpen this" then two concrete fixes, each saying how.
 - "One reframe" then take their weakest moment and show a stronger two-sentence version of it.
-Keep the whole debrief under 200 words, warm and direct. Do not ask any more questions after the debrief.`;
+Keep the whole debrief under 200 words, warm and direct. Do not ask any more questions after the debrief.
+- On the very last line, write nothing but this machine-readable score, filling each with a whole number from 1 to 5 that reflects the candidate: SCORES structure=N insight=N communication=N resilience=N`;
 }
 
 /* Scripted interviewer used only in demo mode (no key set). Original,
@@ -93,7 +94,8 @@ const DEMO_DEBRIEF =
   "- When you take a position, say the principle behind it out loud so a marker can actually score your reasoning.\n\n" +
   "One reframe\n" +
   "Instead of \"I want to help people\", try: \"On a hospital ward I watched a clinician's calm turn a frightened patient's whole day around, and I wanted to be the person who could do that.\"\n\n" +
-  "This is demo feedback and does not read your actual answers. Add an ANTHROPIC_API_KEY and the interviewer adapts to everything you say.";
+  "This is demo feedback and does not read your actual answers. Add an ANTHROPIC_API_KEY and the interviewer adapts to everything you say.\n" +
+  "SCORES structure=3 insight=3 communication=3 resilience=3";
 
 function demoReply(track, format, messages) {
   const last = messages[messages.length - 1];
@@ -103,10 +105,36 @@ function demoReply(track, format, messages) {
   return bank[Math.min(asked, bank.length - 1)];
 }
 
+/* Best-effort per-IP rate limiting. Serverless instances are short-lived, so
+   this resets on cold starts and does not span instances; it is a cheap guard
+   against one client hammering the endpoint, layered under the credit system.
+   For a hard, cross-instance limit use a shared store (Vercel KV / Upstash). */
+const RATE = new Map();
+const RATE_MAX = 40;
+const RATE_WINDOW = 600000;
+function rateLimited(ip) {
+  const now = Date.now();
+  if (RATE.size > 5000) RATE.clear();
+  const rec = RATE.get(ip);
+  if (!rec || now - rec.start > RATE_WINDOW) { RATE.set(ip, { start: now, n: 1 }); return false; }
+  rec.n++;
+  return rec.n > RATE_MAX;
+}
+function clientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (xff) return String(xff).split(",")[0].trim();
+  return req.headers["x-real-ip"] || "unknown";
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Method not allowed." });
+    return;
+  }
+
+  if (rateLimited(clientIp(req))) {
+    res.status(429).json({ error: "That is a lot of questions at once. Give it a moment and try again." });
     return;
   }
 

@@ -10,9 +10,9 @@
  * what is charged. Amounts are in pence.
  */
 const PACKS = {
-  single: { credits: 1, amount: 149, name: "1 interview credit" },
-  five: { credits: 5, amount: 599, name: "5 interview credits" },
-  fifteen: { credits: 15, amount: 1499, name: "15 interview credits" },
+  single: { credits: 50, amount: 149, name: "50 interview credits" },
+  five: { credits: 250, amount: 599, name: "250 interview credits" },
+  fifteen: { credits: 800, amount: 1499, name: "800 interview credits" },
 };
 
 export default async function handler(req, res) {

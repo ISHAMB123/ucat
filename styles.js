@@ -280,7 +280,18 @@ export const CSS = `
 .tc-xrow { display:flex; gap:var(--gap,7px); margin:7px 0 0 44px; }
 .tc-x { flex:1; min-width:0; text-align:center; font-variant-numeric:tabular-nums; font-size:10px; color:var(--mute); overflow:hidden; }
 .tchart.dense .tc-x { font-size:8.5px; }
+.tc-bar { box-shadow:inset 0 1px 0 rgba(255,255,255,.22); }
 @media (prefers-reduced-motion: reduce) { .tc-bar { animation:none; } }
+
+/* results stat cards, with icons and borders */
+.res-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(128px,1fr)); gap:11px; margin-top:20px; }
+.res-stat { position:relative; border:1px solid var(--line); border-radius:10px; background:var(--slate); padding:14px 15px; display:flex; flex-direction:column; gap:2px; transition:border-color .15s; }
+.res-stat:hover { border-color:color-mix(in srgb, var(--signal) 45%, var(--line)); }
+.res-stat.sjt { border-color:color-mix(in srgb, var(--signal) 42%, var(--line)); }
+.rs-ico { position:absolute; top:12px; right:12px; width:28px; height:28px; border-radius:8px; display:grid; place-items:center; background:color-mix(in srgb, var(--signal) 13%, transparent); color:var(--signal); }
+.rs-ico svg { width:15px; height:15px; }
+.res-stat b { font-family:'Inter',sans-serif; font-size:23px; letter-spacing:-0.02em; color:var(--paper); line-height:1.1; }
+.res-stat > span:last-child { font-size:10px; color:var(--mute); text-transform:uppercase; letter-spacing:0.08em; font-family:'Inter',sans-serif; }
 .ud-tip { border-left:2px solid var(--signal); padding:2px 0 2px 15px; margin:22px 0 28px; color:var(--body); font-size:13.5px; line-height:1.65; max-width:64ch; }
 .ud-foot { border-top:1px solid var(--line); padding:20px 0 40px; font-size:11px; color:var(--mute); font-family:'Inter',sans-serif; line-height:1.7; }
 .ud-mrow { display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:3px; background:var(--slate); padding:12px 15px; margin-top:8px; }

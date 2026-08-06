@@ -2480,13 +2480,37 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
       {isSjt && (
         <div className="ud-band"><b>Band {sjtBand(pct)}</b><span>estimated from this session, with partial marks for one-step-away answers, matching how the real section scores.</span></div>
       )}
-      <div className="ud-stats" style={{ marginTop: 18 }}>
-        <div className="ud-stat"><b className="mono">{log.filter((l) => l.correct).length}/{log.length}</b><span>Exact</span></div>
-        {isSjt && <div className="ud-stat"><b className="mono">{points.toFixed(1)}</b><span>Points inc. partial</span></div>}
-        <div className="ud-stat"><b className="mono">{fmt(med)}</b><span>Median</span></div>
-        <div className="ud-stat"><b className="mono">{fmt(times.reduce((a, b) => a + b, 0))}</b><span>Total</span></div>
-        {delta !== null && <div className="ud-stat"><b className="mono" style={{ color: delta >= 0 ? "var(--go)" : "var(--stop)" }}>{delta >= 0 ? "+" : ""}{delta}</b><span>vs last run</span></div>}
-        {meta && meta.wpm && <div className="ud-stat"><b className="mono">{meta.wpm}</b><span>Words / min</span></div>}
+      <div className="res-stats">
+        <div className="res-stat">
+          <span className="rs-ico"><svg {...svgProps} strokeWidth={2.2}><path d="M20 6 9 17l-5-5" /></svg></span>
+          <b className="mono">{log.filter((l) => l.correct).length}/{log.length}</b><span>Exact</span>
+        </div>
+        {isSjt && (
+          <div className="res-stat sjt">
+            <span className="rs-ico"><svg {...svgProps}><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19.2l1-5.8L3.5 9.2l5.9-.9z" /></svg></span>
+            <b className="mono">{points.toFixed(1)}</b><span>Points, part marks</span>
+          </div>
+        )}
+        <div className="res-stat">
+          <span className="rs-ico"><svg {...svgProps}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></span>
+          <b className="mono">{fmt(med)}</b><span>Median</span>
+        </div>
+        <div className="res-stat">
+          <span className="rs-ico"><svg {...svgProps}><path d="M12 6v6l4 2" /><path d="M5 5 3.5 6.5M19 5l1.5 1.5" /><circle cx="12" cy="13" r="8" /></svg></span>
+          <b className="mono">{fmt(times.reduce((a, b) => a + b, 0))}</b><span>Total time</span>
+        </div>
+        {delta !== null && (
+          <div className="res-stat">
+            <span className="rs-ico" style={{ color: delta >= 0 ? "var(--go)" : "var(--stop)" }}><svg {...svgProps}>{delta >= 0 ? <><path d="M3 17l6-6 4 4 7-7" /><path d="M17 8h4v4" /></> : <><path d="M3 7l6 6 4-4 7 7" /><path d="M17 16h4v-4" /></>}</svg></span>
+            <b className="mono" style={{ color: delta >= 0 ? "var(--go)" : "var(--stop)" }}>{delta >= 0 ? "+" : ""}{delta}</b><span>vs last run</span>
+          </div>
+        )}
+        {meta && meta.wpm && (
+          <div className="res-stat">
+            <span className="rs-ico"><svg {...svgProps}><path d="M5 18a8 8 0 1 1 14 0" /><path d="M12 13l4-3" /></svg></span>
+            <b className="mono">{meta.wpm}</b><span>Words / min</span>
+          </div>
+        )}
       </div>
       {(() => {
         const noTimes = log.every((l) => !l.ms);

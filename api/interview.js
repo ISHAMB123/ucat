@@ -5,13 +5,15 @@
  * to the Anthropic API, then hands back the interviewer's reply. The key
  * lives only in an environment variable:
  *   ANTHROPIC_API_KEY   a key from https://platform.claude.com
- *   INTERVIEW_MODEL     optional model id (defaults to claude-opus-5;
- *                       set to claude-sonnet-5 or claude-haiku-4-5 to cut cost)
+ *   INTERVIEW_MODEL     optional model id. Defaults to claude-haiku-4-5,
+ *                       which runs a scripted interviewer well for about a
+ *                       penny a session. Step up to claude-sonnet-5 for
+ *                       sharper end-of-interview feedback if you want it.
  *
  * Everything the interviewer says is generated fresh. It is told never to
  * reproduce any real university's questions, matching the rest of the app.
  */
-const MODEL = process.env.INTERVIEW_MODEL || "claude-opus-5";
+const MODEL = process.env.INTERVIEW_MODEL || "claude-haiku-4-5";
 
 function brief(track, format) {
   const field = track === "med" ? "medicine" : "dentistry";
@@ -79,6 +81,16 @@ export default async function handler(req, res) {
     return;
   }
 
+  /* Keep the turn fast and cheap. The interviewer does not need to reason,
+     so on the models that accept it we switch thinking off and keep effort
+     low. Haiku (the default) takes neither parameter, so we send the bare
+     request there, which already runs without thinking. */
+  const payload = { model: MODEL, max_tokens: 700, system: brief(track, format), messages };
+  if (!/haiku/i.test(MODEL)) {
+    payload.thinking = { type: "disabled" };
+    payload.output_config = { effort: "low" };
+  }
+
   try {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -87,14 +99,7 @@ export default async function handler(req, res) {
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 700,
-        thinking: { type: "disabled" },
-        output_config: { effort: "low" },
-        system: brief(track, format),
-        messages,
-      }),
+      body: JSON.stringify(payload),
     });
     if (!r.ok) {
       const detail = await r.text().catch(() => "");

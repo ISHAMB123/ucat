@@ -5459,8 +5459,27 @@ function creditsOf(prefs) {
 }
 
 function BuyCreditsModal({ prefs, setPrefs, onClose }) {
-  const [added, setAdded] = useState(0);
-  const grant = (n) => { setPrefs({ ...prefs, credits: creditsOf(prefs) + n }); setAdded(n); };
+  const [busy, setBusy] = useState("");
+  const [demo, setDemo] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  const grant = (n) => { setPrefs({ ...prefs, credits: creditsOf(prefs) + n }); setMsg(`Added ${n} ${n === 1 ? "credit" : "credits"} in demo mode.`); };
+
+  const buy = async (p) => {
+    if (busy) return;
+    if (demo) { grant(p.n); return; }
+    setBusy(p.id); setMsg("");
+    try {
+      const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pack: p.id }) });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.url) { window.location.href = data.url; return; }
+      if (r.status === 503 || data.error === "not_configured") { setDemo(true); grant(p.n); return; }
+      setMsg(data.error || "Could not start checkout. Please try again.");
+    } catch (e) {
+      setMsg("Could not reach checkout. Please try again.");
+    } finally { setBusy(""); }
+  };
+
   return (
     <div className="ud-modal" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="li-buy" onClick={(e) => e.stopPropagation()}>
@@ -5469,17 +5488,21 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
         <p className="li-buy-sub">One credit runs one full simulated interview, panel or MMI, with a written debrief at the end.</p>
         <div className="li-packs">
           {CREDIT_PACKS.map((p) => (
-            <button className={`li-pack${p.tag === "Best value" ? " best" : ""}`} key={p.id} onClick={() => grant(p.n)}>
+            <button className={`li-pack${p.tag === "Best value" ? " best" : ""}`} key={p.id} onClick={() => buy(p)} disabled={!!busy}>
               {p.tag && <span className="li-tag">{p.tag}</span>}
               <span className="li-n">{p.n}</span>
               <span className="li-lbl">{p.n === 1 ? "interview" : "interviews"}</span>
               <span className="li-price">£{p.gbp}</span>
-              <span className="li-each">£{p.each} each</span>
+              <span className="li-each">{busy === p.id ? "opening…" : `£${p.each} each`}</span>
             </button>
           ))}
         </div>
-        {added > 0 && <p className="li-added">Added {added} {added === 1 ? "credit" : "credits"} (demo). Real card checkout arrives with the payment backend.</p>}
-        <p className="li-note">Checkout is not wired to a card processor yet, so these buttons add credits in demo mode for now. When Stripe is connected each button becomes a secure hosted checkout and nothing about this screen changes for you.</p>
+        {msg && <p className="li-added">{msg}</p>}
+        {demo ? (
+          <p className="li-note">Card checkout is not connected yet, so credits are added in demo mode. Add a Stripe secret key (STRIPE_SECRET_KEY) and these same buttons open Stripe's secure hosted checkout, with nothing else on this screen changing.</p>
+        ) : (
+          <p className="li-note">Secure checkout by Stripe. Your card is entered on Stripe's own page, never here. Credits are added the moment payment is confirmed.</p>
+        )}
       </div>
     </div>
   );
@@ -6913,6 +6936,15 @@ const CHECKOUT_RETURN = (() => {
   try { return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checkout") === "success"; }
   catch (e) { return false; }
 })();
+/* The Stripe Checkout session id handed back after buying interview credits.
+   The grant is confirmed against Stripe (see /api/verify) before any credit
+   is added, so reaching this URL is not enough on its own. */
+const IV_SESSION = (() => {
+  try {
+    const s = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("iv_session");
+    return s && /^cs_[A-Za-z0-9_]+$/.test(s) ? s : "";
+  } catch (e) { return ""; }
+})();
 /* Launch sale: £25 until 31 August, then the standard £39. The code
    UCAT18 unlocks during the launch. saleLive() is date driven so the
    copy and price switch on their own when the sale ends. */
@@ -8211,6 +8243,26 @@ export default function UcatDrillTrainer() {
         setJSON("ucat:unlocked", true);
         try { window.history.replaceState({}, "", window.location.pathname); } catch (e) { /* ignore */ }
         setView("billing");
+      }
+      /* Returning from a credit purchase: confirm it with Stripe, add the
+         credits once, remember the session so a refresh cannot double-grant,
+         then tidy the query string and drop the buyer on the interview page. */
+      if (IV_SESSION) {
+        const done = Array.isArray(pf.paidSessions) ? pf.paidSessions : [];
+        if (!done.includes(IV_SESSION)) {
+          fetch("/api/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ session_id: IV_SESSION }) })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d && d.ok && d.credits > 0) {
+                const cur = typeof pf.credits === "number" ? pf.credits : 1;
+                const np = { ...pf, credits: cur + d.credits, paidSessions: [...done, IV_SESSION].slice(-20) };
+                setPrefsState(np); setJSON("ucat:prefs", np);
+                setView("interview");
+              }
+            })
+            .catch(() => { /* leave balance unchanged on any error */ });
+        }
+        try { window.history.replaceState({}, "", window.location.pathname); } catch (e) { /* ignore */ }
       }
       /* Show the feature tour once to anyone already unlocked who has not seen it. */
       if (paid && !pf.tourSeen) setShowTour(true);

@@ -2673,30 +2673,30 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
       </div>
 
       <div className="ud-today">
-        <button className="ud-tcard" onClick={() => onGoto("plan")}>
-          <span className="k">Today</span>
-          <b>{planNext ? planNext : "Plan complete"}</b>
-          <span className="d">{planNext ? "Your next plan session" : "Keep running timed blocks"}</span>
+        <button className="ud-tcard tc-plan" onClick={() => onGoto("plan")}>
+          <span className="tc-ico"><svg {...svgProps}><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4M8 14h4" /></svg></span>
+          <span className="tc-txt"><span className="k">Today</span><b>{planNext ? planNext : "Plan complete"}</b><span className="d">{planNext ? "Your next plan session" : "Keep running timed blocks"}</span></span>
+          <span className="tc-go" aria-hidden="true">→</span>
         </button>
-        <button className="ud-tcard" onClick={() => onGoto("mock")}>
-          <span className="k">This week</span>
-          <b>VR + QR mocks</b>
-          <span className="d">Three of each, boards reset weekly</span>
+        <button className="ud-tcard tc-mock" onClick={() => onGoto("mock")}>
+          <span className="tc-ico"><svg {...svgProps}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></span>
+          <span className="tc-txt"><span className="k">This week</span><b>VR + QR mocks</b><span className="d">Three of each, boards reset weekly</span></span>
+          <span className="tc-go" aria-hidden="true">→</span>
         </button>
-        <button className="ud-tcard" onClick={() => onGoto("mistakes")} disabled={mistakesCount === 0}>
-          <span className="k">Rematch</span>
-          <b>{mistakesCount > 0 ? `${mistakesCount} due` : "Bank clear"}</b>
-          <span className="d">{mistakesCount > 0 ? "Questions that beat you, waiting" : "Exactly how you want it"}</span>
+        <button className="ud-tcard tc-rematch" onClick={() => onGoto("mistakes")} disabled={mistakesCount === 0}>
+          <span className="tc-ico">{mistakesCount > 0 && <span className="tc-badge">{mistakesCount}</span>}<svg {...svgProps}><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg></span>
+          <span className="tc-txt"><span className="k">Rematch</span><b>{mistakesCount > 0 ? `${mistakesCount} due` : "Bank clear"}</b><span className="d">{mistakesCount > 0 ? "Questions that beat you, waiting" : "Exactly how you want it"}</span></span>
+          <span className="tc-go" aria-hidden="true">→</span>
         </button>
-        <button className="ud-tcard" onClick={() => (unlocked ? onWeakSpots() : onGoto("billing"))}>
-          <span className="k">Targeted</span>
-          <b>Fix weak spots</b>
-          <span className="d">{weakTop.length ? "A mixed set built from your weakest skills" : "Practise, then this targets your gaps"}</span>
+        <button className="ud-tcard tc-target" onClick={() => (unlocked ? onWeakSpots() : onGoto("billing"))}>
+          <span className="tc-ico"><svg {...svgProps}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.5" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg></span>
+          <span className="tc-txt"><span className="k">Targeted</span><b>Fix weak spots</b><span className="d">{weakTop.length ? "A mixed set built from your weakest skills" : "Practise, then this targets your gaps"}</span></span>
+          <span className="tc-go" aria-hidden="true">→</span>
         </button>
-        <button className="ud-tcard" onClick={() => onGoto("learn")}>
-          <span className="k">Learn</span>
-          <b>Technique first</b>
-          <span className="d">Every drill's method, one page each</span>
+        <button className="ud-tcard tc-learn" onClick={() => onGoto("learn")}>
+          <span className="tc-ico"><svg {...svgProps}><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5z" /><path d="M20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" /></svg></span>
+          <span className="tc-txt"><span className="k">Learn</span><b>Technique first</b><span className="d">Every drill's method, one page each</span></span>
+          <span className="tc-go" aria-hidden="true">→</span>
         </button>
       </div>
 

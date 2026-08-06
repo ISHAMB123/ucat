@@ -1244,28 +1244,31 @@ button.nav-row:hover { background:var(--signal)14; }
 /* results / feedback DNA */
 .li-result { max-width:720px; }
 .li-band { margin-left:auto; font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--go); border:1px solid color-mix(in srgb, var(--go) 45%, var(--line)); border-radius:20px; padding:5px 12px; }
-.li-score { display:flex; align-items:center; gap:24px; border:1px solid var(--line); border-radius:14px; background:color-mix(in srgb, var(--slate) 40%, var(--ink)); padding:20px 24px; margin-bottom:14px; }
-.li-score-ring { --p:0; flex:none; width:128px; height:128px; border-radius:50%; background:conic-gradient(var(--go) calc(var(--p)*1%), color-mix(in srgb, var(--mute) 20%, transparent) 0); display:grid; place-items:center; position:relative; }
-.li-score-ring::before { content:""; position:absolute; inset:12px; border-radius:50%; background:color-mix(in srgb, var(--slate) 40%, var(--ink)); }
-.li-score-ring b { position:relative; font-family:'Bricolage Grotesque',sans-serif; font-size:37px; letter-spacing:-0.03em; color:var(--paper); line-height:1; }
-.li-score-ring b i { font-size:18px; font-style:normal; color:var(--mute); }
-.li-score-ring span { position:relative; margin-top:3px; font-family:'Inter',sans-serif; font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--mute); }
+.li-score { display:flex; align-items:center; gap:24px; border:1px solid var(--line); border-radius:10px; background:var(--slate); padding:20px 24px; margin-bottom:12px; }
+.li-score-ringwrap { flex:none; display:flex; flex-direction:column; align-items:center; gap:9px; }
+.li-score-ring { --p:0; width:118px; height:118px; border-radius:50%; background:conic-gradient(var(--go) calc(var(--p)*1%), color-mix(in srgb, var(--mute) 22%, transparent) 0); display:grid; place-items:center; position:relative; }
+.li-score-ring::before { content:""; position:absolute; inset:11px; border-radius:50%; background:var(--slate); }
+.li-score-ring b { position:relative; display:flex; align-items:baseline; font-family:'Bricolage Grotesque',sans-serif; font-size:34px; letter-spacing:-0.03em; color:var(--paper); line-height:1; }
+.li-score-ring b i { font-size:16px; font-style:normal; color:var(--mute); margin-left:1px; }
+.li-score-cap { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.16em; text-transform:uppercase; color:var(--mute); }
 .li-score-side { min-width:0; }
-.li-score-verdict { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:27px; letter-spacing:-0.02em; color:var(--paper); }
+.li-score-verdict { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:25px; letter-spacing:-0.02em; color:var(--paper); }
 .li-score-sub { margin:6px 0 13px; font-size:12.5px; line-height:1.55; color:var(--body); }
 .li-score-pips { display:flex; align-items:center; gap:6px; }
-.li-score-pips i { width:26px; height:6px; border-radius:4px; background:color-mix(in srgb, var(--mute) 22%, transparent); }
+.li-score-pips i { width:24px; height:6px; border-radius:4px; background:color-mix(in srgb, var(--mute) 22%, transparent); }
 .li-score-pips i.on { background:var(--go); }
 .li-score-pips span { margin-left:8px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--mute); }
 @media (max-width:560px){ .li-score { flex-direction:column; text-align:center; } .li-score-pips { justify-content:center; } }
-.li-dna { border:1px solid var(--signal); border-radius:14px; background:linear-gradient(160deg, color-mix(in srgb, var(--signal) 8%, var(--slate)), var(--slate)); padding:20px; }
-.li-dna-h { display:block; font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:15px; }
-.li-dna-row { display:flex; align-items:center; gap:13px; margin-bottom:11px; }
-.li-dna-lbl { flex:none; width:118px; font-size:12.5px; color:var(--body); }
-.li-dna-row i { flex:1; height:8px; border-radius:5px; background:color-mix(in srgb, var(--mute) 18%, transparent); overflow:hidden; }
-.li-dna-row i b { display:block; height:100%; border-radius:5px; background:var(--signal); transition:width .5s ease; }
-.li-dna-v { flex:none; width:34px; text-align:right; font-family:'Inter',sans-serif; font-size:12px; color:var(--mute); }
-.li-dna-note { font-size:11.5px; color:var(--mute); margin:12px 0 0; line-height:1.5; }
+.li-dna { border:1px solid var(--line); border-radius:10px; background:var(--slate); padding:18px 20px; }
+.li-dna-h { display:block; font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:16px; }
+.li-dna-cols { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+.li-dna-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:9px; min-width:0; }
+.li-dna-cv { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700; color:var(--paper); line-height:1; }
+.li-dna-cv i { font-size:9.5px; font-style:normal; color:var(--mute); }
+.li-dna-shaft { width:24px; height:118px; border-radius:7px; background:color-mix(in srgb, var(--mute) 15%, transparent); display:flex; align-items:flex-end; overflow:hidden; }
+.li-dna-shaft b { display:block; width:100%; border-radius:7px; background:var(--signal); transition:height .6s ease; min-height:7px; }
+.li-dna-cl { font-family:'Inter',sans-serif; font-size:10px; line-height:1.25; color:var(--body); text-align:center; }
+.li-dna-note { font-size:11.5px; color:var(--mute); margin:14px 0 0; line-height:1.5; }
 .li-wiped { font-size:11.5px; color:var(--mute); text-align:center; margin:4px 0 0; }
 .li-result .li-done-head { display:flex; align-items:center; gap:12px; }
 .li-result .li-debrief { background:var(--ink); }

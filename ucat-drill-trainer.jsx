@@ -5999,11 +5999,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const overall = result ? Math.round((scoreKeys.reduce((s, k) => s + (result.dna[k] || 0), 0) / (scoreKeys.length * 5)) * 100) : 0;
   const verdict = ["Early days", "Developing", "Strong", "Excellent"][Math.max(0, Math.min(3, (result ? result.band : 1) - 1))];
 
-  const dnaBar = (dim, v) => (
-    <div className="li-dna-row" key={dim.k}>
-      <span className="li-dna-lbl">{dim.label}</span>
-      <i><b style={{ width: v == null ? "0%" : `${(v / 5) * 100}%` }} /></i>
-      <span className="li-dna-v">{v == null ? "–" : `${v}/5`}</span>
+  const dnaCol = (dim, v) => (
+    <div className="li-dna-col" key={dim.k}>
+      <span className="li-dna-cv">{v == null ? "–" : v}{v != null && <i>/5</i>}</span>
+      <div className="li-dna-shaft"><b style={{ height: v == null ? "0%" : `${(v / 5) * 100}%` }} /></div>
+      <span className="li-dna-cl">{dim.label}</span>
     </div>
   );
 
@@ -6249,9 +6249,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
           <div className="li-done-head"><span className="li-done-ic"><svg {...svgProps}><path d="M20 6 9 17l-5-5" /></svg></span><h3>Interview review</h3><span className="li-band">Band {result.band} of 4</span></div>
 
           <div className="li-score">
-            <div className="li-score-ring" style={{ "--p": overall }}>
-              <b>{overall}<i>%</i></b>
-              <span>Overall</span>
+            <div className="li-score-ringwrap">
+              <div className="li-score-ring" style={{ "--p": overall }}>
+                <b>{overall}<i>%</i></b>
+              </div>
+              <span className="li-score-cap">Overall</span>
             </div>
             <div className="li-score-side">
               <span className="li-score-verdict">{verdict}</span>
@@ -6265,7 +6267,9 @@ function LiveInterview({ track, prefs, setPrefs }) {
 
           <div className="li-dna">
             <span className="li-dna-h">Your feedback DNA</span>
-            {DNA_DIMS.map((d) => dnaBar(d, result.dna[d.k]))}
+            <div className="li-dna-cols">
+              {DNA_DIMS.map((d) => dnaCol(d, result.dna[d.k]))}
+            </div>
             {result.eyePct != null && <p className="li-dna-note">Eye contact held about {result.eyePct}% of the time, measured on your device and now discarded.</p>}
           </div>
 

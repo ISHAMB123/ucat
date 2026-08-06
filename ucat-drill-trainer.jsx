@@ -5929,8 +5929,14 @@ function LiveInterview({ track, prefs, setPrefs }) {
        aloud; the reading voice is for the conversational panel format. */
     const useVoice = voiceOn && format !== "mmi";
     if (format === "mmi") setVoiceOn(false);
-    const reply = await callInterviewer([{ role: "user", content: "Please begin the interview with your first question." }]);
-    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); startThink(); present(reply); if (useVoice) speak(reply); }
+    /* Keep the opening request in the transcript. The conversation must start
+       with a user turn for the model (and our proxy) to accept every later
+       turn; without it, follow-up questions are rejected and the interview
+       stalls on question one. It never shows, since only the panel's turns are
+       rendered as the question. */
+    const seed = { role: "user", content: "Please begin the interview with your first question." };
+    const reply = await callInterviewer([seed]);
+    if (reply) { setMessages([seed, { role: "assistant", content: reply }]); setQCount(1); startThink(); present(reply); if (useVoice) speak(reply); }
     else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
   };
 
@@ -5986,6 +5992,12 @@ function LiveInterview({ track, prefs, setPrefs }) {
 
   const lastQuestion = [...messages].reverse().find((m) => m.role === "assistant");
   const progress = Math.min(qCount, maxQ);
+
+  /* Roll the four scored dimensions into one headline percentage for the
+     review screen, with a plain-English verdict off the band. */
+  const scoreKeys = ["structure", "insight", "communication", "resilience"];
+  const overall = result ? Math.round((scoreKeys.reduce((s, k) => s + (result.dna[k] || 0), 0) / (scoreKeys.length * 5)) * 100) : 0;
+  const verdict = ["Early days", "Developing", "Strong", "Excellent"][Math.max(0, Math.min(3, (result ? result.band : 1) - 1))];
 
   const dnaBar = (dim, v) => (
     <div className="li-dna-row" key={dim.k}>
@@ -6234,7 +6246,22 @@ function LiveInterview({ track, prefs, setPrefs }) {
 
       {phase === "done" && result && (
         <div className="li-room-body li-result">
-          <div className="li-done-head"><span className="li-done-ic"><svg {...svgProps}><path d="M20 6 9 17l-5-5" /></svg></span><h3>Interview complete</h3><span className="li-band">Band {result.band} of 4</span></div>
+          <div className="li-done-head"><span className="li-done-ic"><svg {...svgProps}><path d="M20 6 9 17l-5-5" /></svg></span><h3>Interview review</h3><span className="li-band">Band {result.band} of 4</span></div>
+
+          <div className="li-score">
+            <div className="li-score-ring" style={{ "--p": overall }}>
+              <b>{overall}<i>%</i></b>
+              <span>Overall</span>
+            </div>
+            <div className="li-score-side">
+              <span className="li-score-verdict">{verdict}</span>
+              <p className="li-score-sub">A weighted read across structure, insight, communication and resilience{result.eyePct != null ? ", alongside how steadily you held eye contact" : ""}.</p>
+              <div className="li-score-pips" aria-label={`Band ${result.band} of 4`}>
+                {[1, 2, 3, 4].map((n) => <i key={n} className={n <= result.band ? "on" : ""} />)}
+                <span>Band {result.band} of 4</span>
+              </div>
+            </div>
+          </div>
 
           <div className="li-dna">
             <span className="li-dna-h">Your feedback DNA</span>

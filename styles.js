@@ -1244,6 +1244,20 @@ button.nav-row:hover { background:var(--signal)14; }
 /* results / feedback DNA */
 .li-result { max-width:720px; }
 .li-band { margin-left:auto; font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--go); border:1px solid color-mix(in srgb, var(--go) 45%, var(--line)); border-radius:20px; padding:5px 12px; }
+.li-score { display:flex; align-items:center; gap:24px; border:1px solid var(--line); border-radius:14px; background:color-mix(in srgb, var(--slate) 40%, var(--ink)); padding:20px 24px; margin-bottom:14px; }
+.li-score-ring { --p:0; flex:none; width:128px; height:128px; border-radius:50%; background:conic-gradient(var(--go) calc(var(--p)*1%), color-mix(in srgb, var(--mute) 20%, transparent) 0); display:grid; place-items:center; position:relative; }
+.li-score-ring::before { content:""; position:absolute; inset:12px; border-radius:50%; background:color-mix(in srgb, var(--slate) 40%, var(--ink)); }
+.li-score-ring b { position:relative; font-family:'Bricolage Grotesque',sans-serif; font-size:37px; letter-spacing:-0.03em; color:var(--paper); line-height:1; }
+.li-score-ring b i { font-size:18px; font-style:normal; color:var(--mute); }
+.li-score-ring span { position:relative; margin-top:3px; font-family:'Inter',sans-serif; font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:var(--mute); }
+.li-score-side { min-width:0; }
+.li-score-verdict { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:27px; letter-spacing:-0.02em; color:var(--paper); }
+.li-score-sub { margin:6px 0 13px; font-size:12.5px; line-height:1.55; color:var(--body); }
+.li-score-pips { display:flex; align-items:center; gap:6px; }
+.li-score-pips i { width:26px; height:6px; border-radius:4px; background:color-mix(in srgb, var(--mute) 22%, transparent); }
+.li-score-pips i.on { background:var(--go); }
+.li-score-pips span { margin-left:8px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:0.1em; text-transform:uppercase; color:var(--mute); }
+@media (max-width:560px){ .li-score { flex-direction:column; text-align:center; } .li-score-pips { justify-content:center; } }
 .li-dna { border:1px solid var(--signal); border-radius:14px; background:linear-gradient(160deg, color-mix(in srgb, var(--signal) 8%, var(--slate)), var(--slate)); padding:20px; }
 .li-dna-h { display:block; font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:15px; }
 .li-dna-row { display:flex; align-items:center; gap:13px; margin-bottom:11px; }

@@ -3155,10 +3155,13 @@ function PlanView({ unlocked, plan, onStart, prefs, setPrefs, setPlanDone, best,
       <>
       {nextInfo ? (
         <div className="ud-nextup">
-          <div>
-            <div className="ud-eyebrow" style={{ marginBottom: 0 }}>Week {nextInfo.w} · Day {nextInfo.d}</div>
-            <h3>{DRILL_BY_ID[nextInfo.day.drill].name}</h3>
-            <p>{nextInfo.week.theme}{nextInfo.day.exam ? " · timed" : ""}</p>
+          <div className="nu-head">
+            <span className="nu-ico" data-sec={(DRILL_BY_ID[nextInfo.day.drill].section || "").toLowerCase()}>{SUBTEST_ICON[(DRILL_BY_ID[nextInfo.day.drill].section || "").toLowerCase()] || SUBTEST_ICON.overview}</span>
+            <div>
+              <div className="ud-eyebrow" style={{ marginBottom: 0 }}>Week {nextInfo.w} · Day {nextInfo.d}</div>
+              <h3>{DRILL_BY_ID[nextInfo.day.drill].name}</h3>
+              <p>{nextInfo.week.theme}{nextInfo.day.exam ? " · timed" : ""}</p>
+            </div>
           </div>
           <button className="ud-btn" disabled={!unlocked && !DRILL_BY_ID[nextInfo.day.drill].free}
             onClick={() => onStart(DRILL_BY_ID[nextInfo.day.drill], nextInfo.day.exam, DRILL_BY_ID[nextInfo.day.drill].def, nextInfo.key, null, null)}>

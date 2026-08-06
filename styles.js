@@ -131,6 +131,9 @@ export const CSS = `
 .ud-code { display:flex; gap:8px; margin-top:12px; }
 .ud-code input { background:var(--ink); border:1px solid var(--line); color:var(--paper); padding:10px 12px; border-radius:3px; font-family:'Inter',sans-serif; font-size:13px; width:150px; }
 .ud-nextup { border:1px solid var(--signal); border-radius:10px; padding:20px; margin-top:20px; background:var(--slate); display:flex; justify-content:space-between; align-items:center; gap:18px; flex-wrap:wrap; }
+.ud-nextup .nu-head { display:flex; align-items:center; gap:15px; min-width:0; }
+.ud-nextup .nu-ico { width:46px; height:46px; flex:none; border-radius:12px; border:1px solid var(--signal); background:color-mix(in srgb, var(--signal) 12%, var(--slate)); display:flex; align-items:center; justify-content:center; color:var(--signal); }
+.ud-nextup .nu-ico svg { width:24px; height:24px; }
 .ud-nextup h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:21px; margin:6px 0 4px; letter-spacing:-0.02em; }
 .ud-nextup p { margin:0; color:var(--mute); font-size:13px; }
 .ud-week { border:1px solid var(--line); border-radius:10px; margin-top:12px; overflow:hidden; }

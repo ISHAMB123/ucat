@@ -1174,13 +1174,17 @@ button.nav-row:hover { background:var(--signal)14; }
 /* eye-tracking layout: camera on the left, board + answer stacked on the right,
    so the question, your face, the tracking and what you are typing are all in
    view at once. */
-.li-you.eyes { grid-template-columns:1.1fr 1fr; align-items:stretch; }
-.li-you.eyes .li-cam { aspect-ratio:auto; min-height:300px; }
-.li-eyes-right { display:flex; flex-direction:column; gap:13px; min-width:0; }
-@media (max-width:760px){ .li-you.eyes { grid-template-columns:1fr; } .li-you.eyes .li-cam { aspect-ratio:4/3; min-height:0; } }
-.li-board { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:#0B0F14; padding:11px 13px 12px; }
-.li-board-h { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:8px; }
-.li-board-c { width:100%; flex:1; min-height:120px; aspect-ratio:16/10; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:8px; }
+/* answer takes the screen; the camera and gaze board shrink to a discreet
+   side rail so the candidate sees the question and their answer clearly. */
+.li-you.eyes { grid-template-columns:1fr 232px; align-items:start; }
+.li-eyes-rail { display:flex; flex-direction:column; gap:11px; }
+.li-eyes-rail .li-cam { aspect-ratio:4/3; }
+.li-eyes-rail .li-cam-toggle { display:none; }
+.li-you.eyes .li-answer textarea { min-height:210px; }
+@media (max-width:760px){ .li-you.eyes { grid-template-columns:1fr; } .li-eyes-rail { flex-direction:row; } .li-eyes-rail > * { flex:1; } }
+.li-board { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:#0B0F14; padding:10px 12px 11px; }
+.li-board-h { font-family:'Inter',sans-serif; font-size:9px; letter-spacing:0.13em; text-transform:uppercase; color:var(--signal); margin-bottom:7px; }
+.li-board-c { width:100%; flex:1; min-height:108px; aspect-ratio:16/10; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:8px; }
 .li-board-tag { margin-top:8px; font-size:11px; color:var(--go); }
 .li-board-err { margin-top:8px; font-size:11px; color:var(--stop); }
 .li-think { margin-left:auto; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.03em; color:var(--signal); border:1px solid color-mix(in srgb, var(--signal) 40%, var(--line)); border-radius:20px; padding:3px 11px; }

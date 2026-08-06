@@ -5713,7 +5713,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
   };
   useEffect(() => {
     if (phase !== "live" || !eyeOn || !camReady) return;
-    let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastPct = 0;
+    let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastPct = 0; let lastFace = 0; let lastA = null;
     setEyeErr(""); setEyeReady(false);
     loadTracker().then((landmarker) => {
       if (stop) return;
@@ -5724,15 +5724,27 @@ function LiveInterview({ track, prefs, setPrefs }) {
         const v = videoRef.current;
         if (!v || v.readyState < 2 || !v.videoWidth) return;
         const now = performance.now();
-        if (now - last < 100) return; /* ~10fps: plenty for gaze, keeps the video smooth */
+        /* Run as fast as the CPU allows (inference-limited), so the marker
+           keeps up with fast movement. No React state in here, so this cannot
+           stall the video the way the old per-frame re-render did. */
+        if (now - last < 28) return;
         last = now;
         const ts = Math.max(now, lastTs + 1); lastTs = ts;
         let a = null;
         try { a = analyseGaze(lm.detectForVideo(v, ts)); } catch (e) { a = null; }
-        drawOverlay(a); drawBoard(a);
-        eyeAccum.current.total++;
-        if (a && a.contact) eyeAccum.current.hits++;
-        if (now - lastPct > 1500) { lastPct = now; setEyePct(Math.round((eyeAccum.current.hits / Math.max(eyeAccum.current.total, 1)) * 100)); }
+        if (a) {
+          lastA = a; lastFace = now;
+          drawOverlay(a); drawBoard(a);
+          eyeAccum.current.total++;
+          if (a.contact) eyeAccum.current.hits++;
+        } else if (now - lastFace < 260 && lastA) {
+          /* Fast head movement or a blink drops a few frames; hold the last
+             read briefly so the tracker does not blank out and "stop". */
+          drawOverlay(lastA); drawBoard(lastA);
+        } else {
+          drawOverlay(null); drawBoard(null);
+        }
+        if (now - lastPct > 1200) { lastPct = now; setEyePct(Math.round((eyeAccum.current.hits / Math.max(eyeAccum.current.total, 1)) * 100)); }
       };
       rafRef.current = requestAnimationFrame(loop);
     }).catch(() => { if (!stop) setEyeErr("Eye tracking could not start on this browser. The interview still works."); });
@@ -5928,6 +5940,26 @@ function LiveInterview({ track, prefs, setPrefs }) {
   }
 
   /* ---- Full-screen interview room (live + results) ---- */
+  const camBlock = (
+    <div className="li-cam">
+      {camOn ? (
+        <>
+          <video ref={videoRef} autoPlay playsInline muted className="li-video" />
+          {eyeOn && <canvas ref={overlayRef} className="li-overlay" />}
+        </>
+      ) : (
+        <div className="li-mic-view">
+          <span className={`li-orb${listening ? " on" : ""}`}><svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg></span>
+          <span className="li-mic-txt">{listening ? "Listening…" : "Microphone"}</span>
+        </div>
+      )}
+      {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
+      {camOn && eyeOn && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
+      {camOn && eyeOn && eyeReady && eyePct != null && <span className="li-eye">Eye contact {eyePct}%</span>}
+      <button className="li-cam-toggle" onClick={() => { if (!eyeOn) setCamOn((v) => !v); }} disabled={eyeOn}>{camOn ? "Camera on" : "Camera off"}</button>
+    </div>
+  );
+
   const answerBlock = (
     <div className="li-answer">
       <textarea value={draft} onFocus={hush} onChange={(e) => { hush(); setDraft(e.target.value); }} onKeyDown={onKey} placeholder="Speak or type your answer, then send" rows={eyeOn ? 3 : 4} disabled={loading} />
@@ -5975,37 +6007,25 @@ function LiveInterview({ track, prefs, setPrefs }) {
             </div>
           </div>
 
-          <div className={`li-you${eyeOn ? " eyes" : ""}`}>
-            <div className="li-cam">
-              {camOn ? (
-                <>
-                  <video ref={videoRef} autoPlay playsInline muted className="li-video" />
-                  {eyeOn && <canvas ref={overlayRef} className="li-overlay" />}
-                </>
-              ) : (
-                <div className="li-mic-view">
-                  <span className={`li-orb${listening ? " on" : ""}`}><svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg></span>
-                  <span className="li-mic-txt">{listening ? "Listening…" : "Microphone"}</span>
-                </div>
-              )}
-              {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
-              {camOn && eyeOn && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
-              {camOn && eyeOn && eyeReady && eyePct != null && <span className="li-eye">Eye contact {eyePct}%</span>}
-              <button className="li-cam-toggle" onClick={() => { if (!eyeOn) setCamOn((v) => !v); }} disabled={eyeOn}>{camOn ? "Camera on" : "Camera off"}</button>
-            </div>
-
-            {eyeOn ? (
-              <div className="li-eyes-right">
+          {eyeOn ? (
+            <div className="li-you eyes">
+              {answerBlock}
+              <div className="li-eyes-rail">
+                {camBlock}
                 <div className="li-board">
                   <span className="li-board-h">Where you are looking</span>
                   <canvas ref={boardRef} className="li-board-c" />
                   {eyeErr ? <span className="li-board-err">{eyeErr}</span>
-                    : <span className="li-board-tag">Hold the marker on the centre target for eye contact</span>}
+                    : <span className="li-board-tag">Hold the marker on the centre target</span>}
                 </div>
-                {answerBlock}
               </div>
-            ) : answerBlock}
-          </div>
+            </div>
+          ) : (
+            <div className="li-you">
+              {camBlock}
+              {answerBlock}
+            </div>
+          )}
         </div>
       )}
 

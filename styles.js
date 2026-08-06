@@ -1201,7 +1201,30 @@ button.nav-row:hover { background:var(--signal)14; }
 .li-board-c { width:100%; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:3px; }
 .li-board-tag { margin-top:8px; font-size:11px; color:var(--go); }
 .li-board-err { margin-top:8px; font-size:11px; color:var(--stop); }
-.li-think { margin-left:auto; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.03em; color:var(--signal); border:1px solid color-mix(in srgb, var(--signal) 40%, var(--line)); border-radius:20px; padding:3px 11px; }
+.li-think { margin-left:auto; font-family:'Inter',sans-serif; font-size:10.5px; font-weight:600; letter-spacing:0.03em; border-radius:20px; padding:3px 11px; }
+.li-think.think { color:var(--signal); border:1px solid color-mix(in srgb, var(--signal) 40%, var(--line)); }
+.li-think.talk { color:var(--go); border:1px solid color-mix(in srgb, var(--go) 45%, var(--line)); }
+
+/* animated doctor + speech bubble */
+.li-stage-row { display:flex; align-items:center; gap:20px; justify-content:center; max-width:660px; margin:6px auto 0; }
+.li-doc { flex:none; width:88px; height:99px; animation:li-bob 3.4s ease-in-out infinite; }
+.li-doc svg { width:100%; height:100%; display:block; }
+.li-doc-mouth { transform-box:fill-box; transform-origin:center; }
+.li-doc.talk .li-doc-mouth { animation:li-talk .26s ease-in-out infinite; }
+.li-doc.think { animation:li-bob 3.4s ease-in-out infinite, li-tilt 1.6s ease-in-out infinite; }
+@keyframes li-bob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-4px); } }
+@keyframes li-tilt { 0%,100% { rotate:0deg; } 50% { rotate:-4deg; } }
+@keyframes li-talk { 0%,100% { transform:scaleY(0.45); } 50% { transform:scaleY(2.1); } }
+.li-bubble { position:relative; flex:1; background:var(--card); border:1px solid var(--paperline); border-radius:16px; padding:18px 22px; font-family:'Bricolage Grotesque',sans-serif; font-size:20px; line-height:1.4; letter-spacing:-0.015em; color:#16202B; box-shadow:0 6px 18px -12px rgba(16,24,32,.35); }
+.li-bubble::before { content:""; position:absolute; left:-9px; top:50%; transform:translateY(-50%); width:0; height:0; border:9px solid transparent; border-right-color:var(--paperline); }
+.li-bubble::after { content:""; position:absolute; left:-7px; top:50%; transform:translateY(-50%); width:0; height:0; border:8px solid transparent; border-right-color:var(--card); }
+@media (max-width:560px){ .li-stage-row { flex-direction:column; gap:12px; } .li-doc { width:70px; height:78px; } .li-bubble::before,.li-bubble::after { display:none; } }
+
+/* celebration */
+.li-confetti { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:90; }
+.li-room.shake { animation:li-shake .46s ease; }
+@keyframes li-shake { 0%,100% { transform:translateX(0); } 15% { transform:translateX(-7px); } 30% { transform:translateX(6px); } 45% { transform:translateX(-5px); } 60% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
+.no-motion .li-doc, .no-motion .li-doc-mouth, .no-motion .li-room.shake { animation:none !important; }
 .li-room-body .li-prog { display:flex; align-items:center; gap:12px; max-width:560px; margin:0 auto 14px; }
 .li-room-body .li-prog span:first-child { margin-bottom:0; white-space:nowrap; }
 .li-room-body .li-prog i { flex:1; }

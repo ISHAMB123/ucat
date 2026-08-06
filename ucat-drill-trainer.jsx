@@ -5578,8 +5578,13 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [eyeErr, setEyeErr] = useState("");
   const [result, setResult] = useState(null);
   const [hist, setHist] = useState([]);
-  const [thinkLeft, setThinkLeft] = useState(0);
+  const [timePhase, setTimePhase] = useState("");
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [shaking, setShaking] = useState(false);
+  const [docTalking, setDocTalking] = useState(false);
   const thinkRef = useRef(null);
+  const timeRef = useRef({ phase: "", left: 0 });
+  const confettiRef = useRef(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -5634,18 +5639,73 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const hush = () => { if (ttsOK) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } };
   useEffect(() => { if (!voiceOn) hush(); }, [voiceOn]);
 
-  /* Thinking time, like a real station: a countdown after each question so
-     they gather an answer before speaking. It never blocks answering. */
-  const stopThink = () => { if (thinkRef.current) { clearInterval(thinkRef.current); thinkRef.current = null; } };
+  /* Like a real station: a short thinking window to gather your answer, then
+     a talking window. Neither blocks you, they just pace the answer. */
+  const stopThink = () => {
+    if (thinkRef.current) { clearInterval(thinkRef.current); thinkRef.current = null; }
+    timeRef.current = { phase: "", left: 0 }; setTimePhase(""); setTimeLeft(0);
+  };
   const startThink = () => {
-    stopThink();
-    const secs = format === "mmi" ? 45 : 25;
-    setThinkLeft(secs);
+    if (thinkRef.current) clearInterval(thinkRef.current);
+    timeRef.current = { phase: "think", left: 5 };
+    setTimePhase("think"); setTimeLeft(5);
     thinkRef.current = setInterval(() => {
-      setThinkLeft((t) => { if (t <= 1) { stopThink(); return 0; } return t - 1; });
+      const s = timeRef.current;
+      if (s.left > 1) { s.left -= 1; setTimeLeft(s.left); return; }
+      if (s.phase === "think") { s.phase = "talk"; s.left = 45; setTimePhase("talk"); setTimeLeft(45); return; }
+      clearInterval(thinkRef.current); thinkRef.current = null;
+      timeRef.current = { phase: "", left: 0 }; setTimePhase(""); setTimeLeft(0);
     }, 1000);
   };
   useEffect(() => () => stopThink(), []);
+
+  /* A small green-and-gold burst when you clear a question, a big one at the
+     end. Pure canvas, cleared when it settles. */
+  const fireConfetti = (big) => {
+    const c = confettiRef.current;
+    if (!c || prefs.motion === false) return;
+    const w = c.width = c.clientWidth || 600, h = c.height = c.clientHeight || 400;
+    const ctx = c.getContext("2d");
+    const cols = ["#3ECF8E", "#F5A524", "#E8B923", "#2FA875", "#FFD34E"];
+    const n = big ? 180 : 64;
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+      parts.push({
+        x: w / 2 + (Math.random() - 0.5) * (big ? w * 0.4 : 140),
+        y: big ? h * 0.4 : h * 0.42,
+        vx: (Math.random() - 0.5) * (big ? 13 : 8),
+        vy: (Math.random() * -1 - 4) * (big ? 1.7 : 1.2),
+        r: Math.random() * 4 + 3, col: cols[i % cols.length],
+        rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.5, life: big ? 130 : 84,
+      });
+    }
+    let t = 0;
+    const step = () => {
+      ctx.clearRect(0, 0, w, h); t++;
+      let alive = false;
+      for (const p of parts) {
+        if (p.life <= 0) continue;
+        alive = true; p.life--; p.vy += 0.28; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.fillStyle = p.col; ctx.globalAlpha = Math.min(1, p.life / 24);
+        ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 1.7); ctx.restore();
+      }
+      if (alive && t < 240) requestAnimationFrame(step); else ctx.clearRect(0, 0, w, h);
+    };
+    requestAnimationFrame(step);
+  };
+  const celebrate = (big) => { fireConfetti(big); if (prefs.motion !== false) { setShaking(true); setTimeout(() => setShaking(false), 480); } };
+
+  /* Move the doctor's mouth while a fresh question is being delivered, for
+     roughly as long as it takes to say it. */
+  const docTimer = useRef(null);
+  const present = (text) => {
+    if (docTimer.current) clearTimeout(docTimer.current);
+    setDocTalking(true);
+    const words = (text || "").split(/\s+/).filter(Boolean).length;
+    const ms = Math.min(9000, Math.max(1800, words * 360));
+    docTimer.current = setTimeout(() => setDocTalking(false), ms);
+  };
 
   /* Camera is a mirror and nothing more. Start it only during a live run and
      only when wanted; always stop the tracks when done. */
@@ -5854,7 +5914,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     const useVoice = voiceOn && format !== "mmi";
     if (format === "mmi") setVoiceOn(false);
     const reply = await callInterviewer([{ role: "user", content: "Please begin the interview with your first question." }]);
-    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); startThink(); if (useVoice) speak(reply); }
+    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); startThink(); present(reply); if (useVoice) speak(reply); }
     else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
   };
 
@@ -5870,6 +5930,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     setHist(next);
     await secureSave("ucat:ivdna", next);
     setPhase("done");
+    setTimeout(() => celebrate(true), 140);
   };
 
   const sendAnswer = async () => {
@@ -5882,7 +5943,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     const forApi = [...messages, { role: "user", content: willFinal ? text + "\n\n[FINAL]" : text }];
     const reply = await callInterviewer(forApi);
     if (reply) {
-      if (willFinal) { stopThink(); finishTo(reply); } else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); startThink(); speak(reply); }
+      if (willFinal) { stopThink(); finishTo(reply); } else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); celebrate(false); startThink(); present(reply); speak(reply); }
     } else {
       setDraft(text);
     }
@@ -5942,7 +6003,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
               <b>Standard</b>
               <span>Private camera mirror and spoken questions. Simple and light.</span>
             </button>
-            <button className={`li-fmt${eyeOn ? " on" : ""}`} onClick={() => { setEyeOn(true); setCamOn(true); }}>
+            <button className={`li-fmt${eyeOn ? " on" : ""}`} onClick={() => { setEyeOn(true); setCamOn(true); loadTracker().catch(() => {}); }}>
               <span className="li-fmt-ico"><svg {...svgProps}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg></span>
               <b>With eye tracking</b>
               <span>Adds a live gaze board so you can see exactly where you are looking, all on your device.</span>
@@ -6057,7 +6118,8 @@ function LiveInterview({ track, prefs, setPrefs }) {
   );
 
   return (
-    <div className="li-room">
+    <div className={`li-room${shaking ? " shake" : ""}`}>
+      <canvas ref={confettiRef} className="li-confetti" aria-hidden="true" />
       <div className="li-room-bar">
         <span className="li-room-brand"><span className="eb-dot" aria-hidden="true" />Interview room{demo && <span className="li-demo">Demo</span>}</span>
         <div className="li-room-tools">
@@ -6073,17 +6135,30 @@ function LiveInterview({ track, prefs, setPrefs }) {
       {phase === "live" && (
         <div className="li-room-body">
           <div className="li-panel">
-            <div className="li-faces" data-live={loading ? "think" : "listen"}>
-              {[0, 1, 2].map((i) => (
-                <span className="li-face" key={i} style={{ animationDelay: `${i * 120}ms` }}>
-                  <svg {...svgProps}><circle cx="12" cy="8.5" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></svg>
-                </span>
-              ))}
-            </div>
-            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i>{thinkLeft > 0 && <span className="li-think">Thinking time {Math.floor(thinkLeft / 60)}:{String(thinkLeft % 60).padStart(2, "0")}</span>}</div>
-            <div className="li-say" aria-live="polite">
-              {loading && !lastQuestion ? "The panel is getting ready…" : lastQuestion ? lastQuestion.content : ""}
-              {loading && lastQuestion && <span className="li-typing"><i /><i /><i /></span>}
+            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i>{timePhase && <span className={`li-think ${timePhase}`}>{timePhase === "think" ? "Think" : "Answer"} {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}</span>}</div>
+            <div className="li-stage-row">
+              <div className={`li-doc${docTalking ? " talk" : ""}${loading ? " think" : ""}`} aria-hidden="true">
+                <svg viewBox="0 0 96 108">
+                  <path d="M14 108 V85 C14 71 29 65 48 65 C67 65 82 71 82 85 V108 Z" fill="#FFFFFF" stroke="#DCE3EC" strokeWidth="1.5" />
+                  <path d="M40 67 L36 108 M56 67 L60 108" stroke="#E2E8F0" strokeWidth="1.4" fill="none" />
+                  <path d="M40 66 L48 79 L56 66 Z" fill="#EDF1F6" />
+                  <path d="M48 79 l-3 5 3 15 3-15 z" fill="#F5A524" />
+                  <path d="M41 67 C37 83 35 91 41 97" stroke="#3ECF8E" strokeWidth="2.4" fill="none" />
+                  <path d="M55 67 C59 83 61 91 55 97" stroke="#3ECF8E" strokeWidth="2.4" fill="none" />
+                  <circle cx="48" cy="99" r="4.5" fill="#3ECF8E" />
+                  <rect x="42" y="55" width="12" height="13" rx="5" fill="#EBC39E" />
+                  <circle cx="48" cy="40" r="20" fill="#F2CBA4" />
+                  <path d="M27 39 C27 21 69 21 69 39 C64 30 59 27 48 27 C37 27 32 30 27 39 Z" fill="#4A3B31" />
+                  <circle cx="41" cy="41" r="2.2" fill="#2A2622" />
+                  <circle cx="55" cy="41" r="2.2" fill="#2A2622" />
+                  <path d="M37 35.5 q4 -2.4 8 0 M51 35.5 q4 -2.4 8 0" stroke="#4A3B31" strokeWidth="1.6" fill="none" />
+                  <ellipse className="li-doc-mouth" cx="48" cy="49" rx="5" ry="1.6" fill="#8A4A3A" />
+                </svg>
+              </div>
+              <div className="li-bubble" aria-live="polite">
+                {loading && !lastQuestion ? "One moment, settling in…" : lastQuestion ? lastQuestion.content : ""}
+                {loading && lastQuestion && <span className="li-typing"><i /><i /><i /></span>}
+              </div>
             </div>
           </div>
 

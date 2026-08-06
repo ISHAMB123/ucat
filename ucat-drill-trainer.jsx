@@ -5520,6 +5520,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [camReady, setCamReady] = useState(false);
   const [listening, setListening] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
+  const [demo, setDemo] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -5586,6 +5587,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "The interviewer could not respond.");
+      if (data.demo) setDemo(true);
       return data.reply;
     } catch (e) {
       setError(e && e.message ? e.message : "The interviewer could not respond.");
@@ -5630,7 +5632,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     <div className="li">
       <div className="li-head">
         <div>
-          <span className="ud-eyebrow" style={{ marginBottom: 6, display: "inline-flex" }}><span className="eb-dot" aria-hidden="true" />Live simulator</span>
+          <span className="ud-eyebrow" style={{ marginBottom: 6, display: "inline-flex" }}><span className="eb-dot" aria-hidden="true" />Live simulator{demo && <span className="li-demo">Demo mode</span>}</span>
           <h3 className="li-title">Sit a real interview, right now</h3>
           <p className="li-lede">A live interviewer asks, listens and follows up, then marks you at the end. Your camera is just a mirror so you can watch your own delivery. Original questions only, never a real school's.</p>
         </div>

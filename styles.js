@@ -1008,6 +1008,7 @@ button.nav-row:hover { background:var(--signal)14; }
 /* ============================ LIVE INTERVIEW ====================== */
 .li { padding-top:18px; animation:udfade .3s ease; }
 .li-head { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; margin-bottom:20px; }
+.li-demo { margin-left:9px; font-family:'Inter',sans-serif; font-size:9px; letter-spacing:0.1em; padding:2px 8px; border-radius:20px; border:1px solid color-mix(in srgb, var(--signal) 45%, var(--line)); color:var(--signal); background:color-mix(in srgb, var(--signal) 10%, transparent); }
 .li-title { font-family:'Bricolage Grotesque',sans-serif; font-size:26px; letter-spacing:-0.025em; margin:0 0 8px; }
 .li-lede { font-size:14px; line-height:1.6; color:var(--body); max-width:56ch; margin:0; }
 .li-credits { flex:none; border:1px solid var(--line); border-radius:12px; background:var(--slate); padding:12px 16px; display:flex; flex-direction:column; align-items:center; gap:1px; cursor:pointer; transition:border-color .15s, transform .15s; }

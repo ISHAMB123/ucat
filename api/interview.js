@@ -45,6 +45,64 @@ When the candidate's message ends with the token [FINAL], stop interviewing and 
 Keep the whole debrief under 200 words, warm and direct. Do not ask any more questions after the debrief.`;
 }
 
+/* Scripted interviewer used only in demo mode (no key set). Original,
+   generic questions so the whole experience can be tried for free. It does
+   not adapt to answers; that is what the real model does once a key exists. */
+const DEMO_QS = {
+  dent: {
+    panel: [
+      "To start, tell me why dentistry rather than medicine or another healthcare career.",
+      "Describe a time your attention to detail or your hands made the difference to something you were doing.",
+      "A nervous patient in real pain refuses the treatment they clearly need. Talk me through how you would handle that.",
+      "What do you think is the hardest part of being a dentist that patients rarely see?",
+      "Tell me about something you have read or noticed about access to NHS dentistry, and what you made of it.",
+      "Ten years from now, what kind of dentist do you want to be, and why?",
+    ],
+    mmi: [
+      "Here is your station. A friend on your course quietly tells you they cheated in an online assessment and asks you to say nothing. Talk me through what is going through your mind.",
+      "Your friend says reporting it would end their career over a single mistake. How does that change your thinking?",
+      "Imagine I am that friend, sitting in front of you. Say out loud what you would actually say to me.",
+      "Now step back. What principle were you trying to protect, and what did you have to weigh it against?",
+    ],
+  },
+  med: {
+    panel: [
+      "To start, tell me why medicine rather than another career that also helps people.",
+      "Describe a time you saw good teamwork in a caring or pressured setting. What actually made it work?",
+      "A patient refuses a treatment you believe they genuinely need. Walk me through how you would handle it.",
+      "What do you think is the hardest part of being a doctor that people outside medicine rarely see?",
+      "Tell me about something you read or followed recently about the NHS, and what you made of it.",
+      "Ten years from now, what kind of doctor do you want to be, and why?",
+    ],
+    mmi: [
+      "Here is your station. A friend on your course quietly tells you they cheated in an online assessment and asks you to keep it to yourself. Talk me through what is going through your mind.",
+      "Your friend says reporting it would end their career over a single mistake. How does that change your thinking?",
+      "Imagine I am that friend, sitting in front of you. Say out loud what you would actually say to me.",
+      "Now step back. What principle were you trying to protect, and what did you have to weigh it against?",
+    ],
+  },
+};
+
+const DEMO_DEBRIEF =
+  "Band 3 of 4.\n\n" +
+  "What worked\n" +
+  "- You engaged with every question and reached for concrete answers rather than abstract ones.\n" +
+  "- You showed you can see more than one side of a difficult situation.\n\n" +
+  "Sharpen this\n" +
+  "- Anchor each claim in a specific moment: name the who, the when and the what, not a general statement.\n" +
+  "- When you take a position, say the principle behind it out loud so a marker can actually score your reasoning.\n\n" +
+  "One reframe\n" +
+  "Instead of \"I want to help people\", try: \"On a hospital ward I watched a clinician's calm turn a frightened patient's whole day around, and I wanted to be the person who could do that.\"\n\n" +
+  "This is demo feedback and does not read your actual answers. Add an ANTHROPIC_API_KEY and the interviewer adapts to everything you say.";
+
+function demoReply(track, format, messages) {
+  const last = messages[messages.length - 1];
+  if (last && last.role === "user" && /\[FINAL\]\s*$/.test(last.content)) return DEMO_DEBRIEF;
+  const bank = (DEMO_QS[track] && DEMO_QS[track][format]) || DEMO_QS.dent.panel;
+  const asked = messages.filter((m) => m.role === "assistant").length;
+  return bank[Math.min(asked, bank.length - 1)];
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -53,10 +111,6 @@ export default async function handler(req, res) {
   }
 
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    res.status(503).json({ error: "The interviewer is not switched on yet. Please try again later." });
-    return;
-  }
 
   let body = req.body;
   if (typeof body === "string") {
@@ -78,6 +132,14 @@ export default async function handler(req, res) {
     .map((m) => ({ role: m.role, content: m.content.slice(0, 4000) }));
   if (messages.length === 0 || messages[0].role !== "user") {
     res.status(400).json({ error: "That interview could not be continued." });
+    return;
+  }
+
+  /* No key set means demo mode: serve a scripted interviewer so the whole
+     flow can be walked through for free. Add ANTHROPIC_API_KEY and this path
+     is never taken, the interviewer becomes the real, adaptive model. */
+  if (!key) {
+    res.status(200).json({ reply: demoReply(track, format, messages), demo: true });
     return;
   }
 

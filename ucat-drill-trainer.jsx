@@ -2691,19 +2691,22 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
     <div className="ud-wrap">
       <div className="ud-herorow">
         <div className="ud-hero">
-          <div className="ud-eyebrow">VR · QR · SJT · The training layer</div>
+          <div className="ud-eyebrow"><span className="eb-dot" aria-hidden="true" />VR · QR · SJT · The training layer</div>
           <h1 className="ud-h1">Your question bank shows the score. This fixes <em>why</em>.</h1>
           <p className="ud-lede">
-            Tempo runs beside whichever question bank you already use, it does not replace one. Banks give you volume;
-            this builds what sits underneath: recall speed, estimation, scanning, pacing, logic patterns and professional
-            judgement. Every answer comes with its reasoning, every mistake follows you until you beat it, and the
-            weekly mocks tell you honestly where you stand.
+            Question banks give you volume. Tempo trains what actually moves the number underneath it: recall speed,
+            scanning, pacing and judgement, with the working shown on every answer. Miss one and it follows you until
+            you beat it, and the weekly mock tells you exactly where you stand.
           </p>
+          <div className="ud-herocta">
+            <button className="ud-btn" onClick={() => onGoto("plan")}>Start today's session</button>
+            <button className="ud-btn ghost" onClick={() => onGoto("mock")}>Take a mock</button>
+          </div>
           <div className="ud-stats">
-            <div className="ud-stat"><b className="mono">602</b><span>Mean VR 2025</span></div>
-            <div className="ud-stat"><b className="mono">661</b><span>Mean QR 2025</span></div>
-            <div className="ud-stat"><b className="mono">1-4</b><span>SJT bands</span></div>
-            <div className="ud-stat"><b className="mono">6</b><span>Week plan</span></div>
+            <div className="ud-stat"><b>602</b><span>Mean VR · 2025</span></div>
+            <div className="ud-stat"><b>661</b><span>Mean QR · 2025</span></div>
+            <div className="ud-stat sg"><b>1–4</b><span>SJT bands</span></div>
+            <div className="ud-stat"><b>6</b><span>Week plan</span></div>
           </div>
         </div>
         <div className="ud-herostreak">
@@ -3523,9 +3526,10 @@ function StreakCalendar({ history, weeks: WEEKS = 26 }) {
   const lvl = (c) => (c <= 0 ? 0 : c === 1 ? 1 : c === 2 ? 2 : 3);
 
   return (
-    <div className="ud-trend" style={{ padding: 18 }}>
+    <div className="ud-trend streak-card" style={{ padding: 18 }}>
+      <div className="streak-title">Your rhythm</div>
       <div className="streak-head">
-        <div className="streak-stat"><b><span className="fl" aria-hidden="true">🔥</span>{current}</b><span>day streak</span></div>
+        <div className={`streak-stat${current > 0 ? " live" : ""}`}><b><span className="fl" aria-hidden="true">🔥</span>{current}</b><span>day streak</span></div>
         <div className="streak-stat"><b>{longest}</b><span>longest streak</span></div>
         <div className="streak-stat"><b>{activeDays}</b><span>days practised</span></div>
       </div>

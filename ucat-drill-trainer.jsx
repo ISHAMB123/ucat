@@ -1283,14 +1283,30 @@ const WEAK_LABEL = {
   qset: "QR data sets", qratio: "Ratios", qgraph: "Graphs", qrate: "Rates and time", qpct: "Percentages", qinfer: "Inference",
   jappropriateness: "SJT appropriateness", jimportance: "SJT importance", jrank: "SJT ranking",
   dsyll: "Syllogisms", dvenn: "Venn diagrams", dprob: "Probability", dlogic: "Logic puzzles",
-  sreservoir: "Reservoir passage", sprinting: "Press passage", salloy: "Alloy passage",
-  slido: "Lido passage", sowls: "Owls passage", scontainer: "Container passage", qunit: "Unit conversions",
-  treservoir: "T/F/CT reservoir", tprinting: "T/F/CT press", talloy: "T/F/CT alloy", tlido: "T/F/CT lido", towls: "T/F/CT owls", tcontainer: "T/F/CT container",
+  qunit: "Unit conversions",
 };
+/* Verbal Reasoning tags carry the passage id ("t"+pid for true/false/can't
+   tell, "s"+pid for scanning). A single passage is not a revisable skill, so
+   collapse every one of them to the underlying skill and let the display
+   de-duplicate. */
 function weakLabel(tag) {
-  if (WEAK_LABEL[tag]) return WEAK_LABEL[tag];
   if (/^f\d/.test(tag)) return `${tag.slice(1)} times table`;
+  if (/^t[a-z]/.test(tag)) return "True, false, can't tell";
+  if (/^s[a-z]/.test(tag)) return "Scanning";
+  if (WEAK_LABEL[tag]) return WEAK_LABEL[tag];
   return tag.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+/* Collapse weak-spot pairs that share a label (many passages, one skill),
+   keeping the first tag as the representative and summing the counts so the
+   figure stays honest. */
+function dedupeWeak(pairs) {
+  const byLabel = new Map();
+  for (const [tag, count] of pairs) {
+    const label = weakLabel(tag);
+    if (byLabel.has(label)) byLabel.get(label)[1] += count;
+    else byLabel.set(label, [tag, count]);
+  }
+  return [...byLabel.values()];
 }
 
 /* ------------------------------ STORAGE --------------------------- */
@@ -2619,7 +2635,7 @@ function Results({ drill, log, meta, exam, history, onHome, onAgain, onType, bud
 
 function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext }) {
   const bestBars = Object.entries(best || {}).filter(([id]) => DRILL_BY_ID[id]).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const weakTop = Object.entries(weak || {}).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const weakTop = dedupeWeak(Object.entries(weak || {}).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1])).slice(0, 6);
   const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
@@ -3590,7 +3606,7 @@ function OutlookPanel({ best, history, plan, prefs, onGoto }) {
 }
 
 function ProgressView({ history, weak, best, plan, prefs, onGoto }) {
-  const weakTop = Object.entries(weak).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const weakTop = dedupeWeak(Object.entries(weak).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1])).slice(0, 10);
   const [ivMarks, setIvMarks] = useState([]);
   useEffect(() => { getJSON("ucat:ivmarks", []).then((a) => setIvMarks(Array.isArray(a) ? a : [])); }, []);
   const ivRecent = ivMarks.slice(-12);

@@ -1162,6 +1162,25 @@ button.nav-row:hover { background:var(--signal)14; }
 @keyframes li-ringpulse { 0%,100% { opacity:.35; } 50% { opacity:.7; } }
 .li-eye { position:absolute; right:8px; top:8px; background:#0E1319CC; color:var(--signal); border:1px solid color-mix(in srgb, var(--signal) 40%, var(--line)); border-radius:20px; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.03em; padding:4px 10px; }
 
+/* setup: room chooser + camera/voice toggles */
+.li-choose-h { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--mute); margin:20px 0 9px; }
+.li-eyepick { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:640px){ .li-eyepick { grid-template-columns:1fr; } }
+.li-toggles.two { grid-template-columns:1fr 1fr; }
+@media (max-width:640px){ .li-toggles.two { grid-template-columns:1fr; } }
+
+/* eye tracking: camera overlay + gaze board */
+.li-overlay { position:absolute; inset:0; width:100%; height:100%; transform:scaleX(-1); pointer-events:none; }
+.li-you.eyes { grid-template-columns:1fr 1fr; }
+.li-you.eyes .li-answer { grid-column:1 / -1; }
+@media (max-width:760px){ .li-you.eyes { grid-template-columns:1fr; } }
+.li-board { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:#0B0F14; padding:12px 13px 13px; }
+.li-board-h { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:9px; }
+.li-board-c { width:100%; flex:1; min-height:150px; aspect-ratio:4/3; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:8px; }
+.li-board-tag { margin-top:9px; font-size:11px; color:var(--go); }
+.li-board-tag.wait { color:var(--mute); }
+.li-board-err { margin-top:9px; font-size:11px; color:var(--stop); }
+
 /* results / feedback DNA */
 .li-result { max-width:720px; }
 .li-band { margin-left:auto; font-family:'Inter',sans-serif; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--go); border:1px solid color-mix(in srgb, var(--go) 45%, var(--line)); border-radius:20px; padding:5px 12px; }

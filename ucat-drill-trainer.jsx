@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
+import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
 import { supabase, supabaseEnabled } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -5566,8 +5567,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [buyOpen, setBuyOpen] = useState(false);
   const [demo, setDemo] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
-  const [eyeOn, setEyeOn] = useState(true);
+  const [eyeOn, setEyeOn] = useState(false);
   const [eyePct, setEyePct] = useState(null);
+  const [eyeReady, setEyeReady] = useState(false);
+  const [eyeErr, setEyeErr] = useState("");
+  const [gaze, setGaze] = useState(null);
   const [result, setResult] = useState(null);
   const [hist, setHist] = useState([]);
 
@@ -5577,13 +5581,15 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const baseDraft = useRef("");
   const voiceRef = useRef(null);
   const eyeAccum = useRef({ hits: 0, total: 0 });
+  const overlayRef = useRef(null);
+  const boardRef = useRef(null);
+  const rafRef = useRef(null);
 
   const credits = creditsOf(prefs);
   const enough = credits >= INTERVIEW_COST;
   const maxQ = format === "mmi" ? 4 : 6;
   const speechOK = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const ttsOK = typeof window !== "undefined" && !!window.speechSynthesis;
-  const eyeSupported = typeof window !== "undefined" && "FaceDetector" in window;
 
   /* Load the encrypted performance history once, for the trend on the results
      screen. Never blocks the interview. */
@@ -5632,34 +5638,71 @@ function LiveInterview({ track, prefs, setPrefs }) {
   }, [phase, camOn]);
   useEffect(() => () => { stopCam(); hush(); stopListening(); }, []); // eslint-disable-line
 
-  /* Eye-contact coaching. Entirely on-device: it reads video frames, keeps a
-     running ratio in a ref, and never stores or sends a single frame. */
+  /* Real webcam eye tracking, entirely on-device via a self-hosted face-mesh
+     model. It reads frames, draws the mesh and a gaze board, and keeps a
+     running eye-contact ratio in a ref. No frame or landmark is stored or
+     sent anywhere. */
+  const drawOverlay = (a) => {
+    const c = overlayRef.current, v = videoRef.current;
+    if (!c || !v) return;
+    const w = c.width = c.clientWidth || 300, h = c.height = c.clientHeight || 300;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    if (!a) return;
+    ctx.fillStyle = "rgba(245,165,36,0.45)";
+    for (const q of a.pts) ctx.fillRect(q.x * w - 0.6, q.y * h - 0.6, 1.4, 1.4);
+    ctx.strokeStyle = "rgba(62,207,142,0.9)"; ctx.lineWidth = 1.4;
+    [a.eyeL, a.eyeR].forEach((b) => ctx.strokeRect(b.x * w, b.y * h, b.w * w, b.h * h));
+    ctx.strokeStyle = "#F5A524"; ctx.lineWidth = 2;
+    const r = Math.max(w, h) * 0.014;
+    [a.irisL, a.irisR].forEach((ir) => { ctx.beginPath(); ctx.arc(ir.x * w, ir.y * h, r, 0, 7); ctx.stroke(); });
+  };
+  const drawBoard = (a) => {
+    const c = boardRef.current;
+    if (!c) return;
+    const w = c.width = c.clientWidth || 220, h = c.height = c.clientHeight || 160;
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(135,148,165,0.28)"; ctx.lineWidth = 1;
+    ctx.strokeRect(1, 1, w - 2, h - 2);
+    ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(62,207,142,0.55)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(w / 2, h / 2, 11, 0, 7); ctx.stroke();
+    if (a && a.gaze) {
+      const gx = a.gaze.x * w, gy = a.gaze.y * h;
+      ctx.fillStyle = a.contact ? "#3ECF8E" : "#F5A524";
+      ctx.beginPath(); ctx.arc(gx, gy, 7, 0, 7); ctx.fill();
+      ctx.globalAlpha = 0.35; ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(gx, gy, 15, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+  };
   useEffect(() => {
-    if (phase !== "live" || !eyeOn || !eyeSupported || !camOn) return;
-    let stop = false;
-    let fd;
-    try { fd = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 }); } catch (e) { return; }
-    const tick = async () => {
+    if (phase !== "live" || !eyeOn || !camReady) return;
+    let stop = false; let lm = null; let last = 0;
+    setEyeErr(""); setEyeReady(false);
+    loadTracker().then((landmarker) => {
       if (stop) return;
-      try {
+      lm = landmarker; setEyeReady(true);
+      const loop = () => {
+        if (stop) return;
         const v = videoRef.current;
-        if (v && v.readyState >= 2 && v.videoWidth) {
-          const faces = await fd.detect(v);
+        const now = performance.now();
+        if (v && v.readyState >= 2 && v.videoWidth && now - last > 60) {
+          last = now;
+          let a = null;
+          try { a = analyseGaze(lm.detectForVideo(v, now)); } catch (e) { a = null; }
+          drawOverlay(a); drawBoard(a);
           eyeAccum.current.total++;
-          const f = faces && faces[0];
-          if (f && f.boundingBox) {
-            const cx = f.boundingBox.x + f.boundingBox.width / 2;
-            if (Math.abs(cx - v.videoWidth / 2) < v.videoWidth * 0.2) eyeAccum.current.hits++;
-          }
-          const a = eyeAccum.current;
-          setEyePct(Math.round((a.hits / Math.max(a.total, 1)) * 100));
+          if (a && a.contact) eyeAccum.current.hits++;
+          setGaze(a ? a.gaze : null);
+          if (eyeAccum.current.total % 8 === 0) setEyePct(Math.round((eyeAccum.current.hits / eyeAccum.current.total) * 100));
         }
-      } catch (e) { /* skip this frame */ }
-      if (!stop) setTimeout(tick, 700);
-    };
-    const id = setTimeout(tick, 900);
-    return () => { stop = true; clearTimeout(id); };
-  }, [phase, eyeOn, eyeSupported, camOn]);
+        rafRef.current = requestAnimationFrame(loop);
+      };
+      rafRef.current = requestAnimationFrame(loop);
+    }).catch(() => { if (!stop) setEyeErr("Eye tracking could not start on this browser. The interview still works."); });
+    return () => { stop = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [phase, eyeOn, camReady]);
 
   const stopListening = () => {
     if (recogRef.current) { try { recogRef.current.stop(); } catch (e) { /* ignore */ } recogRef.current = null; }
@@ -5706,7 +5749,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     if (!enough) { setBuyOpen(true); return; }
     setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
     eyeAccum.current = { hits: 0, total: 0 };
-    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyePct(eyeSupported ? 0 : null);
+    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyePct(eyeOn ? 0 : null); setGaze(null); setEyeReady(false); setEyeErr("");
     const reply = await callInterviewer([{ role: "user", content: "Please begin the interview with your first question." }]);
     if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); speak(reply); }
     else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
@@ -5742,7 +5785,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     }
   };
 
-  const exitLive = () => { stopCam(); stopListening(); hush(); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyePct(null); eyeAccum.current = { hits: 0, total: 0 }; };
+  const exitLive = () => { stopCam(); stopListening(); hush(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyePct(null); setGaze(null); setEyeReady(false); eyeAccum.current = { hits: 0, total: 0 }; };
   const reset = () => { exitLive(); setResult(null); if (enough) begin(); };
 
   const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendAnswer(); } };
@@ -5789,10 +5832,24 @@ function LiveInterview({ track, prefs, setPrefs }) {
             </button>
           </div>
 
-          <div className="li-toggles">
-            <button className={`li-tog${camOn ? " on" : ""}`} onClick={() => setCamOn((v) => !v)}>
+          <p className="li-choose-h">Choose your room</p>
+          <div className="li-eyepick">
+            <button className={`li-fmt${!eyeOn ? " on" : ""}`} onClick={() => setEyeOn(false)}>
+              <span className="li-fmt-ico"><svg {...svgProps}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /><path d="M3 3l18 18" /></svg></span>
+              <b>Standard</b>
+              <span>Private camera mirror and spoken questions. Simple and light.</span>
+            </button>
+            <button className={`li-fmt${eyeOn ? " on" : ""}`} onClick={() => { setEyeOn(true); setCamOn(true); }}>
+              <span className="li-fmt-ico"><svg {...svgProps}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg></span>
+              <b>With eye tracking</b>
+              <span>Adds a live gaze board so you can see exactly where you are looking, all on your device.</span>
+            </button>
+          </div>
+
+          <div className="li-toggles two">
+            <button className={`li-tog${camOn ? " on" : ""}`} onClick={() => setCamOn((v) => !v)} disabled={eyeOn}>
               <svg {...svgProps}><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></svg>
-              <span><b>Camera</b>{camOn ? "on, private mirror" : "off, microphone only"}</span>
+              <span><b>Camera</b>{eyeOn ? "on, needed for tracking" : camOn ? "on, private mirror" : "off, microphone only"}</span>
               <i className={`li-sw${camOn ? " on" : ""}`}><b /></i>
             </button>
             <button className={`li-tog${voiceOn ? " on" : ""}`} onClick={() => setVoiceOn((v) => !v)} disabled={!ttsOK}>
@@ -5800,16 +5857,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
               <span><b>Spoken questions</b>{ttsOK ? (voiceOn ? "read aloud" : "text only") : "not on this browser"}</span>
               <i className={`li-sw${voiceOn && ttsOK ? " on" : ""}`}><b /></i>
             </button>
-            <button className={`li-tog${eyeOn && eyeSupported ? " on" : ""}`} onClick={() => setEyeOn((v) => !v)} disabled={!eyeSupported || !camOn}>
-              <svg {...svgProps}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
-              <span><b>Eye-contact coaching</b>{!eyeSupported ? "not on this browser" : !camOn ? "needs the camera" : eyeOn ? "on-device only" : "off"}</span>
-              <i className={`li-sw${eyeOn && eyeSupported && camOn ? " on" : ""}`}><b /></i>
-            </button>
           </div>
 
           <div className="li-start-row">
             <button className="ud-btn" onClick={begin} disabled={loading}>{loading ? "Setting up…" : enough ? "Enter the interview room" : "Top up to start"}</button>
-            <span className="li-cost">{enough ? "Opens full screen" : `${credits} credits, not enough`}</span>
+            <span className="li-cost">{enough ? (eyeOn ? "Opens full screen with the gaze board" : "Opens full screen") : `${credits} credits, not enough`}</span>
           </div>
           {error && <p className="li-err">{error}</p>}
           <ul className="li-tips">
@@ -5868,12 +5920,12 @@ function LiveInterview({ track, prefs, setPrefs }) {
             </div>
           </div>
 
-          <div className="li-you">
+          <div className={`li-you${eyeOn ? " eyes" : ""}`}>
             <div className="li-cam">
               {camOn ? (
                 <>
                   <video ref={videoRef} autoPlay playsInline muted className="li-video" />
-                  {eyeOn && eyeSupported && <span className="li-ring" aria-hidden="true" />}
+                  {eyeOn && <canvas ref={overlayRef} className="li-overlay" />}
                 </>
               ) : (
                 <div className="li-mic-view">
@@ -5882,9 +5934,19 @@ function LiveInterview({ track, prefs, setPrefs }) {
                 </div>
               )}
               {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
-              {camOn && eyeOn && eyeSupported && eyePct != null && <span className="li-eye">Eye contact {eyePct}%</span>}
-              <button className="li-cam-toggle" onClick={() => setCamOn((v) => !v)}>{camOn ? "Camera on" : "Camera off"}</button>
+              {camOn && eyeOn && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
+              {camOn && eyeOn && eyeReady && eyePct != null && <span className="li-eye">Eye contact {eyePct}%</span>}
+              <button className="li-cam-toggle" onClick={() => { if (!eyeOn) setCamOn((v) => !v); }} disabled={eyeOn}>{camOn ? "Camera on" : "Camera off"}</button>
             </div>
+
+            {eyeOn && (
+              <div className="li-board">
+                <span className="li-board-h">Where you are looking</span>
+                <canvas ref={boardRef} className="li-board-c" />
+                {eyeErr ? <span className="li-board-err">{eyeErr}</span>
+                  : <span className={`li-board-tag${gaze ? "" : " wait"}`}>{gaze ? "Green means you are holding eye contact" : "Look at your camera to begin"}</span>}
+              </div>
+            )}
 
             <div className="li-answer">
               <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKey} placeholder="Speak or type your answer, then send" rows={4} disabled={loading} />

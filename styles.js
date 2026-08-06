@@ -1228,7 +1228,15 @@ button.nav-row:hover { background:var(--signal)14; }
 .li-confetti { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:90; }
 .li-room.shake { animation:li-shake .46s ease; }
 @keyframes li-shake { 0%,100% { transform:translateX(0); } 15% { transform:translateX(-7px); } 30% { transform:translateX(6px); } 45% { transform:translateX(-5px); } 60% { transform:translateX(4px); } 75% { transform:translateX(-2px); } }
+/* green tick that pops in the middle when a question is cleared */
+.li-check { position:fixed; inset:0; display:grid; place-items:center; pointer-events:none; z-index:95; }
+.li-check-c { width:104px; height:104px; border-radius:50%; display:grid; place-items:center; background:radial-gradient(120% 120% at 50% 35%, #46E0A0, #2FA875); box-shadow:0 0 0 10px color-mix(in srgb, var(--go) 22%, transparent), 0 14px 34px -10px rgba(47,168,117,.7); animation:li-pop .95s cubic-bezier(.2,1.3,.4,1) forwards; }
+.li-check-c svg { width:52px; height:52px; stroke-dasharray:32; stroke-dashoffset:32; animation:li-tick .5s .12s ease forwards; }
+@keyframes li-pop { 0% { transform:scale(0); opacity:0; } 18% { transform:scale(1.08); opacity:1; } 70% { transform:scale(1); opacity:1; } 100% { transform:scale(.9); opacity:0; } }
+@keyframes li-tick { to { stroke-dashoffset:0; } }
 .no-motion .li-doc, .no-motion .li-doc-mouth, .no-motion .li-room.shake { animation:none !important; }
+.no-motion .li-check-c { animation:none !important; }
+.no-motion .li-check-c svg { animation:none !important; stroke-dashoffset:0; }
 .li-room-body .li-prog { display:flex; align-items:center; gap:12px; max-width:560px; margin:0 auto 14px; }
 .li-room-body .li-prog span:first-child { margin-bottom:0; white-space:nowrap; }
 .li-room-body .li-prog i { flex:1; }

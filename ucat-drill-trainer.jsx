@@ -5582,9 +5582,12 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [timeLeft, setTimeLeft] = useState(0);
   const [shaking, setShaking] = useState(false);
   const [docTalking, setDocTalking] = useState(false);
+  const [checkFlash, setCheckFlash] = useState(false);
   const thinkRef = useRef(null);
   const timeRef = useRef({ phase: "", left: 0 });
   const confettiRef = useRef(null);
+  const checkTimer = useRef(null);
+  const advanceRef = useRef(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -5652,11 +5655,14 @@ function LiveInterview({ track, prefs, setPrefs }) {
       const s = timeRef.current;
       if (s.left > 1) { s.left -= 1; setTimeLeft(s.left); return; }
       if (s.phase === "think") { s.phase = "talk"; s.left = 45; setTimePhase("talk"); setTimeLeft(45); return; }
+      /* Answer time is up: clear the clock and roll straight on to the next
+         question (celebrating the one just cleared). */
       clearInterval(thinkRef.current); thinkRef.current = null;
       timeRef.current = { phase: "", left: 0 }; setTimePhase(""); setTimeLeft(0);
+      if (advanceRef.current) advanceRef.current();
     }, 1000);
   };
-  useEffect(() => () => stopThink(), []);
+  useEffect(() => () => { stopThink(); if (checkTimer.current) clearTimeout(checkTimer.current); }, []);
 
   /* A small green-and-gold burst when you clear a question, a big one at the
      end. Pure canvas, cleared when it settles. */
@@ -5693,7 +5699,16 @@ function LiveInterview({ track, prefs, setPrefs }) {
     };
     requestAnimationFrame(step);
   };
-  const celebrate = (big) => { fireConfetti(big); if (prefs.motion !== false) { setShaking(true); setTimeout(() => setShaking(false), 480); } };
+  const flashCheck = () => {
+    setCheckFlash(true);
+    if (checkTimer.current) clearTimeout(checkTimer.current);
+    checkTimer.current = setTimeout(() => setCheckFlash(false), 1000);
+  };
+  const celebrate = (big, check) => {
+    fireConfetti(big);
+    if (check) flashCheck();
+    if (prefs.motion !== false) { setShaking(true); setTimeout(() => setShaking(false), 480); }
+  };
 
   /* Move the doctor's mouth while a fresh question is being delivered, for
      roughly as long as it takes to say it. */
@@ -5934,21 +5949,35 @@ function LiveInterview({ track, prefs, setPrefs }) {
     setTimeout(() => celebrate(true), 140);
   };
 
-  const sendAnswer = async () => {
-    const text = draft.trim();
-    if (!text || loading) return;
+  /* Shared submit path. When forced (the answer clock ran out) it moves on even
+     with an empty answer; otherwise it needs something typed. */
+  const submitAnswer = async (forced) => {
+    if (loading) return;
+    const typed = draft.trim();
+    if (!forced && !typed) return;
     stopListening(); stopThink(); hush();
-    const shown = [...messages, { role: "user", content: text }];
     const willFinal = qCount >= maxQ;
+    const answer = typed || "(No further answer — the time ran out.)";
+    const shown = [...messages, { role: "user", content: answer }];
     setMessages(shown); setDraft("");
-    const forApi = [...messages, { role: "user", content: willFinal ? text + "\n\n[FINAL]" : text }];
+    /* On a timeout, celebrate the cleared question straight away with the tick
+       and burst; on a manual send the celebration lands once the next question
+       arrives. */
+    if (forced && !willFinal) celebrate(false, true);
+    const forApi = [...messages, { role: "user", content: willFinal ? answer + "\n\n[FINAL]" : answer }];
     const reply = await callInterviewer(forApi);
     if (reply) {
-      if (willFinal) { stopThink(); finishTo(reply); } else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); celebrate(false); startThink(); present(reply); speak(reply); }
+      if (willFinal) { stopThink(); finishTo(reply); }
+      else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); if (!forced) celebrate(false, true); startThink(); present(reply); speak(reply); }
+    } else if (forced) {
+      /* The panel could not be reached; give the clock back rather than stall. */
+      setMessages(messages); startThink();
     } else {
-      setDraft(text);
+      setDraft(typed);
     }
   };
+  const sendAnswer = () => submitAnswer(false);
+  advanceRef.current = () => submitAnswer(true);
 
   const exitLive = () => { stopCam(); stopListening(); hush(); stopThink(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyeReady(false); eyeAccum.current = { total: 0, qSum: 0 }; };
   const reset = () => { exitLive(); setResult(null); if (enough) begin(); };
@@ -6118,6 +6147,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
   return (
     <div className={`li-room${shaking ? " shake" : ""}`}>
       <canvas ref={confettiRef} className="li-confetti" aria-hidden="true" />
+      {checkFlash && (
+        <div className="li-check" aria-hidden="true">
+          <span className="li-check-c"><svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg></span>
+        </div>
+      )}
       <div className="li-room-bar">
         <span className="li-room-brand"><span className="eb-dot" aria-hidden="true" />Interview room{demo && <span className="li-demo">Demo</span>}</span>
         <div className="li-room-tools">

@@ -5593,7 +5593,6 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const voiceRef = useRef(null);
   const eyeAccum = useRef({ total: 0, qSum: 0 });
   const overlayRef = useRef(null);
-  const boardRef = useRef(null);
   const barRef = useRef(null);
   const pctRef = useRef(null);
   const statusRef = useRef(null);
@@ -5785,41 +5784,27 @@ function LiveInterview({ track, prefs, setPrefs }) {
       ctx.fillStyle = "#F5A524"; ctx.beginPath(); ctx.arc(ix, iy, 1.6, 0, 7); ctx.fill();
     });
   };
-  const drawBoard = (a) => {
-    const c = boardRef.current;
-    if (!c) return;
-    const { w, h } = fitCanvas(c);
-    const ctx = c.getContext("2d");
-    ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = "rgba(135,148,165,0.16)"; ctx.lineWidth = 1;
-    for (let gx = 0; gx <= 4; gx++) { const x = (gx / 4) * w; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-    for (let gy = 0; gy <= 3; gy++) { const y = (gy / 3) * h; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-    ctx.strokeStyle = "rgba(62,207,142,0.5)"; ctx.lineWidth = 1.5;
-    ctx.strokeRect(w / 2 - 13, h / 2 - 13, 26, 26);
-    if (a && a.gaze) {
-      const gx = a.gaze.x * w, gy = a.gaze.y * h;
-      const col = qColor(quality(a));
-      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
-      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); ctx.globalAlpha = 1;
-      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(gx, gy, 7, 0, 7); ctx.fill();
-      ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(gx, gy, 15, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
-    }
-  };
-  /* Vertical segmented meter, red at the bottom through amber to green. */
-  const drawBar = (q, on) => {
+  /* One horizontal indicator: the fill length and colour are the eye-contact
+     quality, and the needle above it shows which way the gaze is drifting, so
+     contact strength and direction read from a single bar. */
+  const drawBar = (q, on, a) => {
     const c = barRef.current;
     if (!c) return;
     const { w, h } = fitCanvas(c);
     const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, w, h);
-    const segs = 22, gap = 2, sh = (h - gap * (segs - 1)) / segs;
-    for (let i = 0; i < segs; i++) {
-      const level = ((i + 1) / segs) * 100;
-      const y = h - (i + 1) * sh - i * gap;
-      const lit = on && q >= level - (100 / segs);
-      const base = level >= 70 ? "62,207,142" : level >= 40 ? "245,165,36" : "242,85,90";
-      ctx.fillStyle = `rgba(${base},${lit ? 1 : 0.14})`;
-      ctx.fillRect(0, y, w, sh);
+    const bh = Math.min(12, h - 12), by = Math.round((h - bh) / 2) + 3;
+    ctx.fillStyle = "rgba(135,148,165,0.16)";
+    ctx.fillRect(0, by, w, bh);
+    if (on) { ctx.fillStyle = qColor(q); ctx.fillRect(0, by, Math.max(bh, (q / 100) * w), bh); }
+    /* Zone dividers at the amber and green thresholds. */
+    ctx.strokeStyle = "rgba(9,13,18,0.55)"; ctx.lineWidth = 1;
+    [0.4, 0.7].forEach((t) => { const x = Math.round(t * w) + 0.5; ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x, by + bh); ctx.stroke(); });
+    if (on && a && a.gaze) {
+      const gx = Math.max(6, Math.min(w - 6, a.gaze.x * w));
+      ctx.fillStyle = "#EDEFF2";
+      ctx.beginPath(); ctx.moveTo(gx, by - 3); ctx.lineTo(gx - 5, by - 11); ctx.lineTo(gx + 5, by - 11); ctx.closePath(); ctx.fill();
+      ctx.fillRect(gx - 1, by - 3, 2, bh + 6);
     }
   };
   useEffect(() => {
@@ -5848,7 +5833,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
            blank the tracker. */
         const cur = a || (now - lastFace < 260 ? lastA : null);
         const q = quality(cur);
-        drawOverlay(cur); drawBoard(cur); drawBar(q, !!cur);
+        drawOverlay(cur); drawBar(q, !!cur, cur);
         if (a) { eyeAccum.current.total++; eyeAccum.current.qSum += q; }
         if (now - lastText > 130) {
           lastText = now;
@@ -6072,30 +6057,27 @@ function LiveInterview({ track, prefs, setPrefs }) {
      contact meter, numeric readouts, a trend line and the gaze map. */
   const hudBlock = (
     <div className="li-hud">
-      <div className="li-hud-grid">
-        <div className="li-hud-cam">
-          {camOn ? (
-            <>
-              <video ref={videoRef} autoPlay playsInline muted className="li-video" />
-              <canvas ref={overlayRef} className="li-overlay" />
-            </>
-          ) : (
-            <div className="li-mic-view"><span className="li-mic-txt">Camera off</span></div>
-          )}
-          {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
-          {camOn && camReady && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
-          <span className="li-hud-tag"><i />TRACKING</span>
-        </div>
-        <div className="li-hud-meter">
-          <b ref={pctRef} className="li-hud-pct">--</b>
-          <span className="li-hud-metersub">CONTACT</span>
-          <canvas ref={barRef} className="li-hud-bar" />
-        </div>
+      <div className="li-hud-cam">
+        {camOn ? (
+          <>
+            <video ref={videoRef} autoPlay playsInline muted className="li-video" />
+            <canvas ref={overlayRef} className="li-overlay" />
+          </>
+        ) : (
+          <div className="li-mic-view"><span className="li-mic-txt">Camera off</span></div>
+        )}
+        {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
+        {camOn && camReady && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
+        <span className="li-hud-tag"><i />TRACKING</span>
       </div>
-      <div className="li-hud-readouts">
-        <div className="li-hud-cell"><span className="k">Status</span><b ref={statusRef} className="mono">SEARCHING</b></div>
-        <div className="li-hud-cell"><span className="k">Session avg</span><b ref={avgRef} className="mono">0%</b></div>
-        <div className="li-hud-cell span2"><span className="k">Gaze map</span><canvas ref={boardRef} className="li-board-c" /></div>
+      <div className="li-eyebar">
+        <span className="li-eyebar-lab">Eye contact</span>
+        <canvas ref={barRef} className="li-eyebar-c" />
+        <b ref={pctRef} className="li-eyebar-pct">--</b>
+      </div>
+      <div className="li-eyebar-foot">
+        <span ref={statusRef} className="li-eyebar-st">SEARCHING</span>
+        <span className="li-eyebar-avg">Session average <b ref={avgRef}>0%</b></span>
       </div>
       {eyeErr && <div className="li-hud-err">{eyeErr}</div>}
     </div>
@@ -6123,6 +6105,12 @@ function LiveInterview({ track, prefs, setPrefs }) {
       <div className="li-room-bar">
         <span className="li-room-brand"><span className="eb-dot" aria-hidden="true" />Interview room{demo && <span className="li-demo">Demo</span>}</span>
         <div className="li-room-tools">
+          {phase === "live" && timePhase && (
+            <span className={`li-clock ${timePhase}`}>
+              <span className="li-clock-lab">{timePhase === "think" ? "Think" : "Answer"}</span>
+              <b>{Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}</b>
+            </span>
+          )}
           {ttsOK && phase === "live" && (
             <button className={`li-tool${voiceOn ? " on" : ""}`} onClick={() => setVoiceOn((v) => !v)} title="Spoken questions">
               <svg {...svgProps}><path d="M4 9v6h4l5 4V5L8 9z" />{voiceOn && <path d="M16 9a3 3 0 0 1 0 6" />}</svg>
@@ -6135,7 +6123,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
       {phase === "live" && (
         <div className="li-room-body">
           <div className="li-panel">
-            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i>{timePhase && <span className={`li-think ${timePhase}`}>{timePhase === "think" ? "Think" : "Answer"} {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, "0")}</span>}</div>
+            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i></div>
             <div className="li-stage-row">
               <div className={`li-doc${docTalking ? " talk" : ""}${loading ? " think" : ""}`} aria-hidden="true">
                 <svg viewBox="0 0 96 108">

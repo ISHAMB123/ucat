@@ -246,24 +246,25 @@
 
   /* ---- giving band ---- */
   .give { border-top: 1px solid var(--line); }
-  .give .box { position: relative; overflow: hidden; border-radius: 16px; padding: 26px 30px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 30px; align-items: center; }
+  .give .box { position: relative; overflow: hidden; border-radius: 16px; padding: 34px 36px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); display: grid; grid-template-columns: 1.12fr 0.88fr; gap: 34px; align-items: center; }
   .give .box::before { content: ""; position: absolute; inset: 0; background: radial-gradient(80% 120% at 4% 0%, var(--accent-soft), transparent 52%); pointer-events: none; }
   .give-head { position: relative; }
-  .give h2 { font-size: clamp(1.4rem, 2.8vw, 1.95rem); font-weight: 820; }
+  .give .kicker { margin-bottom: 4px; }
+  .give h2 { font-size: clamp(1.9rem, 3.6vw, 2.9rem); font-weight: 820; line-height: 1.04; }
   /* highlighted 1,000 */
-  .give .bignum { display: inline-flex; align-items: center; gap: 11px; margin: 14px 0 4px; padding: 9px 17px 9px 13px; border-radius: 13px; background: var(--accent-fill); color: #0E1B2A; box-shadow: 0 8px 22px var(--accent-soft); }
-  .give .bignum .heart { color: #0E1B2A; animation: hb 1.4s ease-in-out infinite; transform-origin: center; flex: none; }
+  .give .bignum { display: inline-flex; align-items: center; gap: 13px; margin: 20px 0 6px; padding: 12px 22px 12px 16px; border-radius: 16px; background: var(--accent-fill); color: #0E1B2A; box-shadow: 0 8px 22px var(--accent-soft); }
+  .give .bignum .heart { color: #0E1B2A; animation: hb 1.4s ease-in-out infinite; transform-origin: center; flex: none; width: 40px; height: 40px; }
   @keyframes hb { 0%,100% { transform: scale(1); } 14% { transform: scale(1.18); } 28% { transform: scale(1); } 42% { transform: scale(1.1); } }
-  .give .bignum .n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(2.4rem, 5.5vw, 3.3rem); font-weight: 820; line-height: .9; letter-spacing: -0.05em; }
-  .give .bignum .w { flex: none; white-space: nowrap; font-family: var(--sans); font-size: 11.5px; font-weight: 800; line-height: 1.12; letter-spacing: 0.04em; text-transform: uppercase; }
-  .give p { color: var(--soft); font-size: 14.5px; margin-top: 11px; line-height: 1.58; }
+  .give .bignum .n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(3rem, 6.5vw, 4.2rem); font-weight: 820; line-height: .9; letter-spacing: -0.05em; }
+  .give .bignum .w { flex: none; white-space: nowrap; font-family: var(--sans); font-size: 13px; font-weight: 800; line-height: 1.12; letter-spacing: 0.04em; text-transform: uppercase; }
+  .give p { color: var(--soft); font-size: 16.5px; margin-top: 15px; line-height: 1.6; }
   .give p b { color: var(--ink); }
-  .give .give-next { display: flex; gap: 10px; align-items: baseline; font-size: 13.5px; color: var(--ink); margin-top: 11px; }
+  .give .give-next { display: flex; gap: 10px; align-items: baseline; font-size: 15px; color: var(--ink); margin-top: 14px; line-height: 1.55; }
   .give .give-next .tag { flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent-fill) 55%, transparent); border-radius: 20px; padding: 2px 9px; position: relative; top: -1px; }
-  .give-head .btn { margin-top: 16px; }
+  .give-head .btn { margin-top: 20px; font-size: 15px; padding: 12px 20px; }
 
   /* clips: a 2x2 gallery that fills the right side */
-  .clips { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 11px; max-width: 320px; margin-left: auto; }
+  .clips { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 340px; margin: 0 auto; }
   .clip { position: relative; width: 100%; aspect-ratio: 9 / 16; border: 0; padding: 0; border-radius: 13px; overflow: hidden; cursor: pointer; background: #000; box-shadow: 0 10px 26px rgba(0,0,0,.22); transition: transform .16s ease, box-shadow .16s ease; }
   .clip:hover { transform: translateY(-4px); box-shadow: 0 16px 34px rgba(0,0,0,.3); }
   .clip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

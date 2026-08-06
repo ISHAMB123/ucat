@@ -246,25 +246,25 @@
 
   /* ---- giving band ---- */
   .give { border-top: 1px solid var(--line); }
-  .give .box { position: relative; overflow: hidden; border-radius: 18px; padding: 34px 36px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); }
+  .give .box { position: relative; overflow: hidden; border-radius: 16px; padding: 26px 30px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-fill) 20%, var(--card)), var(--card) 66%); border: 1px solid color-mix(in srgb, var(--accent-fill) 45%, var(--line)); box-shadow: var(--shadow); display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 30px; align-items: center; }
   .give .box::before { content: ""; position: absolute; inset: 0; background: radial-gradient(80% 120% at 4% 0%, var(--accent-soft), transparent 52%); pointer-events: none; }
-  .give-head { position: relative; max-width: 640px; }
-  .give h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); font-weight: 820; }
+  .give-head { position: relative; }
+  .give h2 { font-size: clamp(1.4rem, 2.8vw, 1.95rem); font-weight: 820; }
   /* highlighted 1,000 */
-  .give .bignum { display: inline-flex; align-items: center; gap: 12px; margin: 16px 0 4px; padding: 10px 18px 10px 14px; border-radius: 14px; background: var(--accent-fill); color: #0E1B2A; box-shadow: 0 8px 22px var(--accent-soft); }
+  .give .bignum { display: inline-flex; align-items: center; gap: 11px; margin: 14px 0 4px; padding: 9px 17px 9px 13px; border-radius: 13px; background: var(--accent-fill); color: #0E1B2A; box-shadow: 0 8px 22px var(--accent-soft); }
   .give .bignum .heart { color: #0E1B2A; animation: hb 1.4s ease-in-out infinite; transform-origin: center; flex: none; }
   @keyframes hb { 0%,100% { transform: scale(1); } 14% { transform: scale(1.18); } 28% { transform: scale(1); } 42% { transform: scale(1.1); } }
-  .give .bignum .n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(2.6rem, 6.5vw, 3.8rem); font-weight: 820; line-height: .9; letter-spacing: -0.05em; }
-  .give .bignum .w { font-family: var(--sans); font-size: 12px; font-weight: 800; line-height: 1.15; letter-spacing: 0.04em; text-transform: uppercase; }
-  .give p { color: var(--soft); font-size: 15.5px; margin-top: 12px; max-width: 48ch; line-height: 1.6; }
+  .give .bignum .n { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: clamp(2.4rem, 5.5vw, 3.3rem); font-weight: 820; line-height: .9; letter-spacing: -0.05em; }
+  .give .bignum .w { flex: none; white-space: nowrap; font-family: var(--sans); font-size: 11.5px; font-weight: 800; line-height: 1.12; letter-spacing: 0.04em; text-transform: uppercase; }
+  .give p { color: var(--soft); font-size: 14.5px; margin-top: 11px; line-height: 1.58; }
   .give p b { color: var(--ink); }
-  .give .give-next { display: flex; gap: 10px; align-items: baseline; font-size: 14px; color: var(--ink); margin-top: 12px; max-width: 50ch; }
+  .give .give-next { display: flex; gap: 10px; align-items: baseline; font-size: 13.5px; color: var(--ink); margin-top: 11px; }
   .give .give-next .tag { flex: none; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent-fill) 55%, transparent); border-radius: 20px; padding: 2px 9px; position: relative; top: -1px; }
-  .give-head .btn { margin-top: 18px; }
+  .give-head .btn { margin-top: 16px; }
 
-  /* clip filmstrip */
-  .clips { position: relative; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 14px; margin-top: 26px; }
-  .clip { position: relative; width: 168px; aspect-ratio: 9 / 16; border: 0; padding: 0; border-radius: 14px; overflow: hidden; cursor: pointer; background: #000; box-shadow: 0 10px 26px rgba(0,0,0,.22); transition: transform .16s ease, box-shadow .16s ease; }
+  /* clips: a 2x2 gallery that fills the right side */
+  .clips { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 11px; max-width: 320px; margin-left: auto; }
+  .clip { position: relative; width: 100%; aspect-ratio: 9 / 16; border: 0; padding: 0; border-radius: 13px; overflow: hidden; cursor: pointer; background: #000; box-shadow: 0 10px 26px rgba(0,0,0,.22); transition: transform .16s ease, box-shadow .16s ease; }
   .clip:hover { transform: translateY(-4px); box-shadow: 0 16px 34px rgba(0,0,0,.3); }
   .clip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .clip img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -401,8 +401,9 @@
   .cost-legend .k i { width: 15px; height: 3px; border-radius: 2px; display: inline-block; }
 
   @media (max-width: 900px) {
-    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .demo-grid { grid-template-columns: 1fr; }
-    .give .box { padding: 30px 24px; }
+    .hero, .exam-grid, .mock-grid, .callout .box, .price, .speak-grid, .demo-grid, .give .box { grid-template-columns: 1fr; }
+    .give .box { padding: 26px 22px; gap: 22px; }
+    .clips { max-width: 300px; margin: 0 auto; }
     .hero { gap: 32px; padding-top: 48px; }
     .three, .drills, .tk, .stat-row, .compare, .prog-grid { grid-template-columns: 1fr 1fr; }
     .nav-links a:not(.nav-cta) { display: none; }
@@ -476,10 +477,10 @@
         <div class="bignum">
           <svg class="heart" width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           <span class="n">1,000</span>
-          <span class="w">orphans<br>we feed</span>
+          <span class="w">kids<br>fed</span>
         </div>
-        <p>A large share of every sale goes straight to orphanages in Bangladesh, helping <b>feed 1,000 orphans</b>. Not a slogan: tap any clip to watch the meals handed out.</p>
-        <p class="give-next"><span class="tag">Next</span>Our next project is repairing these orphanages and installing proper showers. Every purchase helps get us there.</p>
+        <p>A big share of every sale goes to orphanages in Bangladesh. Right now that feeds <b>1,000 kids</b>. Tap a clip and you'll see the real meals going out, not a stock photo.</p>
+        <p class="give-next"><span class="tag">Next</span>We're fixing up the orphanages and putting in proper showers. Every purchase gets us a bit closer.</p>
         <a class="btn btn-primary" href="https://www.tiktok.com/" target="_blank" rel="noopener">See more on TikTok</a>
       </div>
       <div class="clips" id="clips">

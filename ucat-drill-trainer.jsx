@@ -3647,7 +3647,21 @@ function MistakesView({ mistakes, active, onRetry, onClear }) {
         <p className="ud-empty">Empty, which is exactly how you want it. Every question you get wrong lands here automatically. Beat it once and it comes back for review after 3 days, then 7, then 21; survive all three and it retires for good. Clearing this list regularly is the single highest-value habit in the app.</p>
       ) : (<>
         <p className="ud-learn-intro">Every question you got wrong, on a spaced schedule. Beat one and it returns in 3 days, then 7, then 21 before retiring. Miss it again at any point and the clock resets.</p>
-        <div style={{ display: "flex", gap: 10, margin: "16px 0 6px" }}>
+        <div className="res-stats" style={{ marginTop: 16 }}>
+          <div className="res-stat">
+            <span className="rs-ico" style={{ color: "var(--stop)", background: "color-mix(in srgb, var(--stop) 13%, transparent)" }}><svg {...svgProps}><path d="M12 9v4M12 17h.01" /><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></svg></span>
+            <b className="mono">{active.length}</b><span>Due now</span>
+          </div>
+          <div className="res-stat">
+            <span className="rs-ico"><svg {...svgProps}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></span>
+            <b className="mono">{scheduled.length}</b><span>Scheduled</span>
+          </div>
+          <div className="res-stat">
+            <span className="rs-ico"><svg {...svgProps}><path d="M4 5h16v14H4z" /><path d="M4 9h16M9 5v14" /></svg></span>
+            <b className="mono">{mistakes.length}</b><span>In the bank</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, margin: "16px 0 6px", flexWrap: "wrap" }}>
           <button className="ud-btn" onClick={onRetry} disabled={active.length === 0}>Try {active.length} more questions</button>
           <button className="ud-btn ghost" onClick={onClear}>Clear the bank</button>
         </div>

@@ -1289,8 +1289,8 @@ const WEAK_LABEL = {
 };
 function weakLabel(tag) {
   if (WEAK_LABEL[tag]) return WEAK_LABEL[tag];
-  if (tag.startsWith("f")) return `${tag.slice(1)} times table`;
-  return tag;
+  if (/^f\d/.test(tag)) return `${tag.slice(1)} times table`;
+  return tag.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 }
 
 /* ------------------------------ STORAGE --------------------------- */

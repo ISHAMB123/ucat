@@ -5574,7 +5574,6 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [demo, setDemo] = useState(false);
   const [voiceOn, setVoiceOn] = useState(true);
   const [eyeOn, setEyeOn] = useState(false);
-  const [eyePct, setEyePct] = useState(null);
   const [eyeReady, setEyeReady] = useState(false);
   const [eyeErr, setEyeErr] = useState("");
   const [result, setResult] = useState(null);
@@ -5587,9 +5586,17 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const recogRef = useRef(null);
   const baseDraft = useRef("");
   const voiceRef = useRef(null);
-  const eyeAccum = useRef({ hits: 0, total: 0 });
+  const eyeAccum = useRef({ total: 0, qSum: 0 });
   const overlayRef = useRef(null);
   const boardRef = useRef(null);
+  const barRef = useRef(null);
+  const sparkRef = useRef(null);
+  const sparkBuf = useRef([]);
+  const pctRef = useRef(null);
+  const statusRef = useRef(null);
+  const gxRef = useRef(null);
+  const gyRef = useRef(null);
+  const avgRef = useRef(null);
   const rafRef = useRef(null);
 
   const credits = creditsOf(prefs);
@@ -5677,6 +5684,15 @@ function LiveInterview({ track, prefs, setPrefs }) {
     if (c.height !== h) c.height = h;
     return { w, h };
   };
+  /* Eye-contact quality 0-100 from how centred the gaze is, and its band. */
+  const quality = (a) => {
+    if (!a || !a.gaze) return 0;
+    const dx = a.gaze.x - 0.5, dy = a.gaze.y - 0.5;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    return Math.max(0, Math.min(100, Math.round(100 - d * 230)));
+  };
+  const qColor = (q) => (q >= 70 ? "#3ECF8E" : q >= 40 ? "#F5A524" : "#F2555A");
+
   const drawOverlay = (a) => {
     const c = overlayRef.current;
     if (!c) return;
@@ -5684,13 +5700,29 @@ function LiveInterview({ track, prefs, setPrefs }) {
     const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, w, h);
     if (!a) return;
-    ctx.fillStyle = "rgba(245,165,36,0.5)";
-    for (const q of a.pts) ctx.fillRect(q.x * w - 0.6, q.y * h - 0.6, 1.5, 1.5);
-    ctx.strokeStyle = "rgba(62,207,142,0.9)"; ctx.lineWidth = 1.4;
-    [a.eyeL, a.eyeR].forEach((b) => ctx.strokeRect(b.x * w, b.y * h, b.w * w, b.h * h));
-    ctx.strokeStyle = "#F5A524"; ctx.lineWidth = 2.2;
-    const r = Math.max(w, h) * 0.014;
-    [a.irisL, a.irisR].forEach((ir) => { ctx.beginPath(); ctx.arc(ir.x * w, ir.y * h, r, 0, 7); ctx.stroke(); });
+    ctx.fillStyle = "rgba(245,165,36,0.6)";
+    for (const q of a.pts) ctx.fillRect(q.x * w - 0.7, q.y * h - 0.7, 1.6, 1.6);
+    /* eye boxes with corner ticks */
+    ctx.strokeStyle = "rgba(62,207,142,0.95)"; ctx.lineWidth = 1.5;
+    [a.eyeL, a.eyeR].forEach((b) => {
+      const x = b.x * w, y = b.y * h, bw = b.w * w, bh = b.h * h, t = Math.min(bw, bh) * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(x, y + t); ctx.lineTo(x, y); ctx.lineTo(x + t, y);
+      ctx.moveTo(x + bw - t, y); ctx.lineTo(x + bw, y); ctx.lineTo(x + bw, y + t);
+      ctx.moveTo(x + bw, y + bh - t); ctx.lineTo(x + bw, y + bh); ctx.lineTo(x + bw - t, y + bh);
+      ctx.moveTo(x + t, y + bh); ctx.lineTo(x, y + bh); ctx.lineTo(x, y + bh - t);
+      ctx.stroke();
+    });
+    /* iris reticle */
+    const r = Math.max(w, h) * 0.016;
+    [a.irisL, a.irisR].forEach((ir) => {
+      const ix = ir.x * w, iy = ir.y * h;
+      ctx.strokeStyle = "#F5A524"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ix, iy, r, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ix - r * 1.6, iy); ctx.lineTo(ix - r * 0.6, iy); ctx.moveTo(ix + r * 0.6, iy); ctx.lineTo(ix + r * 1.6, iy);
+      ctx.moveTo(ix, iy - r * 1.6); ctx.lineTo(ix, iy - r * 0.6); ctx.moveTo(ix, iy + r * 0.6); ctx.lineTo(ix, iy + r * 1.6); ctx.stroke();
+      ctx.fillStyle = "#F5A524"; ctx.beginPath(); ctx.arc(ix, iy, 1.6, 0, 7); ctx.fill();
+    });
   };
   const drawBoard = (a) => {
     const c = boardRef.current;
@@ -5698,23 +5730,59 @@ function LiveInterview({ track, prefs, setPrefs }) {
     const { w, h } = fitCanvas(c);
     const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = "rgba(135,148,165,0.28)"; ctx.lineWidth = 1;
-    ctx.strokeRect(1, 1, w - 2, h - 2);
-    ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
-    ctx.strokeStyle = "rgba(62,207,142,0.55)"; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(w / 2, h / 2, 12, 0, 7); ctx.stroke();
+    ctx.strokeStyle = "rgba(135,148,165,0.16)"; ctx.lineWidth = 1;
+    for (let gx = 0; gx <= 4; gx++) { const x = (gx / 4) * w; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+    for (let gy = 0; gy <= 3; gy++) { const y = (gy / 3) * h; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(62,207,142,0.5)"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(w / 2 - 13, h / 2 - 13, 26, 26);
     if (a && a.gaze) {
       const gx = a.gaze.x * w, gy = a.gaze.y * h;
-      ctx.fillStyle = a.contact ? "#3ECF8E" : "#F5A524";
-      ctx.beginPath(); ctx.arc(gx, gy, 8, 0, 7); ctx.fill();
-      ctx.globalAlpha = 0.35; ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(gx, gy, 16, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+      const col = qColor(quality(a));
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.globalAlpha = 0.5;
+      ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.fillStyle = col; ctx.beginPath(); ctx.arc(gx, gy, 7, 0, 7); ctx.fill();
+      ctx.globalAlpha = 0.3; ctx.beginPath(); ctx.arc(gx, gy, 15, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
     }
   };
+  /* Vertical segmented meter, red at the bottom through amber to green. */
+  const drawBar = (q, on) => {
+    const c = barRef.current;
+    if (!c) return;
+    const { w, h } = fitCanvas(c);
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    const segs = 22, gap = 2, sh = (h - gap * (segs - 1)) / segs;
+    for (let i = 0; i < segs; i++) {
+      const level = ((i + 1) / segs) * 100;
+      const y = h - (i + 1) * sh - i * gap;
+      const lit = on && q >= level - (100 / segs);
+      const base = level >= 70 ? "62,207,142" : level >= 40 ? "245,165,36" : "242,85,90";
+      ctx.fillStyle = `rgba(${base},${lit ? 1 : 0.14})`;
+      ctx.fillRect(0, y, w, sh);
+    }
+  };
+  /* Rolling contact-trend line. */
+  const drawSpark = (buf) => {
+    const c = sparkRef.current;
+    if (!c) return;
+    const { w, h } = fitCanvas(c);
+    const ctx = c.getContext("2d");
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(135,148,165,0.14)"; ctx.lineWidth = 1;
+    for (let i = 1; i < 3; i++) { const y = (i / 3) * h; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+    if (buf.length < 2) return;
+    ctx.strokeStyle = qColor(buf[buf.length - 1]); ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    buf.forEach((v, i) => { const x = (i / (buf.length - 1)) * w, y = h - (v / 100) * h; if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+    ctx.stroke();
+  };
+
   useEffect(() => {
     if (phase !== "live" || !eyeOn || !camReady) return;
-    let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastPct = 0; let lastFace = 0; let lastA = null;
+    let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastText = 0; let lastFace = 0; let lastA = null;
     setEyeErr(""); setEyeReady(false);
+    const setTxt = (ref, t) => { if (ref.current) ref.current.textContent = t; };
+    const signed = (n) => (n >= 0 ? "+" : "") + n.toFixed(2);
     loadTracker().then((landmarker) => {
       if (stop) return;
       lm = landmarker; setEyeReady(true);
@@ -5724,27 +5792,31 @@ function LiveInterview({ track, prefs, setPrefs }) {
         const v = videoRef.current;
         if (!v || v.readyState < 2 || !v.videoWidth) return;
         const now = performance.now();
-        /* Run as fast as the CPU allows (inference-limited), so the marker
-           keeps up with fast movement. No React state in here, so this cannot
-           stall the video the way the old per-frame re-render did. */
+        /* Inference-limited so the marker keeps up with fast movement; no
+           React state in here, so it never stalls the video. */
         if (now - last < 28) return;
         last = now;
         const ts = Math.max(now, lastTs + 1); lastTs = ts;
         let a = null;
         try { a = analyseGaze(lm.detectForVideo(v, ts)); } catch (e) { a = null; }
-        if (a) {
-          lastA = a; lastFace = now;
-          drawOverlay(a); drawBoard(a);
-          eyeAccum.current.total++;
-          if (a.contact) eyeAccum.current.hits++;
-        } else if (now - lastFace < 260 && lastA) {
-          /* Fast head movement or a blink drops a few frames; hold the last
-             read briefly so the tracker does not blank out and "stop". */
-          drawOverlay(lastA); drawBoard(lastA);
-        } else {
-          drawOverlay(null); drawBoard(null);
+        if (a) { lastA = a; lastFace = now; }
+        /* Hold the last read briefly so fast movement or a blink does not
+           blank the tracker. */
+        const cur = a || (now - lastFace < 260 ? lastA : null);
+        const q = quality(cur);
+        drawOverlay(cur); drawBoard(cur); drawBar(q, !!cur);
+        const buf = sparkBuf.current; buf.push(cur ? q : 0); if (buf.length > 90) buf.shift();
+        drawSpark(buf);
+        if (a) { eyeAccum.current.total++; eyeAccum.current.qSum += q; }
+        if (now - lastText > 130) {
+          lastText = now;
+          if (pctRef.current) { pctRef.current.textContent = cur ? q + "%" : "--"; pctRef.current.style.color = cur ? qColor(q) : "var(--mute)"; }
+          if (statusRef.current) { statusRef.current.textContent = cur ? "LOCKED" : "SEARCHING"; statusRef.current.style.color = cur ? "#3ECF8E" : "#F2555A"; }
+          setTxt(gxRef, cur ? signed(cur.gaze.x - 0.5) : "--");
+          setTxt(gyRef, cur ? signed(cur.gaze.y - 0.5) : "--");
+          const avg = eyeAccum.current.total ? Math.round(eyeAccum.current.qSum / eyeAccum.current.total) : 0;
+          setTxt(avgRef, avg + "%");
         }
-        if (now - lastPct > 1200) { lastPct = now; setEyePct(Math.round((eyeAccum.current.hits / Math.max(eyeAccum.current.total, 1)) * 100)); }
       };
       rafRef.current = requestAnimationFrame(loop);
     }).catch(() => { if (!stop) setEyeErr("Eye tracking could not start on this browser. The interview still works."); });
@@ -5795,8 +5867,8 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const begin = async () => {
     if (!enough) { setBuyOpen(true); return; }
     setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
-    eyeAccum.current = { hits: 0, total: 0 };
-    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyePct(eyeOn ? 0 : null); setEyeReady(false); setEyeErr("");
+    eyeAccum.current = { total: 0, qSum: 0 }; sparkBuf.current = [];
+    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyeReady(false); setEyeErr("");
     /* MMI is a scenario you read and role-play, so the panel does not read it
        aloud; the reading voice is for the conversational panel format. */
     const useVoice = voiceOn && format !== "mmi";
@@ -5809,10 +5881,10 @@ function LiveInterview({ track, prefs, setPrefs }) {
   /* Wipe every trace of the session and keep only the anonymised summary. */
   const finishTo = async (debrief) => {
     stopCam(); stopListening(); hush(); stopThink();
-    const eyeFinal = eyeAccum.current.total > 3 ? Math.round((eyeAccum.current.hits / eyeAccum.current.total) * 100) : null;
+    const eyeFinal = eyeAccum.current.total > 5 ? Math.round(eyeAccum.current.qSum / eyeAccum.current.total) : null;
     const parsed = parseDebrief(debrief, eyeFinal);
     setResult(parsed);
-    setMessages([]); setDraft(""); eyeAccum.current = { hits: 0, total: 0 }; setEyePct(null);
+    setMessages([]); setDraft(""); eyeAccum.current = { total: 0, qSum: 0 }; sparkBuf.current = [];
     const entry = { ts: Date.now(), band: parsed.band, track, format, dna: parsed.dna };
     const next = [...hist, entry].slice(-30);
     setHist(next);
@@ -5836,7 +5908,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
     }
   };
 
-  const exitLive = () => { stopCam(); stopListening(); hush(); stopThink(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyePct(null); setEyeReady(false); eyeAccum.current = { hits: 0, total: 0 }; };
+  const exitLive = () => { stopCam(); stopListening(); hush(); stopThink(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyeReady(false); eyeAccum.current = { total: 0, qSum: 0 }; sparkBuf.current = []; };
   const reset = () => { exitLive(); setResult(null); if (enough) begin(); };
 
   const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendAnswer(); } };
@@ -5943,10 +6015,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const camBlock = (
     <div className="li-cam">
       {camOn ? (
-        <>
-          <video ref={videoRef} autoPlay playsInline muted className="li-video" />
-          {eyeOn && <canvas ref={overlayRef} className="li-overlay" />}
-        </>
+        <video ref={videoRef} autoPlay playsInline muted className="li-video" />
       ) : (
         <div className="li-mic-view">
           <span className={`li-orb${listening ? " on" : ""}`}><svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg></span>
@@ -5954,9 +6023,43 @@ function LiveInterview({ track, prefs, setPrefs }) {
         </div>
       )}
       {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
-      {camOn && eyeOn && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
-      {camOn && eyeOn && eyeReady && eyePct != null && <span className="li-eye">Eye contact {eyePct}%</span>}
-      <button className="li-cam-toggle" onClick={() => { if (!eyeOn) setCamOn((v) => !v); }} disabled={eyeOn}>{camOn ? "Camera on" : "Camera off"}</button>
+      <button className="li-cam-toggle" onClick={() => setCamOn((v) => !v)}>{camOn ? "Camera on" : "Camera off"}</button>
+    </div>
+  );
+
+  /* The eye-tracking instrument: live mesh over the camera, a colour-coded
+     contact meter, numeric readouts, a trend line and the gaze map. */
+  const hudBlock = (
+    <div className="li-hud">
+      <div className="li-hud-grid">
+        <div className="li-hud-cam">
+          {camOn ? (
+            <>
+              <video ref={videoRef} autoPlay playsInline muted className="li-video" />
+              <canvas ref={overlayRef} className="li-overlay" />
+            </>
+          ) : (
+            <div className="li-mic-view"><span className="li-mic-txt">Camera off</span></div>
+          )}
+          {camOn && !camReady && <div className="li-cam-wait">Starting camera…</div>}
+          {camOn && camReady && !eyeReady && !eyeErr && <div className="li-cam-wait">Loading eye model…</div>}
+          <span className="li-hud-tag"><i />TRACKING</span>
+        </div>
+        <div className="li-hud-meter">
+          <b ref={pctRef} className="li-hud-pct">--</b>
+          <span className="li-hud-metersub">CONTACT</span>
+          <canvas ref={barRef} className="li-hud-bar" />
+        </div>
+      </div>
+      <div className="li-hud-readouts">
+        <div className="li-hud-cell"><span className="k">Status</span><b ref={statusRef} className="mono">SEARCHING</b></div>
+        <div className="li-hud-cell"><span className="k">Session avg</span><b ref={avgRef} className="mono">0%</b></div>
+        <div className="li-hud-cell"><span className="k">Gaze X</span><b ref={gxRef} className="mono">--</b></div>
+        <div className="li-hud-cell"><span className="k">Gaze Y</span><b ref={gyRef} className="mono">--</b></div>
+        <div className="li-hud-cell span2"><span className="k">Contact trend</span><canvas ref={sparkRef} className="li-hud-spark" /></div>
+        <div className="li-hud-cell span2"><span className="k">Gaze map</span><canvas ref={boardRef} className="li-board-c" /></div>
+      </div>
+      {eyeErr && <div className="li-hud-err">{eyeErr}</div>}
     </div>
   );
 
@@ -6009,16 +6112,8 @@ function LiveInterview({ track, prefs, setPrefs }) {
 
           {eyeOn ? (
             <div className="li-you eyes">
+              {hudBlock}
               {answerBlock}
-              <div className="li-eyes-rail">
-                {camBlock}
-                <div className="li-board">
-                  <span className="li-board-h">Where you are looking</span>
-                  <canvas ref={boardRef} className="li-board-c" />
-                  {eyeErr ? <span className="li-board-err">{eyeErr}</span>
-                    : <span className="li-board-tag">Hold the marker on the centre target</span>}
-                </div>
-              </div>
             </div>
           ) : (
             <div className="li-you">

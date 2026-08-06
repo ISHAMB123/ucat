@@ -1174,17 +1174,31 @@ button.nav-row:hover { background:var(--signal)14; }
 /* eye-tracking layout: camera on the left, board + answer stacked on the right,
    so the question, your face, the tracking and what you are typing are all in
    view at once. */
-/* answer takes the screen; the camera and gaze board shrink to a discreet
-   side rail so the candidate sees the question and their answer clearly. */
-.li-you.eyes { grid-template-columns:1fr 232px; align-items:start; }
-.li-eyes-rail { display:flex; flex-direction:column; gap:11px; }
-.li-eyes-rail .li-cam { aspect-ratio:4/3; }
-.li-eyes-rail .li-cam-toggle { display:none; }
-.li-you.eyes .li-answer textarea { min-height:210px; }
-@media (max-width:760px){ .li-you.eyes { grid-template-columns:1fr; } .li-eyes-rail { flex-direction:row; } .li-eyes-rail > * { flex:1; } }
-.li-board { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:#0B0F14; padding:10px 12px 11px; }
-.li-board-h { font-family:'Inter',sans-serif; font-size:9px; letter-spacing:0.13em; text-transform:uppercase; color:var(--signal); margin-bottom:7px; }
-.li-board-c { width:100%; flex:1; min-height:108px; aspect-ratio:16/10; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:8px; }
+/* eye-tracking instrument (HUD) on the left, answer on the right */
+.li-you.eyes { grid-template-columns:1.15fr 1fr; align-items:start; }
+.li-you.eyes .li-answer textarea { min-height:230px; }
+@media (max-width:820px){ .li-you.eyes { grid-template-columns:1fr; } }
+
+.li-hud { border:1px solid var(--line); border-radius:6px; background:#090D12; padding:12px; display:flex; flex-direction:column; gap:10px; }
+.li-hud-grid { display:grid; grid-template-columns:1fr 66px; gap:10px; }
+.li-hud-cam { position:relative; aspect-ratio:4/3; background:#000; border:1px solid var(--line); border-radius:4px; overflow:hidden; }
+.li-hud-cam .li-video { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+.li-hud-tag { position:absolute; left:7px; top:7px; display:inline-flex; align-items:center; gap:5px; font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:0.1em; color:#3ECF8E; background:#000A; padding:3px 7px; border-radius:3px; }
+.li-hud-tag i { width:6px; height:6px; border-radius:50%; background:#3ECF8E; animation:li-blink 1.3s infinite; }
+@keyframes li-blink { 50% { opacity:.25; } }
+.li-hud-meter { display:flex; flex-direction:column; align-items:center; border:1px solid var(--line); border-radius:4px; background:#0B0F14; padding:9px 6px; }
+.li-hud-pct { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:700; line-height:1; color:var(--mute); }
+.li-hud-metersub { font-family:'JetBrains Mono',monospace; font-size:7px; letter-spacing:0.14em; color:var(--mute); margin:3px 0 8px; }
+.li-hud-bar { flex:1; width:26px; min-height:120px; }
+.li-hud-readouts { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.li-hud-cell { border:1px solid var(--line); border-radius:4px; background:#0B0F14; padding:8px 10px; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.li-hud-cell.span2 { grid-column:1 / -1; }
+.li-hud-cell .k { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mute); }
+.li-hud-cell b { font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--paper); }
+.li-hud-spark { width:100%; height:42px; }
+.li-hud-cell.span2 .li-board-c { width:100%; aspect-ratio:16/6; min-height:88px; }
+.li-hud-err { font-size:11px; color:var(--stop); font-family:'JetBrains Mono',monospace; }
+.li-board-c { width:100%; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:3px; }
 .li-board-tag { margin-top:8px; font-size:11px; color:var(--go); }
 .li-board-err { margin-top:8px; font-size:11px; color:var(--stop); }
 .li-think { margin-left:auto; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.03em; color:var(--signal); border:1px solid color-mix(in srgb, var(--signal) 40%, var(--line)); border-radius:20px; padding:3px 11px; }

@@ -5497,10 +5497,16 @@ function pickVoice() {
   if (typeof window === "undefined" || !window.speechSynthesis) return null;
   const vs = window.speechSynthesis.getVoices() || [];
   if (!vs.length) return null;
+  /* Prefer the genuinely neural voices modern browsers ship (Microsoft Online
+     Natural, Google) before the older robotic ones. */
+  const natural = vs.filter((v) => /natural|neural|online/i.test(v.name) && /^en/i.test(v.lang));
   const gb = vs.filter((v) => /en[-_]GB/i.test(v.lang));
-  const prefer = ["Libby", "Sonia", "Google UK English Female", "Natural", "Hazel", "Serena", "Google UK English Male", "Daniel", "Kate"];
-  for (const name of prefer) { const hit = gb.find((v) => v.name.includes(name)); if (hit) return hit; }
-  return gb[0] || vs.find((v) => /^en/i.test(v.lang)) || vs[0];
+  const prefer = ["Sonia", "Libby", "Maisie", "Google UK English Female", "Hazel", "Serena", "Google UK English Male", "Ryan", "Thomas", "Daniel", "Kate"];
+  for (const name of prefer) {
+    const hit = natural.find((v) => v.name.includes(name)) || gb.find((v) => v.name.includes(name));
+    if (hit) return hit;
+  }
+  return natural.find((v) => /en[-_]GB/i.test(v.lang)) || natural[0] || gb[0] || vs.find((v) => /^en/i.test(v.lang)) || vs[0];
 }
 
 function BuyCreditsModal({ prefs, setPrefs, onClose }) {
@@ -5571,9 +5577,10 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const [eyePct, setEyePct] = useState(null);
   const [eyeReady, setEyeReady] = useState(false);
   const [eyeErr, setEyeErr] = useState("");
-  const [gaze, setGaze] = useState(null);
   const [result, setResult] = useState(null);
   const [hist, setHist] = useState([]);
+  const [thinkLeft, setThinkLeft] = useState(0);
+  const thinkRef = useRef(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -5608,14 +5615,34 @@ function LiveInterview({ track, prefs, setPrefs }) {
     if (!voiceOn || !ttsOK || !text) return;
     try {
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text.replace(/SCORES[\s\S]*$/i, "").trim());
-      if (voiceRef.current) u.voice = voiceRef.current;
-      u.lang = "en-GB"; u.rate = 0.97; u.pitch = 1.03;
-      window.speechSynthesis.speak(u);
+      /* Speak sentence by sentence with a small gap, which reads far more
+         naturally than one long monotone utterance. */
+      const clean = text.replace(/SCORES[\s\S]*$/i, "").trim();
+      const parts = clean.match(/[^.!?]+[.!?]*/g) || [clean];
+      parts.forEach((part, i) => {
+        const u = new SpeechSynthesisUtterance(part.trim());
+        if (voiceRef.current) u.voice = voiceRef.current;
+        u.lang = "en-GB"; u.rate = 0.96; u.pitch = 1.0;
+        if (i > 0) u.text = " " + u.text;
+        window.speechSynthesis.speak(u);
+      });
     } catch (e) { /* ignore */ }
   };
   const hush = () => { if (ttsOK) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } };
   useEffect(() => { if (!voiceOn) hush(); }, [voiceOn]);
+
+  /* Thinking time, like a real station: a countdown after each question so
+     they gather an answer before speaking. It never blocks answering. */
+  const stopThink = () => { if (thinkRef.current) { clearInterval(thinkRef.current); thinkRef.current = null; } };
+  const startThink = () => {
+    stopThink();
+    const secs = format === "mmi" ? 45 : 25;
+    setThinkLeft(secs);
+    thinkRef.current = setInterval(() => {
+      setThinkLeft((t) => { if (t <= 1) { stopThink(); return 0; } return t - 1; });
+    }, 1000);
+  };
+  useEffect(() => () => stopThink(), []);
 
   /* Camera is a mirror and nothing more. Start it only during a live run and
      only when wanted; always stop the tracks when done. */
@@ -5642,62 +5669,70 @@ function LiveInterview({ track, prefs, setPrefs }) {
      model. It reads frames, draws the mesh and a gaze board, and keeps a
      running eye-contact ratio in a ref. No frame or landmark is stored or
      sent anywhere. */
+  /* All drawing happens straight to the canvases, never through React state,
+     so the hot loop triggers no re-renders (that was what stalled the video). */
+  const fitCanvas = (c) => {
+    const w = c.clientWidth || 300, h = c.clientHeight || 220;
+    if (c.width !== w) c.width = w;
+    if (c.height !== h) c.height = h;
+    return { w, h };
+  };
   const drawOverlay = (a) => {
-    const c = overlayRef.current, v = videoRef.current;
-    if (!c || !v) return;
-    const w = c.width = c.clientWidth || 300, h = c.height = c.clientHeight || 300;
+    const c = overlayRef.current;
+    if (!c) return;
+    const { w, h } = fitCanvas(c);
     const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, w, h);
     if (!a) return;
-    ctx.fillStyle = "rgba(245,165,36,0.45)";
-    for (const q of a.pts) ctx.fillRect(q.x * w - 0.6, q.y * h - 0.6, 1.4, 1.4);
+    ctx.fillStyle = "rgba(245,165,36,0.5)";
+    for (const q of a.pts) ctx.fillRect(q.x * w - 0.6, q.y * h - 0.6, 1.5, 1.5);
     ctx.strokeStyle = "rgba(62,207,142,0.9)"; ctx.lineWidth = 1.4;
     [a.eyeL, a.eyeR].forEach((b) => ctx.strokeRect(b.x * w, b.y * h, b.w * w, b.h * h));
-    ctx.strokeStyle = "#F5A524"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "#F5A524"; ctx.lineWidth = 2.2;
     const r = Math.max(w, h) * 0.014;
     [a.irisL, a.irisR].forEach((ir) => { ctx.beginPath(); ctx.arc(ir.x * w, ir.y * h, r, 0, 7); ctx.stroke(); });
   };
   const drawBoard = (a) => {
     const c = boardRef.current;
     if (!c) return;
-    const w = c.width = c.clientWidth || 220, h = c.height = c.clientHeight || 160;
+    const { w, h } = fitCanvas(c);
     const ctx = c.getContext("2d");
     ctx.clearRect(0, 0, w, h);
     ctx.strokeStyle = "rgba(135,148,165,0.28)"; ctx.lineWidth = 1;
     ctx.strokeRect(1, 1, w - 2, h - 2);
     ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2); ctx.stroke();
     ctx.strokeStyle = "rgba(62,207,142,0.55)"; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(w / 2, h / 2, 11, 0, 7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(w / 2, h / 2, 12, 0, 7); ctx.stroke();
     if (a && a.gaze) {
       const gx = a.gaze.x * w, gy = a.gaze.y * h;
       ctx.fillStyle = a.contact ? "#3ECF8E" : "#F5A524";
-      ctx.beginPath(); ctx.arc(gx, gy, 7, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(gx, gy, 8, 0, 7); ctx.fill();
       ctx.globalAlpha = 0.35; ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(gx, gy, 15, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+      ctx.beginPath(); ctx.arc(gx, gy, 16, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
     }
   };
   useEffect(() => {
     if (phase !== "live" || !eyeOn || !camReady) return;
-    let stop = false; let lm = null; let last = 0;
+    let stop = false; let lm = null; let last = 0; let lastTs = 0; let lastPct = 0;
     setEyeErr(""); setEyeReady(false);
     loadTracker().then((landmarker) => {
       if (stop) return;
       lm = landmarker; setEyeReady(true);
       const loop = () => {
         if (stop) return;
-        const v = videoRef.current;
-        const now = performance.now();
-        if (v && v.readyState >= 2 && v.videoWidth && now - last > 60) {
-          last = now;
-          let a = null;
-          try { a = analyseGaze(lm.detectForVideo(v, now)); } catch (e) { a = null; }
-          drawOverlay(a); drawBoard(a);
-          eyeAccum.current.total++;
-          if (a && a.contact) eyeAccum.current.hits++;
-          setGaze(a ? a.gaze : null);
-          if (eyeAccum.current.total % 8 === 0) setEyePct(Math.round((eyeAccum.current.hits / eyeAccum.current.total) * 100));
-        }
         rafRef.current = requestAnimationFrame(loop);
+        const v = videoRef.current;
+        if (!v || v.readyState < 2 || !v.videoWidth) return;
+        const now = performance.now();
+        if (now - last < 100) return; /* ~10fps: plenty for gaze, keeps the video smooth */
+        last = now;
+        const ts = Math.max(now, lastTs + 1); lastTs = ts;
+        let a = null;
+        try { a = analyseGaze(lm.detectForVideo(v, ts)); } catch (e) { a = null; }
+        drawOverlay(a); drawBoard(a);
+        eyeAccum.current.total++;
+        if (a && a.contact) eyeAccum.current.hits++;
+        if (now - lastPct > 1500) { lastPct = now; setEyePct(Math.round((eyeAccum.current.hits / Math.max(eyeAccum.current.total, 1)) * 100)); }
       };
       rafRef.current = requestAnimationFrame(loop);
     }).catch(() => { if (!stop) setEyeErr("Eye tracking could not start on this browser. The interview still works."); });
@@ -5749,15 +5784,19 @@ function LiveInterview({ track, prefs, setPrefs }) {
     if (!enough) { setBuyOpen(true); return; }
     setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
     eyeAccum.current = { hits: 0, total: 0 };
-    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyePct(eyeOn ? 0 : null); setGaze(null); setEyeReady(false); setEyeErr("");
+    setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyePct(eyeOn ? 0 : null); setEyeReady(false); setEyeErr("");
+    /* MMI is a scenario you read and role-play, so the panel does not read it
+       aloud; the reading voice is for the conversational panel format. */
+    const useVoice = voiceOn && format !== "mmi";
+    if (format === "mmi") setVoiceOn(false);
     const reply = await callInterviewer([{ role: "user", content: "Please begin the interview with your first question." }]);
-    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); speak(reply); }
+    if (reply) { setMessages([{ role: "assistant", content: reply }]); setQCount(1); startThink(); if (useVoice) speak(reply); }
     else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
   };
 
   /* Wipe every trace of the session and keep only the anonymised summary. */
   const finishTo = async (debrief) => {
-    stopCam(); stopListening(); hush();
+    stopCam(); stopListening(); hush(); stopThink();
     const eyeFinal = eyeAccum.current.total > 3 ? Math.round((eyeAccum.current.hits / eyeAccum.current.total) * 100) : null;
     const parsed = parseDebrief(debrief, eyeFinal);
     setResult(parsed);
@@ -5772,20 +5811,20 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const sendAnswer = async () => {
     const text = draft.trim();
     if (!text || loading) return;
-    stopListening();
+    stopListening(); stopThink(); hush();
     const shown = [...messages, { role: "user", content: text }];
     const willFinal = qCount >= maxQ;
     setMessages(shown); setDraft("");
     const forApi = [...messages, { role: "user", content: willFinal ? text + "\n\n[FINAL]" : text }];
     const reply = await callInterviewer(forApi);
     if (reply) {
-      if (willFinal) { finishTo(reply); } else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); speak(reply); }
+      if (willFinal) { stopThink(); finishTo(reply); } else { setMessages([...shown, { role: "assistant", content: reply }]); setQCount(qCount + 1); startThink(); speak(reply); }
     } else {
       setDraft(text);
     }
   };
 
-  const exitLive = () => { stopCam(); stopListening(); hush(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyePct(null); setGaze(null); setEyeReady(false); eyeAccum.current = { hits: 0, total: 0 }; };
+  const exitLive = () => { stopCam(); stopListening(); hush(); stopThink(); if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("setup"); setMessages([]); setDraft(""); setQCount(0); setError(""); setEyePct(null); setEyeReady(false); eyeAccum.current = { hits: 0, total: 0 }; };
   const reset = () => { exitLive(); setResult(null); if (enough) begin(); };
 
   const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendAnswer(); } };
@@ -5889,6 +5928,22 @@ function LiveInterview({ track, prefs, setPrefs }) {
   }
 
   /* ---- Full-screen interview room (live + results) ---- */
+  const answerBlock = (
+    <div className="li-answer">
+      <textarea value={draft} onFocus={hush} onChange={(e) => { hush(); setDraft(e.target.value); }} onKeyDown={onKey} placeholder="Speak or type your answer, then send" rows={eyeOn ? 3 : 4} disabled={loading} />
+      <div className="li-controls">
+        {speechOK && (
+          <button className={`li-mic-btn${listening ? " on" : ""}`} onClick={toggleMic} disabled={loading} title="Dictate your answer">
+            <svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg>
+            {listening ? "Stop" : "Speak"}
+          </button>
+        )}
+        <button className="ud-btn" onClick={sendAnswer} disabled={loading || !draft.trim()}>{qCount >= maxQ ? "Finish and get marked" : "Send answer"}</button>
+      </div>
+      {error && <p className="li-err">{error} <button className="li-retry" onClick={sendAnswer}>Try again</button></p>}
+    </div>
+  );
+
   return (
     <div className="li-room">
       <div className="li-room-bar">
@@ -5913,7 +5968,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
                 </span>
               ))}
             </div>
-            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i></div>
+            <div className="li-prog"><span>Question {progress} of {maxQ}</span><i><b style={{ width: `${(progress / maxQ) * 100}%` }} /></i>{thinkLeft > 0 && <span className="li-think">Thinking time {Math.floor(thinkLeft / 60)}:{String(thinkLeft % 60).padStart(2, "0")}</span>}</div>
             <div className="li-say" aria-live="polite">
               {loading && !lastQuestion ? "The panel is getting ready…" : lastQuestion ? lastQuestion.content : ""}
               {loading && lastQuestion && <span className="li-typing"><i /><i /><i /></span>}
@@ -5939,28 +5994,17 @@ function LiveInterview({ track, prefs, setPrefs }) {
               <button className="li-cam-toggle" onClick={() => { if (!eyeOn) setCamOn((v) => !v); }} disabled={eyeOn}>{camOn ? "Camera on" : "Camera off"}</button>
             </div>
 
-            {eyeOn && (
-              <div className="li-board">
-                <span className="li-board-h">Where you are looking</span>
-                <canvas ref={boardRef} className="li-board-c" />
-                {eyeErr ? <span className="li-board-err">{eyeErr}</span>
-                  : <span className={`li-board-tag${gaze ? "" : " wait"}`}>{gaze ? "Green means you are holding eye contact" : "Look at your camera to begin"}</span>}
+            {eyeOn ? (
+              <div className="li-eyes-right">
+                <div className="li-board">
+                  <span className="li-board-h">Where you are looking</span>
+                  <canvas ref={boardRef} className="li-board-c" />
+                  {eyeErr ? <span className="li-board-err">{eyeErr}</span>
+                    : <span className="li-board-tag">Hold the marker on the centre target for eye contact</span>}
+                </div>
+                {answerBlock}
               </div>
-            )}
-
-            <div className="li-answer">
-              <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={onKey} placeholder="Speak or type your answer, then send" rows={4} disabled={loading} />
-              <div className="li-controls">
-                {speechOK && (
-                  <button className={`li-mic-btn${listening ? " on" : ""}`} onClick={toggleMic} disabled={loading} title="Dictate your answer">
-                    <svg {...svgProps}><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v3" /></svg>
-                    {listening ? "Stop" : "Speak"}
-                  </button>
-                )}
-                <button className="ud-btn" onClick={sendAnswer} disabled={loading || !draft.trim()}>{qCount >= maxQ ? "Finish and get marked" : "Send answer"}</button>
-              </div>
-              {error && <p className="li-err">{error} <button className="li-retry" onClick={sendAnswer}>Try again</button></p>}
-            </div>
+            ) : answerBlock}
           </div>
         </div>
       )}

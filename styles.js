@@ -1171,15 +1171,22 @@ button.nav-row:hover { background:var(--signal)14; }
 
 /* eye tracking: camera overlay + gaze board */
 .li-overlay { position:absolute; inset:0; width:100%; height:100%; transform:scaleX(-1); pointer-events:none; }
-.li-you.eyes { grid-template-columns:1fr 1fr; }
-.li-you.eyes .li-answer { grid-column:1 / -1; }
-@media (max-width:760px){ .li-you.eyes { grid-template-columns:1fr; } }
-.li-board { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:#0B0F14; padding:12px 13px 13px; }
-.li-board-h { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:9px; }
-.li-board-c { width:100%; flex:1; min-height:150px; aspect-ratio:4/3; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:8px; }
-.li-board-tag { margin-top:9px; font-size:11px; color:var(--go); }
-.li-board-tag.wait { color:var(--mute); }
-.li-board-err { margin-top:9px; font-size:11px; color:var(--stop); }
+/* eye-tracking layout: camera on the left, board + answer stacked on the right,
+   so the question, your face, the tracking and what you are typing are all in
+   view at once. */
+.li-you.eyes { grid-template-columns:1.1fr 1fr; align-items:stretch; }
+.li-you.eyes .li-cam { aspect-ratio:auto; min-height:300px; }
+.li-eyes-right { display:flex; flex-direction:column; gap:13px; min-width:0; }
+@media (max-width:760px){ .li-you.eyes { grid-template-columns:1fr; } .li-you.eyes .li-cam { aspect-ratio:4/3; min-height:0; } }
+.li-board { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:#0B0F14; padding:11px 13px 12px; }
+.li-board-h { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--signal); margin-bottom:8px; }
+.li-board-c { width:100%; flex:1; min-height:120px; aspect-ratio:16/10; background:radial-gradient(120% 120% at 50% 50%, #12303A, #0B0F14); border-radius:8px; }
+.li-board-tag { margin-top:8px; font-size:11px; color:var(--go); }
+.li-board-err { margin-top:8px; font-size:11px; color:var(--stop); }
+.li-think { margin-left:auto; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.03em; color:var(--signal); border:1px solid color-mix(in srgb, var(--signal) 40%, var(--line)); border-radius:20px; padding:3px 11px; }
+.li-room-body .li-prog { display:flex; align-items:center; gap:12px; max-width:560px; margin:0 auto 14px; }
+.li-room-body .li-prog span:first-child { margin-bottom:0; white-space:nowrap; }
+.li-room-body .li-prog i { flex:1; }
 
 /* results / feedback DNA */
 .li-result { max-width:720px; }

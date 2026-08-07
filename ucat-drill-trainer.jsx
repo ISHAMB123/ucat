@@ -5706,6 +5706,16 @@ const CREDIT_PACKS = [
   { id: "fifteen", credits: 800, gbp: "14.99", tag: "Best value" },
 ];
 
+/* Stripe Payment Links per credit pack. Each link's after-payment redirect
+   must be set to  https://tempoucat.com/app/?iv_session={CHECKOUT_SESSION_ID}
+   so the app can confirm the payment with Stripe (via /api/verify) before
+   adding credits. Env vars override so the links can stay out of the repo. */
+const CREDIT_LINKS = {
+  single: import.meta.env.VITE_CREDIT_LINK_SINGLE || "https://buy.stripe.com/4gMcN4dfRamt7eH9CKes006",
+  five: import.meta.env.VITE_CREDIT_LINK_FIVE || "https://buy.stripe.com/dRm8wOb7J9ip56z3emes007",
+  fifteen: import.meta.env.VITE_CREDIT_LINK_FIFTEEN || "https://buy.stripe.com/5kQfZg6Rt66d7eH3emes008",
+};
+
 function creditsOf(prefs) {
   return typeof prefs.credits === "number" ? prefs.credits : FREE_CREDITS;
 }
@@ -5765,6 +5775,11 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
   const buy = async (p) => {
     if (busy) return;
     if (demo) { grant(p.credits); return; }
+    /* If a Stripe Payment Link is configured for this pack, use it: Stripe
+       hosts the page and redirects back with the session id, which /api/verify
+       confirms before the credits are added. */
+    const link = CREDIT_LINKS[p.id];
+    if (link) { setBusy(p.id); window.location.assign(link); return; }
     setBusy(p.id); setMsg("");
     try {
       const r = await fetch("/api/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pack: p.id }) });

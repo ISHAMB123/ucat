@@ -42,7 +42,12 @@ export default async function handler(req, res) {
       return;
     }
     if (data.payment_status === "paid") {
-      const credits = Number(data.metadata && data.metadata.credits) || 0;
+      /* Sessions created by /api/checkout carry the credit count in metadata.
+         Sessions from a hosted Payment Link do not, so fall back to mapping the
+         amount paid (in pence) to the pack it corresponds to. */
+      const byAmount = { 149: 50, 599: 250, 1499: 800 };
+      let credits = Number(data.metadata && data.metadata.credits) || 0;
+      if (!credits) credits = byAmount[data.amount_total] || 0;
       res.status(200).json({ ok: true, credits });
       return;
     }

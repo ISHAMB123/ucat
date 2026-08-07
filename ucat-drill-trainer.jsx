@@ -7744,7 +7744,10 @@ const CHECKOUT_RETURN = (() => {
    is added, so reaching this URL is not enough on its own. */
 const IV_SESSION = (() => {
   try {
-    const s = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("iv_session");
+    if (typeof window === "undefined") return "";
+    const q = new URLSearchParams(window.location.search);
+    /* Accept our own param, or the session_id Stripe may append itself. */
+    const s = q.get("iv_session") || q.get("session_id");
     return s && /^cs_[A-Za-z0-9_]+$/.test(s) ? s : "";
   } catch (e) { return ""; }
 })();

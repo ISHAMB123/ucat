@@ -5795,9 +5795,6 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
           ))}
         </div>
         {msg && <p className="li-added">{msg}</p>}
-        <a className="li-testpay" href="https://buy.stripe.com/4gMbJ06RtfGN42v8yGes004" target="_blank" rel="noopener">
-          Test the Stripe payment (30p) →
-        </a>
         {demo ? (
           <p className="li-note">Card checkout is not connected yet, so credits are added in demo mode. Add a Stripe secret key (STRIPE_SECRET_KEY) and these same buttons open Stripe's secure hosted checkout, with nothing else on this screen changing.</p>
         ) : (
@@ -7715,7 +7712,7 @@ function LegalView({ account, prefs, setPrefs, onDeleteAccount }) {
 /*  can keep the real link out of the repo if you prefer. Empty leaves */
 /*  the access-code flow in place.                                     */
 /* =================================================================== */
-const STRIPE_PAYMENT_LINK = ""; /* e.g. "https://buy.stripe.com/8x0abc123" */
+const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/4gMbJ06RtfGN42v8yGes004"; /* full-access unlock (launch price) */
 
 const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || STRIPE_PAYMENT_LINK;
 

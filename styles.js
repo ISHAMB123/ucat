@@ -1115,8 +1115,6 @@ button.nav-row:hover { background:var(--signal)14; }
 .li-price { display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:18px; color:var(--signal); letter-spacing:-0.02em; }
 .li-each { display:block; font-size:10.5px; color:var(--mute); margin-top:2px; }
 .li-added { font-size:12.5px; color:var(--go); margin:16px 0 0; line-height:1.5; }
-.li-testpay { display:inline-block; margin:14px 0 0; font-size:12.5px; font-weight:600; color:var(--signal); text-decoration:none; border:1px dashed color-mix(in srgb, var(--signal) 55%, var(--line)); border-radius:8px; padding:9px 14px; transition:background .15s; }
-.li-testpay:hover { background:color-mix(in srgb, var(--signal) 10%, transparent); }
 .li-note { font-size:11.5px; color:var(--mute); line-height:1.55; margin:14px 0 0; padding-top:14px; border-top:1px solid var(--line); }
 .no-motion .li-face, .no-motion .li-orb.on, .no-motion .li-typing i, .no-motion .eb-dot, .no-motion .li-ring { animation:none !important; }
 

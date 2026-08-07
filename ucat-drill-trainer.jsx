@@ -7712,7 +7712,7 @@ function LegalView({ account, prefs, setPrefs, onDeleteAccount }) {
 /*  can keep the real link out of the repo if you prefer. Empty leaves */
 /*  the access-code flow in place.                                     */
 /* =================================================================== */
-const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/4gMbJ06RtfGN42v8yGes004"; /* full-access unlock (launch price) */
+const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/9B628q5Np7ah8iL3emes005"; /* full-access unlock (£25 launch price) */
 
 const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || STRIPE_PAYMENT_LINK;
 

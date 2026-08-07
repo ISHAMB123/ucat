@@ -123,6 +123,53 @@ export function analyseReading(logObj) {
   return { coverage, bands, weakBandIdx, sweepRatio, reversals, downward, total, points: path.length };
 }
 
+/* Resample a fixation path to n points evenly spaced along its length, so
+   paths of different lengths can be averaged point for point. */
+export function resamplePath(pts, n = 24) {
+  if (!pts || pts.length < 2) return null;
+  const d = [0];
+  for (let i = 1; i < pts.length; i++) d.push(d[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+  const total = d[d.length - 1];
+  if (total <= 1e-6) return null;
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const target = (k / (n - 1)) * total;
+    let i = 1; while (i < d.length && d[i] < target) i++;
+    const i0 = i - 1, i1 = Math.min(i, pts.length - 1);
+    const seg = d[i1] - d[i0] || 1e-6;
+    const t = (target - d[i0]) / seg;
+    out.push({ x: pts[i0].x + (pts[i1].x - pts[i0].x) * t, y: pts[i0].y + (pts[i1].y - pts[i0].y) * t });
+  }
+  return out;
+}
+
+/* Running average of resampled paths: the crowd path grows as more
+   correct-in-time attempts fold in. Stored as { path, n }. */
+export function blendPath(stored, freshResampled) {
+  if (!freshResampled) return stored || null;
+  if (!stored || !stored.path || stored.path.length !== freshResampled.length) return { path: freshResampled, n: 1 };
+  const n = stored.n + 1;
+  const path = stored.path.map((p, i) => ({ x: (p.x * stored.n + freshResampled[i].x) / n, y: (p.y * stored.n + freshResampled[i].y) / n }));
+  return { path, n };
+}
+
+/* The seed "ideal" path used until enough real correct-in-time attempts
+   have been recorded for a passage: a descending zig-zag for scanning,
+   line-by-line sweeps for comprehension. */
+export function idealPath(drill) {
+  const scan = [{ x: 0.08, y: 0.12 }, { x: 0.92, y: 0.2 }, { x: 0.08, y: 0.42 }, { x: 0.92, y: 0.52 }, { x: 0.08, y: 0.74 }, { x: 0.92, y: 0.84 }];
+  const read = [{ x: 0.06, y: 0.12 }, { x: 0.94, y: 0.17 }, { x: 0.06, y: 0.32 }, { x: 0.94, y: 0.37 }, { x: 0.06, y: 0.52 }, { x: 0.94, y: 0.57 }, { x: 0.06, y: 0.72 }, { x: 0.94, y: 0.77 }, { x: 0.06, y: 0.9 }];
+  return resamplePath(drill === "scan" ? scan : read, 24);
+}
+
+/* Stable local-storage key for a passage, from its text. */
+export function pathKey(text) {
+  let h = 0;
+  const s = (text || "").slice(0, 400);
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return "rgpath:" + (h >>> 0).toString(36);
+}
+
 const BAND = ["top", "middle", "bottom"];
 
 /* Coach the reading pattern. Region-level only. `drill` is the drill id

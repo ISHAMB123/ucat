@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
-import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips } from "./eyeread.js";
+import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, pathKey } from "./eyeread.js";
 import { supabase, supabaseEnabled } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -1531,58 +1531,85 @@ function snapAnswered(q, snap) {
    the question is answered. Nothing leaves the device. */
 const CAL_DOTS = [{ x: 0.5, y: 0.5 }, { x: 0.1, y: 0.12 }, { x: 0.9, y: 0.12 }, { x: 0.9, y: 0.88 }, { x: 0.1, y: 0.88 }];
 
-function heatRGBA(t, a) {
-  let r, g, b;
-  if (t < 0.5) { const u = t / 0.5; r = 62 + (245 - 62) * u; g = 207 + (165 - 207) * u; b = 142 + (36 - 142) * u; }
-  else { const u = (t - 0.5) / 0.5; r = 245 + (242 - 245) * u; g = 165 + (85 - 165) * u; b = 36 + (90 - 36) * u; }
-  return `rgba(${r | 0},${g | 0},${b | 0},${a})`;
-}
-
-function drawReadHeat(canvas, log, drill) {
-  if (!canvas || !log) return;
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = canvas.clientWidth, h = canvas.clientHeight;
-  if (!w || !h) return;
-  canvas.width = w * dpr; canvas.height = h * dpr;
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
-  const { cols, rows, grid } = log;
-  let max = 0; for (let k = 0; k < grid.length; k++) if (grid[k] > max) max = grid[k];
-  const cw = w / cols, ch = h / rows;
-  if (max > 0) {
-    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-      const v = grid[y * cols + x]; if (!v) continue;
-      const t = Math.min(1, v / max);
-      ctx.fillStyle = heatRGBA(t, 0.14 + t * 0.6);
-      ctx.fillRect(x * cw, y * ch, cw + 0.6, ch + 0.6);
+/* Green to red heat gradient, matching a classic density heat map. */
+function heatLUT(t) {
+  const stops = [[0, [46, 190, 120]], [0.4, [214, 214, 60]], [0.6, [245, 197, 36]], [0.8, [240, 140, 50]], [1, [231, 76, 60]]];
+  for (let i = 1; i < stops.length; i++) {
+    if (t <= stops[i][0]) {
+      const a = stops[i - 1], b = stops[i], u = (t - a[0]) / (b[0] - a[0]);
+      return [a[1][0] + (b[1][0] - a[1][0]) * u | 0, a[1][1] + (b[1][1] - a[1][1]) * u | 0, a[1][2] + (b[1][2] - a[1][2]) * u | 0];
     }
   }
-  /* Band separators (top / middle / bottom). */
-  ctx.strokeStyle = "rgba(135,148,165,0.22)"; ctx.lineWidth = 1;
-  for (let bnd = 1; bnd < 3; bnd++) { const yy = Math.round((h * bnd) / 3) + 0.5; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke(); }
-  /* The path they should have taken: a zig-zag for scanning, line-by-line
-     for comprehension. */
-  ctx.strokeStyle = "rgba(47,113,184,0.95)"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath();
-  if (drill === "scan") {
-    [0.2, 0.5, 0.8].forEach((yy, idx) => {
-      const y = yy * h;
-      if (idx % 2 === 0) { ctx.moveTo(0.05 * w, y); ctx.lineTo(0.95 * w, y); }
-      else { ctx.moveTo(0.95 * w, y); ctx.lineTo(0.05 * w, y); }
-    });
-  } else {
-    for (let l = 0; l < 5; l++) { const y = ((l + 0.5) / 5) * h; ctx.moveTo(0.05 * w, y); ctx.lineTo(0.95 * w, y); }
-  }
-  ctx.stroke(); ctx.setLineDash([]);
+  return stops[stops.length - 1][1];
 }
 
-function ReadingGaze({ passageRef, calRef, drill, phase, qKey }) {
+function strokePath(ctx, path, w, h) {
+  ctx.beginPath();
+  path.forEach((p, i) => (i ? ctx.lineTo(p.x * w, p.y * h) : ctx.moveTo(p.x * w, p.y * h)));
+  ctx.stroke();
+}
+
+/* Smooth density heat map of where the eyes dwelt, with the crowd's average
+   path (people who answered right, in time) drawn over it as a distinct,
+   numbered white line. */
+function drawReadHeat(canvas, log, avgPath) {
+  if (!canvas || !log) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  if (!W || !H) return;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+
+  /* Splat a soft blob per fixation into an intensity buffer, then map the
+     accumulated intensity through the colour ramp. */
+  const buf = document.createElement("canvas");
+  buf.width = W; buf.height = H;
+  const bx = buf.getContext("2d");
+  const R = Math.max(20, Math.min(W, H) * 0.24);
+  bx.globalCompositeOperation = "lighter";
+  for (const p of log.path) {
+    const cx = p.x * W, cy = p.y * H;
+    const g = bx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    g.addColorStop(0, "rgba(0,0,0,0.10)"); g.addColorStop(1, "rgba(0,0,0,0)");
+    bx.fillStyle = g; bx.fillRect(cx - R, cy - R, R * 2, R * 2);
+  }
+  const img = bx.getImageData(0, 0, W, H); const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const a = d[i + 3] / 255;
+    if (a <= 0.01) { d[i + 3] = 0; continue; }
+    const t = Math.min(1, a * 1.4);
+    const c = heatLUT(t);
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = Math.min(235, 40 + t * 210);
+  }
+  bx.putImageData(img, 0, 0);
+  ctx.drawImage(buf, 0, 0, W, H);
+
+  if (avgPath && avgPath.length > 1) {
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(12,18,28,0.6)"; ctx.lineWidth = 5.5; strokePath(ctx, avgPath, W, H);
+    ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2.5; strokePath(ctx, avgPath, W, H);
+    const marks = 6;
+    for (let k = 0; k < marks; k++) {
+      const p = avgPath[Math.round((k / (marks - 1)) * (avgPath.length - 1))];
+      const cx = p.x * W, cy = p.y * H;
+      ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 7); ctx.fillStyle = "#FFFFFF"; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = "#2F71B8"; ctx.stroke();
+      ctx.fillStyle = "#2F71B8"; ctx.font = "700 9px Inter, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(k + 1), cx, cy + 0.5);
+    }
+  }
+}
+
+function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solvedFast }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const lmRef = useRef(null);
   const rafRef = useRef(null);
   const logRef = useRef(makeReadLog());
   const heatRef = useRef(null);
+  const gazeDotRef = useRef(null);
   const calBucket = useRef([]);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
   const [calIdx, setCalIdx] = useState(-1);
@@ -1611,12 +1638,16 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey }) {
       }
       if (stageRef.current === "ready" && phaseRef.current === "answer" && calRef.current) {
         const m = mapGaze(calRef.current, a.gaze);
-        const el = passageRef.current;
-        if (m && el) {
-          const r = el.getBoundingClientRect();
+        if (m) {
           const px = m.x * window.innerWidth, py = m.y * window.innerHeight;
-          if (r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) {
-            logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height);
+          const dot = gazeDotRef.current;
+          if (dot) { dot.style.left = px + "px"; dot.style.top = py + "px"; dot.style.opacity = "1"; }
+          const el = passageRef.current;
+          if (el) {
+            const r = el.getBoundingClientRect();
+            if (r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) {
+              logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height);
+            }
           }
         }
       }
@@ -1637,16 +1668,24 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey }) {
   /* Fresh heat log per question. */
   useEffect(() => { logRef.current = makeReadLog(); setResult(null); }, [qKey]);
 
-  /* When the question is answered, freeze the analysis and paint the map. */
+  /* When the question is answered, freeze the analysis, fold this attempt
+     into the crowd path if it was right and in time, and paint the map. */
   useEffect(() => {
-    if (phase !== "answer") {
-      const a = analyseReading(logRef.current);
-      setResult({ a, tips: readingTips(a, drill) });
+    if (phase === "answer") return;
+    const a = analyseReading(logRef.current);
+    const key = pathKey(passageText);
+    let stored = getJSON(key, null);
+    if (solvedFast && logRef.current.path.length > 6) {
+      const fresh = resamplePath(logRef.current.path, 24);
+      if (fresh) { stored = blendPath(stored, fresh); try { setJSON(key, stored); } catch (e) { /* storage full */ } }
     }
-  }, [phase, drill]);
+    const avg = stored && stored.path ? stored.path : idealPath(drill);
+    const seeded = !(stored && stored.path);
+    setResult({ a, tips: readingTips(a, drill), avg, crowdN: stored ? stored.n : 0, seeded });
+  }, [phase, drill, passageText, solvedFast]);
   useEffect(() => {
-    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, drill);
-  }, [result, drill]);
+    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, result.avg);
+  }, [result]);
 
   const runCalibration = () => {
     calBucket.current = []; setStage("calibrating");
@@ -1692,14 +1731,21 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey }) {
         </div>
       )}
       {stage === "ready" && phase === "answer" && (
-        <span className="rg-live" aria-hidden="true"><i />Reading tracker on</span>
+        <>
+          <span className="rg-gaze" ref={gazeDotRef} aria-hidden="true" style={{ opacity: 0 }} />
+          <span className="rg-live" aria-hidden="true"><i />Reading tracker on</span>
+        </>
       )}
       {phase !== "answer" && result && (
         <div className="rg-review">
           <div className="rg-head"><span>Where your eyes went</span>{result.a && <b>{Math.round(result.a.coverage * 100)}% covered</b>}</div>
-          <div className="rg-map"><canvas ref={heatRef} /><span className="rg-legend"><i className="cold" />looked less<i className="hot" />looked more<i className="ideal" />ideal path</span></div>
+          <div className="rg-map"><canvas ref={heatRef} /></div>
+          <div className="rg-key">
+            <span className="rg-k rg-k-scale"><i /><em>looked less</em><em className="r">looked more</em></span>
+            <span className="rg-k rg-k-avg"><i /><em>{result.seeded ? "target reading path" : `average of ${result.crowdN} correct, in-time reads`}</em></span>
+          </div>
           <ul className="rg-tips">{result.tips.map((t, n) => <li key={n}>{t}</li>)}</ul>
-          {result.a && <p className="rg-foot">Lightest on the {band} third. Webcam gaze is approximate, so treat this as a guide to your pattern, not a word-by-word record.</p>}
+          {result.a && <p className="rg-foot">Lightest on the {band} third. The white line is how people who got this right in time moved their eyes. Webcam gaze is approximate, so read this as your pattern, not a word-by-word record. Only the heat map is kept; no face image is stored.</p>}
         </div>
       )}
     </>
@@ -2394,7 +2440,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
             </p>
           )}
 
-          {readOn && <ReadingGaze passageRef={passageRef} calRef={calRef} drill={q.drill} phase={phase} qKey={i} />}
+          {readOn && <ReadingGaze passageRef={passageRef} calRef={calRef} drill={q.drill} phase={phase} qKey={i}
+            passageText={q.passageText} solvedFast={!!(lastEntry && lastEntry.correct && (!exam || lastEntry.ms <= budgetMs))} />}
         </div>
       </div>
     </div>

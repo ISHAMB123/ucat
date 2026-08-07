@@ -1858,11 +1858,16 @@ button.nav-row:hover { background:var(--signal)14; }
 .rg-head { display:flex; justify-content:space-between; align-items:baseline; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mute); margin-bottom:12px; }
 .rg-head b { color:var(--go); font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:0; }
 .rg-map { position:relative; }
-.rg-map canvas { width:100%; height:150px; display:block; border:1px solid var(--line); border-radius:8px; background:color-mix(in srgb, var(--slate) 40%, var(--ink)); }
-.rg-legend { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; font-size:10.5px; color:var(--mute); }
-.rg-legend i { width:12px; height:6px; border-radius:3px; margin-left:10px; }
-.rg-legend i:first-child { margin-left:0; }
-.rg-legend i.cold { background:#3ECF8E; } .rg-legend i.hot { background:#F2555A; } .rg-legend i.ideal { background:repeating-linear-gradient(90deg,#2F71B8 0 4px,transparent 4px 7px); border-radius:0; }
+.rg-map canvas { width:100%; height:168px; display:block; border:1px solid var(--line); border-radius:8px; background:color-mix(in srgb, var(--slate) 55%, var(--ink)); }
+/* live gaze dot: white fill with a coloured ring, fixed to the viewport */
+.rg-gaze { position:fixed; z-index:130; width:20px; height:20px; margin:-10px 0 0 -10px; border-radius:50%; background:rgba(255,255,255,0.92); box-shadow:0 0 0 3px rgba(242,85,90,0.95),0 1px 10px rgba(0,0,0,0.35); pointer-events:none; transition:opacity .2s; }
+.rg-key { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:11px; }
+.rg-k { display:inline-flex; align-items:center; gap:7px; font-size:10.5px; color:var(--mute); }
+.rg-k em { font-style:normal; }
+.rg-k-scale i { width:74px; height:8px; border-radius:4px; background:linear-gradient(90deg,#2EBE78,#D6D63C,#F5C524,#F08C32,#E74C3C); }
+.rg-k-scale em.r { order:3; }
+.rg-k-avg i { width:26px; height:0; border-top:2.5px solid #FFFFFF; box-shadow:0 0 0 1px rgba(12,18,28,0.55); position:relative; }
+.rg-k-avg i::after { content:""; position:absolute; left:50%; top:50%; width:7px; height:7px; margin:-3.5px 0 0 -3.5px; border-radius:50%; background:#FFF; box-shadow:0 0 0 2px #2F71B8; }
 .rg-tips { margin:14px 0 0; padding-left:18px; }
 .rg-tips li { font-size:13px; line-height:1.55; color:var(--body); margin-bottom:7px; }
 .rg-foot { font-size:11px; color:var(--mute); margin:10px 0 0; line-height:1.5; }

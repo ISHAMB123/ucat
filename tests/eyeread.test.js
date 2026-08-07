@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips } from "../eyeread.js";
+import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, pathKey } from "../eyeread.js";
 
 describe("fitCalibration recovers a linear gaze-to-screen map", () => {
   it("recovers an identity map from clean samples", () => {
@@ -87,5 +87,37 @@ describe("analyseReading scores coverage and pattern", () => {
     for (let k = 0; k < 30; k++) log.add(0.4 + (k % 3) * 0.05, 0.1 + (k % 4) * 0.05);
     const tips = readingTips(analyseReading(log), "tfc");
     expect(tips.join(" ")).toMatch(/can't tell|coverage|passage/i);
+  });
+});
+
+describe("path resampling and crowd averaging", () => {
+  it("resamples to a fixed length along a diagonal", () => {
+    const r = resamplePath([{ x: 0, y: 0 }, { x: 1, y: 1 }], 5);
+    expect(r).toHaveLength(5);
+    expect(r[0]).toEqual({ x: 0, y: 0 });
+    expect(r[4].x).toBeCloseTo(1, 6);
+    expect(r[2].x).toBeCloseTo(0.5, 6);
+  });
+
+  it("returns null for degenerate paths", () => {
+    expect(resamplePath([{ x: 0.5, y: 0.5 }], 4)).toBeNull();
+    expect(resamplePath([{ x: 0.5, y: 0.5 }, { x: 0.5, y: 0.5 }], 4)).toBeNull();
+  });
+
+  it("blendPath averages two runs and counts them", () => {
+    const a = resamplePath([{ x: 0, y: 0 }, { x: 1, y: 0 }], 4);
+    const b = resamplePath([{ x: 0, y: 1 }, { x: 1, y: 1 }], 4);
+    const s1 = blendPath(null, a);
+    expect(s1.n).toBe(1);
+    const s2 = blendPath(s1, b);
+    expect(s2.n).toBe(2);
+    expect(s2.path[0].y).toBeCloseTo(0.5, 6); // mean of y=0 and y=1
+  });
+
+  it("idealPath gives a resampled seed and pathKey is stable", () => {
+    expect(idealPath("scan")).toHaveLength(24);
+    expect(idealPath("tfc")).toHaveLength(24);
+    expect(pathKey("A passage")).toBe(pathKey("A passage"));
+    expect(pathKey("A passage")).not.toBe(pathKey("Different"));
   });
 });

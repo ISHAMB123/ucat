@@ -5795,6 +5795,9 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
           ))}
         </div>
         {msg && <p className="li-added">{msg}</p>}
+        <a className="li-testpay" href="https://buy.stripe.com/4gMbJ06RtfGN42v8yGes004" target="_blank" rel="noopener">
+          Test the Stripe payment (30p) →
+        </a>
         {demo ? (
           <p className="li-note">Card checkout is not connected yet, so credits are added in demo mode. Add a Stripe secret key (STRIPE_SECRET_KEY) and these same buttons open Stripe's secure hosted checkout, with nothing else on this screen changing.</p>
         ) : (
@@ -7764,6 +7767,8 @@ function AuthScreen({ onAuthed, onSkip }) {
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
   const [sentMsg, setSentMsg] = useState("");
+  const [step, setStep] = useState("form"); // form | code
+  const [code, setCode] = useState("");
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeImprove, setAgreeImprove] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
@@ -7783,6 +7788,8 @@ function AuthScreen({ onAuthed, onSkip }) {
     if (!validEmail(email)) { setErr("That email address does not look right."); return; }
     if (mode !== "reset") {
       if (pw.length < 8) { setErr("Passwords need at least 8 characters."); return; }
+      /* A strong password: mixed case plus a number or symbol. */
+      if (mode === "signup" && strength < 3) { setErr("Choose a stronger password: at least 8 characters with upper and lower case letters and a number or symbol."); return; }
       if (mode === "signup" && pw !== pw2) { setErr("The two passwords do not match."); return; }
       if (mode === "signup" && !agreeTerms) { setErr("Please accept the Terms and Privacy Policy to create an account."); return; }
     }
@@ -7795,6 +7802,7 @@ function AuthScreen({ onAuthed, onSkip }) {
       await new Promise((r) => setTimeout(r, 550));
       setBusy(false);
       if (mode === "reset") { setSentMsg(`If an account exists for ${addr}, a reset link is on its way. Check spam if it does not arrive within a few minutes.`); setSent(true); return; }
+      if (mode === "signup") { setSentMsg(`Preview mode: enter any 6 digits to confirm ${addr}.`); setStep("code"); return; }
       onAuthed({ email: addr, ...consent });
       return;
     }
@@ -7803,9 +7811,18 @@ function AuthScreen({ onAuthed, onSkip }) {
     try {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({ email: addr, password: pw });
-        if (error) throw error;
+        if (error) {
+          if (/already registered|already exists|already been/i.test(error.message)) { setErr("An account with that email already exists. Sign in instead."); return; }
+          throw error;
+        }
+        /* Supabase returns a user with no identities when the email is already
+           taken (it will not say so outright, to avoid leaking who has an
+           account). Treat that as a duplicate. */
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          setErr("An account with that email already exists. Sign in instead."); return;
+        }
         if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id, ...consent }); }
-        else { setSentMsg(`Almost there. We have emailed ${addr} a link to confirm your account. Open it, then sign in.`); setSent(true); }
+        else { setSentMsg(`Enter the 6-digit code we emailed to ${addr}. It expires shortly.`); setStep("code"); }
       } else if (mode === "login") {
         const { data, error } = await supabase.auth.signInWithPassword({ email: addr, password: pw });
         if (error) throw error;
@@ -7823,18 +7840,62 @@ function AuthScreen({ onAuthed, onSkip }) {
     }
   };
 
+  const verify = async () => {
+    setErr("");
+    const addr = email.trim().toLowerCase();
+    const token = code.trim();
+    if (!/^\d{6}$/.test(token)) { setErr("Enter the 6-digit code from your email."); return; }
+    setBusy(true);
+    if (!supabaseEnabled) { await new Promise((r) => setTimeout(r, 400)); setBusy(false); onAuthed({ email: addr, consentImprove: agreeImprove }); return; }
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({ email: addr, token, type: "signup" });
+      if (error) throw error;
+      onAuthed({ email: (data.user && data.user.email) || addr, id: data.user && data.user.id, consentImprove: agreeImprove });
+    } catch (e) {
+      setErr(e && e.message ? e.message : "That code did not work. Check it, or resend a new one.");
+    } finally { setBusy(false); }
+  };
+
+  const resendCode = async () => {
+    setErr(""); setBusy(true);
+    const addr = email.trim().toLowerCase();
+    if (!supabaseEnabled) { await new Promise((r) => setTimeout(r, 300)); setBusy(false); setSentMsg("Preview mode: enter any 6 digits."); return; }
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email: addr });
+      if (error) throw error;
+      setSentMsg(`A fresh code is on its way to ${addr}.`);
+    } catch (e) { setErr(e && e.message ? e.message : "Could not resend the code just now."); }
+    finally { setBusy(false); }
+  };
+
   return (
     <div className="ud-gate">
       <div className="auth-card">
         <a href="/" className="ud-mark auth-home" style={{ justifyContent: "center", marginBottom: 6 }} title="Back to the Tempo home page" aria-label="Back to the Tempo home page"><b>Tempo</b><span>UCAT trainer</span></a>
         <h2>{mode === "signup" ? "Create your account" : mode === "login" ? "Welcome back" : "Reset your password"}</h2>
         <p className="sub">
-          {mode === "signup" ? "An account keeps your progress, mistake bank and mocks on every device you use."
+          {mode === "signup" ? "An account keeps your progress, mistake bank and mocks on every device you use. We email a code to confirm it is you."
             : mode === "login" ? "Pick up exactly where you left off."
             : "We will email you a link to set a new password."}
         </p>
 
-        {sent ? (
+        {step === "code" ? (
+          <>
+            <div className="auth-sent">{sentMsg}</div>
+            <label className="auth-f">Verification code
+              <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onKeyDown={(e) => e.key === "Enter" && verify()} placeholder="6-digit code"
+                style={{ letterSpacing: "0.3em", textAlign: "center", fontSize: 18 }} />
+            </label>
+            {err && <p className="auth-err">{err}</p>}
+            <button className="ud-btn full" onClick={verify} disabled={busy}>{busy ? "Working..." : "Verify and continue"}</button>
+            <div className="auth-alt">
+              <button onClick={resendCode} disabled={busy}>Resend the code</button>
+              <button onClick={() => { setStep("form"); setCode(""); setErr(""); }}>Use a different email</button>
+            </div>
+          </>
+        ) : sent ? (
           <>
             <div className="auth-sent">{sentMsg}</div>
             <button className="ud-btn ghost full" onClick={() => { setSent(false); setMode("login"); }}>Back to sign in</button>
@@ -7849,7 +7910,7 @@ function AuthScreen({ onAuthed, onSkip }) {
               <label className="auth-f">Password
                 <span className="pwwrap">
                   <input type={show ? "text" : "password"} autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                    value={pw} onChange={(e) => setPw(e.target.value)} placeholder="At least 8 characters"
+                    value={pw} onChange={(e) => setPw(e.target.value)} placeholder={mode === "signup" ? "8+ chars, mixed case and a number" : "Your password"}
                     onKeyDown={(e) => e.key === "Enter" && submit()} />
                   <button type="button" className="pweye" onClick={() => setShow((o) => !o)} aria-label={show ? "Hide password" : "Show password"}>
                     {show ? "hide" : "show"}

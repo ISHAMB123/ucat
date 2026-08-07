@@ -1,0 +1,91 @@
+import { describe, it, expect } from "vitest";
+import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips } from "../eyeread.js";
+
+describe("fitCalibration recovers a linear gaze-to-screen map", () => {
+  it("recovers an identity map from clean samples", () => {
+    const pts = [
+      { g: { x: 0.1, y: 0.1 }, t: { x: 0.1, y: 0.1 } },
+      { g: { x: 0.9, y: 0.1 }, t: { x: 0.9, y: 0.1 } },
+      { g: { x: 0.5, y: 0.5 }, t: { x: 0.5, y: 0.5 } },
+      { g: { x: 0.1, y: 0.9 }, t: { x: 0.1, y: 0.9 } },
+      { g: { x: 0.9, y: 0.9 }, t: { x: 0.9, y: 0.9 } },
+    ];
+    const cal = fitCalibration(pts);
+    expect(cal).not.toBeNull();
+    const m = mapGaze(cal, { x: 0.5, y: 0.5 });
+    expect(m.x).toBeCloseTo(0.5, 2);
+    expect(m.y).toBeCloseTo(0.5, 2);
+  });
+
+  it("corrects a compressed, offset raw estimate", () => {
+    /* Raw gaze only spans 0.3..0.7 but the true target spans 0..1. */
+    const f = (v) => 0.3 + v * 0.4;
+    const pts = [
+      { g: { x: f(0), y: f(0) }, t: { x: 0, y: 0 } },
+      { g: { x: f(1), y: f(0) }, t: { x: 1, y: 0 } },
+      { g: { x: f(0), y: f(1) }, t: { x: 0, y: 1 } },
+      { g: { x: f(1), y: f(1) }, t: { x: 1, y: 1 } },
+    ];
+    const cal = fitCalibration(pts);
+    const m = mapGaze(cal, { x: f(0.5), y: f(0.25) });
+    expect(m.x).toBeCloseTo(0.5, 1);
+    expect(m.y).toBeCloseTo(0.25, 1);
+  });
+
+  it("returns null with too few points", () => {
+    expect(fitCalibration([{ g: { x: 0, y: 0 }, t: { x: 0, y: 0 } }])).toBeNull();
+    expect(fitCalibration([])).toBeNull();
+  });
+
+  it("clamps mapped output to the unit square", () => {
+    const cal = fitCalibration([
+      { g: { x: 0, y: 0 }, t: { x: 0, y: 0 } },
+      { g: { x: 1, y: 0 }, t: { x: 1, y: 0 } },
+      { g: { x: 0, y: 1 }, t: { x: 0, y: 1 } },
+    ]);
+    const m = mapGaze(cal, { x: 5, y: -5 });
+    expect(m.x).toBe(1);
+    expect(m.y).toBe(0);
+  });
+});
+
+describe("analyseReading scores coverage and pattern", () => {
+  it("returns null with too little data", () => {
+    const log = makeReadLog();
+    log.add(0.5, 0.5);
+    expect(analyseReading(log)).toBeNull();
+  });
+
+  it("detects a broad zig-zag scan (high sweep ratio)", () => {
+    const log = makeReadLog();
+    for (let row = 0; row < 6; row++) {
+      const y = (row + 0.5) / 6;
+      for (let x = 0; x <= 1.0001; x += 0.1) log.add(row % 2 ? 1 - x : x, y);
+    }
+    const a = analyseReading(log);
+    expect(a).not.toBeNull();
+    expect(a.sweepRatio).toBeGreaterThan(1.4);
+    expect(a.coverage).toBeGreaterThan(0.3);
+    const tips = readingTips(a, "scan");
+    expect(tips[0]).toMatch(/zig-zag|swept/i);
+  });
+
+  it("flags a straight vertical crawl (low sweep ratio) and a skipped bottom", () => {
+    const log = makeReadLog();
+    /* Gaze crawls down the same column across the top and middle only, so
+       the bottom third is uniquely the least-dwelt band. */
+    for (let k = 0; k < 40; k++) log.add(0.5 + (k % 2) * 0.01, (k / 40) * 0.6);
+    const a = analyseReading(log);
+    expect(a.sweepRatio).toBeLessThan(1.4);
+    expect(a.weakBandIdx).toBe(2); // bottom got no dwell
+    const tips = readingTips(a, "scan");
+    expect(tips.join(" ")).toMatch(/zig-zag|numbers before words/i);
+  });
+
+  it("gives comprehension-specific tips for tfc", () => {
+    const log = makeReadLog();
+    for (let k = 0; k < 30; k++) log.add(0.4 + (k % 3) * 0.05, 0.1 + (k % 4) * 0.05);
+    const tips = readingTips(analyseReading(log), "tfc");
+    expect(tips.join(" ")).toMatch(/can't tell|coverage|passage/i);
+  });
+});

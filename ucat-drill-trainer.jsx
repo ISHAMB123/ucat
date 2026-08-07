@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
+import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips } from "./eyeread.js";
 import { supabase, supabaseEnabled } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -1522,7 +1523,190 @@ function snapAnswered(q, snap) {
   return !!snap.val && snap.val.trim() !== "";
 }
 
-function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, reviewEnd, level, onDone, onQuit }) {
+/* ------------------------------ READING GAZE ---------------------- */
+/* On-device webcam gaze for the Verbal Reasoning passages. eyetrax is a
+   Python library, so this reuses the same idea in the browser through the
+   MediaPipe tracker: five-dot calibration, a heat grid accumulated over the
+   passage while answering, then a heat map and reading-pattern coaching once
+   the question is answered. Nothing leaves the device. */
+const CAL_DOTS = [{ x: 0.5, y: 0.5 }, { x: 0.1, y: 0.12 }, { x: 0.9, y: 0.12 }, { x: 0.9, y: 0.88 }, { x: 0.1, y: 0.88 }];
+
+function heatRGBA(t, a) {
+  let r, g, b;
+  if (t < 0.5) { const u = t / 0.5; r = 62 + (245 - 62) * u; g = 207 + (165 - 207) * u; b = 142 + (36 - 142) * u; }
+  else { const u = (t - 0.5) / 0.5; r = 245 + (242 - 245) * u; g = 165 + (85 - 165) * u; b = 36 + (90 - 36) * u; }
+  return `rgba(${r | 0},${g | 0},${b | 0},${a})`;
+}
+
+function drawReadHeat(canvas, log, drill) {
+  if (!canvas || !log) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const { cols, rows, grid } = log;
+  let max = 0; for (let k = 0; k < grid.length; k++) if (grid[k] > max) max = grid[k];
+  const cw = w / cols, ch = h / rows;
+  if (max > 0) {
+    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+      const v = grid[y * cols + x]; if (!v) continue;
+      const t = Math.min(1, v / max);
+      ctx.fillStyle = heatRGBA(t, 0.14 + t * 0.6);
+      ctx.fillRect(x * cw, y * ch, cw + 0.6, ch + 0.6);
+    }
+  }
+  /* Band separators (top / middle / bottom). */
+  ctx.strokeStyle = "rgba(135,148,165,0.22)"; ctx.lineWidth = 1;
+  for (let bnd = 1; bnd < 3; bnd++) { const yy = Math.round((h * bnd) / 3) + 0.5; ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(w, yy); ctx.stroke(); }
+  /* The path they should have taken: a zig-zag for scanning, line-by-line
+     for comprehension. */
+  ctx.strokeStyle = "rgba(47,113,184,0.95)"; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath();
+  if (drill === "scan") {
+    [0.2, 0.5, 0.8].forEach((yy, idx) => {
+      const y = yy * h;
+      if (idx % 2 === 0) { ctx.moveTo(0.05 * w, y); ctx.lineTo(0.95 * w, y); }
+      else { ctx.moveTo(0.95 * w, y); ctx.lineTo(0.05 * w, y); }
+    });
+  } else {
+    for (let l = 0; l < 5; l++) { const y = ((l + 0.5) / 5) * h; ctx.moveTo(0.05 * w, y); ctx.lineTo(0.95 * w, y); }
+  }
+  ctx.stroke(); ctx.setLineDash([]);
+}
+
+function ReadingGaze({ passageRef, calRef, drill, phase, qKey }) {
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const lmRef = useRef(null);
+  const rafRef = useRef(null);
+  const logRef = useRef(makeReadLog());
+  const heatRef = useRef(null);
+  const calBucket = useRef([]);
+  const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
+  const [calIdx, setCalIdx] = useState(-1);
+  const [camErr, setCamErr] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const stageRef = useRef(stage); useEffect(() => { stageRef.current = stage; }, [stage]);
+  const phaseRef = useRef(phase); useEffect(() => { phaseRef.current = phase; }, [phase]);
+  const calIdxRef = useRef(calIdx); useEffect(() => { calIdxRef.current = calIdx; }, [calIdx]);
+
+  /* Acquire the camera and tracker once, then run a light sampling loop. */
+  useEffect(() => {
+    let dead = false; let last = 0; let lastTs = 0;
+    const loop = () => {
+      rafRef.current = requestAnimationFrame(loop);
+      const v = videoRef.current, lm = lmRef.current;
+      if (!v || !lm || v.readyState < 2 || !v.videoWidth) return;
+      const now = performance.now();
+      if (now - last < 45) return; last = now;
+      const ts = Math.max(now, lastTs + 1); lastTs = ts;
+      let a = null; try { a = analyseGaze(lm.detectForVideo(v, ts)); } catch (e) { a = null; }
+      if (!a || !a.gaze) return;
+      if (stageRef.current === "calibrating" && calIdxRef.current >= 0) {
+        calBucket.current.push({ g: { x: a.gaze.x, y: a.gaze.y }, idx: calIdxRef.current });
+        return;
+      }
+      if (stageRef.current === "ready" && phaseRef.current === "answer" && calRef.current) {
+        const m = mapGaze(calRef.current, a.gaze);
+        const el = passageRef.current;
+        if (m && el) {
+          const r = el.getBoundingClientRect();
+          const px = m.x * window.innerWidth, py = m.y * window.innerHeight;
+          if (r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) {
+            logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height);
+          }
+        }
+      }
+    };
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } });
+        if (dead) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        const v = videoRef.current; if (v) { v.srcObject = stream; try { await v.play(); } catch (e) { /* autoplay */ } }
+        const lm = await loadTracker(); if (dead) return; lmRef.current = lm;
+        loop();
+      } catch (e) { if (!dead) setCamErr(true); }
+    })();
+    return () => { dead = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); const s = streamRef.current; if (s) s.getTracks().forEach((t) => t.stop()); };
+  }, []);
+
+  /* Fresh heat log per question. */
+  useEffect(() => { logRef.current = makeReadLog(); setResult(null); }, [qKey]);
+
+  /* When the question is answered, freeze the analysis and paint the map. */
+  useEffect(() => {
+    if (phase !== "answer") {
+      const a = analyseReading(logRef.current);
+      setResult({ a, tips: readingTips(a, drill) });
+    }
+  }, [phase, drill]);
+  useEffect(() => {
+    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, drill);
+  }, [result, drill]);
+
+  const runCalibration = () => {
+    calBucket.current = []; setStage("calibrating");
+    let idx = 0; setCalIdx(0);
+    const step = () => setTimeout(() => {
+      idx += 1;
+      if (idx < CAL_DOTS.length) { setCalIdx(idx); step(); return; }
+      const byIdx = {};
+      for (const s of calBucket.current) { (byIdx[s.idx] || (byIdx[s.idx] = [])).push(s.g); }
+      const samples = CAL_DOTS.map((t, k) => {
+        const gs = byIdx[k]; if (!gs || !gs.length) return null;
+        const mid = gs.slice(Math.floor(gs.length * 0.4)); // drop the settle-in frames
+        const use = mid.length ? mid : gs;
+        const mg = use.reduce((acc, g) => ({ x: acc.x + g.x, y: acc.y + g.y }), { x: 0, y: 0 });
+        return { g: { x: mg.x / use.length, y: mg.y / use.length }, t };
+      }).filter(Boolean);
+      const cal = fitCalibration(samples);
+      calRef.current = cal; setCalIdx(-1); setStage(cal ? "ready" : "intro");
+    }, 1200);
+    step();
+  };
+
+  if (camErr) {
+    return <p className="rg-note">Camera unavailable, so reading tracking is off for this session. The drill works as normal.</p>;
+  }
+
+  const band = result && result.a ? ["top", "middle", "bottom"][result.a.weakBandIdx] : "";
+  return (
+    <>
+      <video ref={videoRef} autoPlay playsInline muted className="rg-cam" />
+      {(stage === "intro" || stage === "calibrating") && (
+        <div className="rg-cal">
+          {stage === "intro" ? (
+            <div className="rg-cal-card">
+              <h4>Reading eye tracking</h4>
+              <p>A quick calibration maps your gaze to the screen. Look at each dot as it appears and keep your head still. Everything stays on your device.</p>
+              <button className="ud-btn" onClick={runCalibration}>Calibrate (5 dots)</button>
+              <button className="ud-quit" onClick={() => { calRef.current = null; setStage("ready"); }}>Skip</button>
+            </div>
+          ) : (
+            calIdx >= 0 && <span className="rg-dot" style={{ left: `${CAL_DOTS[calIdx].x * 100}%`, top: `${CAL_DOTS[calIdx].y * 100}%` }} />
+          )}
+        </div>
+      )}
+      {stage === "ready" && phase === "answer" && (
+        <span className="rg-live" aria-hidden="true"><i />Reading tracker on</span>
+      )}
+      {phase !== "answer" && result && (
+        <div className="rg-review">
+          <div className="rg-head"><span>Where your eyes went</span>{result.a && <b>{Math.round(result.a.coverage * 100)}% covered</b>}</div>
+          <div className="rg-map"><canvas ref={heatRef} /><span className="rg-legend"><i className="cold" />looked less<i className="hot" />looked more<i className="ideal" />ideal path</span></div>
+          <ul className="rg-tips">{result.tips.map((t, n) => <li key={n}>{t}</li>)}</ul>
+          {result.a && <p className="rg-foot">Lightest on the {band} third. Webcam gaze is approximate, so treat this as a guide to your pattern, not a word-by-word record.</p>}
+        </div>
+      )}
+    </>
+  );
+}
+
+function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, reviewEnd, level, readEye, onDone, onQuit }) {
   /* No per-question feedback when timed, or when the user chose to review
      only at the end. Feedback after each answer is the tutor default. */
   const noFeedback = exam || reviewEnd;
@@ -1560,6 +1744,12 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   useEffect(() => { syllRef.current = syllPicks; }, [syllPicks]);
 
   const q = questions[i];
+
+  /* Reading gaze tracker: only on the Verbal Reasoning passages, only when
+     the candidate turned it on. Calibration is kept for the whole session. */
+  const passageRef = useRef(null);
+  const calRef = useRef(null);
+  const readOn = readEye && drill.section === "VR" && !!q && !!q.passageText;
 
   const advance = useCallback((list) => {
     if (i + 1 >= questions.length) onDone(list);
@@ -2020,7 +2210,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
           )}
 
           {q.scenarioText && <p className="ud-scenario">{q.scenarioText}</p>}
-          {q.passageText && <p className="ud-passage" style={{ marginTop: 0, marginBottom: 18 }}>{q.passageText}</p>}
+          {q.passageText && <p ref={passageRef} className="ud-passage" style={{ marginTop: 0, marginBottom: 18 }}>{q.passageText}</p>}
           {q.context && <p className="ud-context">{q.context}</p>}
           {q.venn3 && (
             <svg viewBox="0 0 300 178" style={{ width: "100%", maxWidth: 330, margin: "4px 0 12px" }} aria-label="Three-set Venn diagram">
@@ -2203,6 +2393,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
                 q.drill === "scan" ? "Read the question first. Hunt for the shape of the answer." : ""}
             </p>
           )}
+
+          {readOn && <ReadingGaze passageRef={passageRef} calRef={calRef} drill={q.drill} phase={phase} qKey={i} />}
         </div>
       </div>
     </div>
@@ -2836,6 +3028,13 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
           <div className="row">
             <button className={!prefs.hideQ ? "on" : ""} onClick={() => setPrefs({ ...prefs, hideQ: false })}>Off</button>
             <button className={prefs.hideQ ? "on" : ""} onClick={() => setPrefs({ ...prefs, hideQ: true })}>Hide until ready</button>
+          </div>
+        </div>
+        <div className="grp">
+          <label>Reading eye tracking <span className="grp-sub">verbal reasoning only</span></label>
+          <div className="row">
+            <button className={!prefs.readEye ? "on" : ""} onClick={() => setPrefs({ ...prefs, readEye: false })}>Off</button>
+            <button className={prefs.readEye ? "on" : ""} onClick={() => setPrefs({ ...prefs, readEye: true })}>On (webcam)</button>
           </div>
         </div>
         {prefs.exam && (
@@ -9104,7 +9303,7 @@ export default function UcatDrillTrainer() {
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && !["speed", "blurt"].includes(drill.id) && (
         <DrillRunner drill={drill} questions={questions} exam={runExam} budget={runBudget}
-          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} level={prefs.level} onDone={done} onQuit={() => setView("drills")} />
+          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} level={prefs.level} readEye={prefs.readEye} onDone={done} onQuit={() => setView("drills")} />
       )}
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}

@@ -1839,4 +1839,32 @@ button.nav-row:hover { background:var(--signal)14; }
 /* Live countdown clocks stay monospace with tabular figures so the digits
    do not jitter as they tick. Everything else is Inter. */
 .ud-clock, .tclock { font-family:ui-monospace,'SF Mono','Cascadia Code',Menlo,Consolas,monospace; font-variant-numeric:tabular-nums; }
+
+/* ---- Reading eye tracking (VR drills) ---- */
+.grp-sub { font-weight:400; font-size:10.5px; letter-spacing:0.02em; color:var(--mute); margin-left:6px; text-transform:none; }
+.rg-cam { position:fixed; width:1px; height:1px; opacity:0; pointer-events:none; bottom:0; right:0; }
+.rg-note { font-size:12px; color:var(--mute); margin:14px 0 0; }
+.rg-live { display:inline-flex; align-items:center; gap:7px; margin-top:14px; font-family:'Inter',sans-serif; font-size:10.5px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--go); }
+.rg-live i { width:7px; height:7px; border-radius:50%; background:var(--go); animation:li-blink 1.3s infinite; }
+.rg-cal { position:fixed; inset:0; z-index:120; background:color-mix(in srgb, var(--ink) 88%, transparent); backdrop-filter:blur(3px); }
+.rg-cal-card { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:min(360px,90vw); background:var(--slate); border:1px solid var(--line); border-radius:14px; padding:24px; text-align:center; box-shadow:0 20px 60px -20px rgba(8,12,18,.7); }
+.rg-cal-card h4 { font-family:'Bricolage Grotesque',sans-serif; font-size:18px; margin:0 0 8px; color:var(--paper); letter-spacing:-0.01em; }
+.rg-cal-card p { font-size:13px; line-height:1.55; color:var(--body); margin:0 0 16px; }
+.rg-cal-card .ud-btn { width:100%; }
+.rg-cal-card .ud-quit { display:block; margin:12px auto 0; font-size:12px; }
+.rg-dot { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%; background:var(--signal); box-shadow:0 0 0 6px color-mix(in srgb, var(--signal) 26%, transparent); animation:rg-pulse 1.2s ease-in-out infinite; }
+@keyframes rg-pulse { 0%,100% { transform:scale(0.8); } 50% { transform:scale(1.25); } }
+.rg-review { margin-top:16px; border:1px solid var(--line); border-radius:12px; background:var(--slate); padding:16px 18px; }
+.rg-head { display:flex; justify-content:space-between; align-items:baseline; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mute); margin-bottom:12px; }
+.rg-head b { color:var(--go); font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:0; }
+.rg-map { position:relative; }
+.rg-map canvas { width:100%; height:150px; display:block; border:1px solid var(--line); border-radius:8px; background:color-mix(in srgb, var(--slate) 40%, var(--ink)); }
+.rg-legend { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px; font-size:10.5px; color:var(--mute); }
+.rg-legend i { width:12px; height:6px; border-radius:3px; margin-left:10px; }
+.rg-legend i:first-child { margin-left:0; }
+.rg-legend i.cold { background:#3ECF8E; } .rg-legend i.hot { background:#F2555A; } .rg-legend i.ideal { background:repeating-linear-gradient(90deg,#2F71B8 0 4px,transparent 4px 7px); border-radius:0; }
+.rg-tips { margin:14px 0 0; padding-left:18px; }
+.rg-tips li { font-size:13px; line-height:1.55; color:var(--body); margin-bottom:7px; }
+.rg-foot { font-size:11px; color:var(--mute); margin:10px 0 0; line-height:1.5; }
+.no-motion .rg-dot, .no-motion .rg-live i { animation:none !important; }
 `;

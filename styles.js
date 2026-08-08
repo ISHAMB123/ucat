@@ -206,11 +206,13 @@ export const CSS = `
 .q-gocard p { font-size:13px; color:var(--body); line-height:1.55; margin:0 0 14px; }
 .ud-panel { background:var(--card); color:#131A22; border-radius:4px; width:100%; max-width:660px; padding:26px; position:relative; overflow:hidden; }
 /* ---- Wide reading layout: passage beside the question ---------------- */
-.ud-panel.reading { max-width:1120px; border-radius:14px; border:1px solid var(--line); border-top:4px solid var(--sea); box-shadow:0 10px 40px #10182014; }
-.rd-split { display:grid; grid-template-columns:1.18fr 0.82fr; gap:24px; align-items:start; }
-.rd-col-p { background:linear-gradient(180deg, color-mix(in srgb, var(--sea) 7%, var(--card)), var(--card)); border:1px solid var(--line); border-left:4px solid var(--sea); border-radius:12px; padding:22px 24px; max-height:70vh; overflow-y:auto; }
+.ud-panel.reading { max-width:min(1560px, 95vw); border-radius:14px; border:1px solid var(--line); border-top:4px solid var(--sea); box-shadow:0 10px 40px #10182014; }
+.rd-split { display:grid; grid-template-columns:1.5fr 1fr; gap:28px; align-items:stretch; }
+.rd-col-p { background:linear-gradient(180deg, color-mix(in srgb, var(--sea) 7%, var(--card)), var(--card)); border:1px solid var(--line); border-left:4px solid var(--sea); border-radius:12px; padding:26px 30px; max-height:76vh; overflow-y:auto; }
 .rd-col-p .ud-passage { color:#232C36; }
-.rd-col-q { max-height:70vh; overflow-y:auto; padding:2px 6px 2px 2px; }
+.rd-col-q { max-height:76vh; overflow-y:auto; padding:4px 8px 4px 2px; }
+.rd-col-q .ud-qs { font-size:18px; }
+.rd-col-q .ud-opt { padding:15px 16px; font-size:15.5px; margin-bottom:9px; }
 /* the question column scrolls, so the explanation lives on the same slide */
 .rd-col-q::-webkit-scrollbar, .rd-col-p::-webkit-scrollbar { width:9px; }
 .rd-col-q::-webkit-scrollbar-thumb, .rd-col-p::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--sea) 40%, transparent); border-radius:9px; }
@@ -222,6 +224,17 @@ export const CSS = `
 .rd-size button .mn { font-size:10px; } .rd-size button .mj { font-size:13px; }
 .rd-size input[type="range"] { flex:1; accent-color:var(--sea); cursor:pointer; }
 @media (max-width:820px) { .rd-split { grid-template-columns:1fr; } .rd-col-p, .rd-col-q { max-height:none; overflow:visible; } }
+/* eye-tracking choice shown when a reading drill starts */
+.eye-choice-wrap { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(8,12,18,0.55); padding:20px; }
+.eye-choice { background:var(--card); border:1px solid var(--line); border-top:4px solid var(--sea); border-radius:16px; padding:28px; max-width:440px; width:100%; box-shadow:0 20px 60px #0a0f1666; text-align:center; }
+.eye-choice h3 { margin:0 0 8px; font-size:19px; color:var(--ink); }
+.eye-choice p { margin:0 0 18px; font-size:13.5px; line-height:1.6; color:var(--body); }
+.eye-choice-btns { display:flex; gap:12px; margin-bottom:12px; }
+.eye-choice-btns .ud-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:16px 10px; }
+.eye-choice-btns .ud-btn b { font-size:14px; } .eye-choice-btns .ud-btn span { font-size:11px; opacity:0.8; font-weight:400; }
+.eye-choice-btns .ud-btn.ghost { background:var(--slate); color:var(--body); border:1px solid var(--line); }
+.rg-wipe { display:block; margin:12px auto 0; background:none; border:none; color:var(--stop); font-size:11.5px; cursor:pointer; text-decoration:underline; }
+.rg-wipe:hover { opacity:0.8; }
 .ud-panel h4 { font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#5A6675; margin:0 0 16px; }
 .ud-q { font-family:'Inter',sans-serif; font-size:clamp(26px,5.5vw,40px); font-weight:700; letter-spacing:-0.03em; margin:0 0 20px; }
 .ud-qs { font-size:16.5px; font-weight:600; line-height:1.45; margin:0 0 16px; }

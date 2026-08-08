@@ -185,3 +185,11 @@ export async function deleteLocalData() {
   for (const k of keys) await localDriver.remove(k);
   return keys.length;
 }
+
+/* Remove every key under a given prefix (e.g. "ucat:eye:" for all gaze data).
+   Returns the number removed. Never throws. */
+export async function deleteLocalByPrefix(prefix) {
+  const keys = (await localDriver.keys()).filter((k) => typeof k === "string" && k.startsWith(prefix));
+  for (const k of keys) await localDriver.remove(k);
+  return keys.length;
+}

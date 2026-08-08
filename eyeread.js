@@ -191,7 +191,7 @@ export function gazeError(model, samples) {
    new drill. Bump the feature version whenever the tracker's features change,
    so a model made by an older tracker is discarded rather than trusted. */
 export const GAZE_FEATURE_VERSION = 3;
-export const GAZE_CAL_KEY = "ucat:gazecal";
+export const GAZE_CAL_KEY = "ucat:eye:cal";
 
 export function makeCalDoc(model, quality, viewport) {
   return {
@@ -408,9 +408,11 @@ export function seedFromText(text) {
   return h >>> 0;
 }
 
-/* Stable local-storage key for a passage, from its text. */
+/* Stable local-storage key for a passage, from its text. Namespaced under the
+   app prefix and an "eye:" segment so all gaze data lives together and is
+   cleared by "delete my data" (which wipes the ucat: namespace). */
 export function pathKey(text) {
-  return "rgpath:" + seedFromText(text).toString(36);
+  return "ucat:eye:path:" + seedFromText(text).toString(36);
 }
 
 /* ---- Locating the line that actually answers the question ---------- */

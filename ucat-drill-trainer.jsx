@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
+import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData, deleteLocalByPrefix, removeKey } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
 import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeError, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence, makeCalDoc, isCalibrationUsable, GAZE_CAL_KEY } from "./eyeread.js";
@@ -1929,9 +1929,12 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
      into the crowd path if it was right and in time, and paint the map. */
   useEffect(() => {
     if (phase === "answer") return;
+    let cancelled = false;
+    (async () => {
     const a = analyseReading(logRef.current);
     const key = pathKey(passageText);
-    let stored = getJSON(key, null);
+    let stored = await getJSON(key, null);
+    if (cancelled) return;
     if (solvedFast && logRef.current.path.length > 6) {
       const fresh = resamplePath(logRef.current.path, 24);
       if (fresh) { stored = blendPath(stored, fresh); try { setJSON(key, stored); } catch (e) { /* storage full */ } }
@@ -1979,7 +1982,9 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
 
     const tips = readingTips(a, drill);
     const advice = readAdvice({ a, evBands, foundMs, correct: answeredCorrect, drill });
-    setResult({ a, tips, advice, avg, crowdN: stored ? stored.n : 0, seeded, tech, lines, evBands, foundMs });
+    if (!cancelled) setResult({ a, tips, advice, avg, crowdN: stored ? stored.n : 0, seeded, tech, lines, evBands, foundMs });
+    })();
+    return () => { cancelled = true; };
   }, [phase, drill, passageText, question, answeredCorrect, solvedFast]);
   useEffect(() => {
     if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, result.avg, result.lines, result.evBands);
@@ -2004,7 +2009,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       const mean = (f) => keep.reduce((t, s) => t + s[f], 0) / keep.length;
       return { ex: mean("ex"), ey: mean("ey"), yaw: mean("yaw"), pitch: mean("pitch"), dist: mean("dist") };
     };
-    const step = () => setTimeout(() => {
+    const step = () => setTimeout(async () => {
       idx += 1;
       if (idx < CAL_DOTS.length) { setCalIdx(idx); step(); return; }
       const byIdx = {};
@@ -2041,7 +2046,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       const heldErr = candidate ? gazeError(candidate, val.length ? val : feats) : Infinity;
       const model = buildModel(feats);
       const prev = calRef.current;
-      const prevDoc = getJSON(GAZE_CAL_KEY, null);
+      const prevDoc = await getJSON(GAZE_CAL_KEY, null);
       const prevErr = prevDoc && prevDoc.quality && Number.isFinite(prevDoc.quality.heldErr) ? prevDoc.quality.heldErr : Infinity;
 
       let outcome = "failed";
@@ -2077,8 +2082,18 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
      in-memory model, then shows the calibration card. */
   const requestRecalibration = () => {
     if (calRunningRef.current) return;
-    try { localStorage.removeItem(GAZE_CAL_KEY); } catch (e) { /* ignore */ }
+    removeKey(GAZE_CAL_KEY);
     calRef.current = null; qualityRef.current = null; setStage("intro");
+  };
+
+  /* Wipe every on-device gaze artifact: calibration and all saved heat maps
+     (everything under the ucat:eye: namespace). The account-wide "delete my
+     data" also removes these; this is the quick, targeted version. */
+  const [wiped, setWiped] = useState(false);
+  const deleteEyeData = () => {
+    deleteLocalByPrefix("ucat:eye:");
+    calRef.current = null; qualityRef.current = null; setWiped(true);
+    setTimeout(() => setWiped(false), 2200);
   };
 
   if (camErr) {
@@ -2102,6 +2117,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
               <button className="ud-btn" onClick={runCalibration}>{stage === "failed" ? "Try calibration again" : "Calibrate (13 dots)"}</button>
               <button className="ud-quit" onClick={() => { calRef.current = calRef.current || null; setStage("ready"); }}>Skip</button>
               <label className="rg-check"><input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} /> Show tracking marker (test)</label>
+              <button className="rg-wipe" onClick={deleteEyeData}>{wiped ? "Eye-tracking data deleted" : "Delete my eye-tracking data"}</button>
             </div>
           )}
         </div>
@@ -2149,9 +2165,13 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   const [i, setI] = useState(0);
   const [val, setVal] = useState("");
   /* Reading text size (px), one source of truth for the passage, persisted.
-     Bigger text is easier to read and gives the gaze tracker larger targets. */
-  const [readFont, setReadFont] = useState(() => { const v = Number(getJSON("ucat:readingfs", 0)); return v >= 16 && v <= 46 ? v : 21; });
-  useEffect(() => { try { setJSON("ucat:readingfs", readFont); } catch (e) { /* ignore */ } }, [readFont]);
+     Bigger text is easier to read and gives the gaze tracker larger targets.
+     Loaded async (getJSON is a promise); saved only after the load so the
+     default does not clobber the stored value on mount. */
+  const [readFont, setReadFont] = useState(21);
+  const fontLoaded = useRef(false);
+  useEffect(() => { getJSON("ucat:readingfs", 21).then((v) => { const n = Number(v); if (n >= 16 && n <= 46) setReadFont(n); fontLoaded.current = true; }); }, []);
+  useEffect(() => { if (fontLoaded.current) setJSON("ucat:readingfs", readFont); }, [readFont]);
   const [rankPicks, setRankPicks] = useState([]);
   const [syllPicks, setSyllPicks] = useState([]);
   const [picked, setPicked] = useState(null);
@@ -2187,12 +2207,21 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
      recalibrate on every reload or new drill. Undefined means "not loaded
      yet"; null means "loaded, none usable". */
   const passageRef = useRef(null);
-  const calRef = useRef(undefined);
-  if (calRef.current === undefined) {
-    const doc = getJSON(GAZE_CAL_KEY, null);
-    calRef.current = isCalibrationUsable(doc, { width: window.innerWidth, height: window.innerHeight }) ? doc.model : null;
-  }
-  const readOn = readEye && drill.section === "VR" && !!q && !!q.passageText;
+  const calRef = useRef(null);
+  /* Load the saved calibration once (getJSON is async), before the tracker
+     mounts, so a returning reader is not made to recalibrate. calReady gates
+     the tracker until the load has been attempted. */
+  const [calReady, setCalReady] = useState(false);
+  useEffect(() => {
+    let dead = false;
+    getJSON(GAZE_CAL_KEY, null).then((doc) => {
+      if (dead) return;
+      if (isCalibrationUsable(doc, { width: window.innerWidth, height: window.innerHeight })) calRef.current = doc.model;
+      setCalReady(true);
+    });
+    return () => { dead = true; };
+  }, []);
+  const readOn = calReady && readEye && drill.section === "VR" && !!q && !!q.passageText;
 
   const advance = useCallback((list) => {
     if (i + 1 >= questions.length) onDone(list);
@@ -3486,13 +3515,6 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
           <div className="row">
             <button className={!prefs.hideQ ? "on" : ""} onClick={() => setPrefs({ ...prefs, hideQ: false })}>Off</button>
             <button className={prefs.hideQ ? "on" : ""} onClick={() => setPrefs({ ...prefs, hideQ: true })}>Hide until ready</button>
-          </div>
-        </div>
-        <div className="grp">
-          <label>Reading eye tracking <span className="grp-sub">verbal reasoning only</span></label>
-          <div className="row">
-            <button className={!prefs.readEye ? "on" : ""} onClick={() => setPrefs({ ...prefs, readEye: false })}>Off</button>
-            <button className={prefs.readEye ? "on" : ""} onClick={() => setPrefs({ ...prefs, readEye: true })}>On (webcam)</button>
           </div>
         </div>
         {prefs.exam && (
@@ -9519,6 +9541,10 @@ export default function UcatDrillTrainer() {
   const [runExam, setRunExam] = useState(false);
   const [runBudget, setRunBudget] = useState(0);
   const [planKey, setPlanKey] = useState(null);
+  /* Eye tracking is chosen per reading session, not as a global setting: when
+     a reading drill starts we ask, and this holds the answer for the run. */
+  const [runEye, setRunEye] = useState(false);
+  const [pendingStart, setPendingStart] = useState(null);
   const [unlocked, setUnlocked] = useState(false);
   const [best, setBest] = useState({});
   const [history, setHistory] = useState([]);
@@ -9627,7 +9653,15 @@ export default function UcatDrillTrainer() {
     });
   };
 
+  /* Reading drills can be done with or without eye tracking; ask at the point
+     of starting one rather than hiding a global toggle in settings. */
+  const READING_DRILLS = ["scan", "tfc", "infer"];
   const start = (d, isExam, count, key, sub, theme) => {
+    if (READING_DRILLS.includes(d.id)) { setPendingStart({ d, isExam, count, key, sub, theme }); return; }
+    launch(d, isExam, count, key, sub, theme, false);
+  };
+  const launch = (d, isExam, count, key, sub, theme, eye) => {
+    setRunEye(!!eye);
     const lvl = prefs.level;
     let qs = [];
     if (d.id === "tables") qs = makeTables(count, weak, lvl);
@@ -9639,7 +9673,7 @@ export default function UcatDrillTrainer() {
     else if (d.id === "infer") qs = makeInfer(count, weak, seenBank);
     else if (d.id === "sjt") qs = makeSjt(count, weak, theme, seenBank);
     recordSeen(qs);
-    lastRun.current = { d, isExam, count, sub, theme };
+    lastRun.current = { d, isExam, count, sub, theme, eye: !!eye };
     setDrill(d);
     setMeta(null);
     setRunExam(!!isExam && TIMED.includes(d.id));
@@ -9697,7 +9731,7 @@ export default function UcatDrillTrainer() {
     if (!r) { setView("drills"); return; }
     if (r.weakspots) { startWeakSpots(); return; }
     if (r.mistakes) startMistakes();
-    else start(r.d, r.isExam, r.count, null, r.sub, r.theme);
+    else launch(r.d, r.isExam, r.count, null, r.sub, r.theme, r.eye); // reuse the eye choice, no re-prompt
   };
 
   const done = (l, m) => {
@@ -9879,7 +9913,7 @@ export default function UcatDrillTrainer() {
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && !["speed", "blurt"].includes(drill.id) && (
         <DrillRunner drill={drill} questions={questions} exam={runExam} budget={runBudget}
-          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} level={prefs.level} readEye={prefs.readEye} onDone={done} onQuit={() => setView("drills")} />
+          showCalc={drill.id === "calc"} hideStart={prefs.hideQ} reviewEnd={prefs.reviewEnd} level={prefs.level} readEye={runEye} onDone={done} onQuit={() => setView("drills")} />
       )}
       {view === "results" && drill && (<><Header />
         <Results drill={drill} log={log} meta={meta} exam={runExam} history={history}
@@ -9887,6 +9921,23 @@ export default function UcatDrillTrainer() {
           onType={(id, sub) => start(DRILL_BY_ID[id], false, DRILL_BY_ID[id].def, null, sub, null)}
           onDiagDrill={(id) => start(DRILL_BY_ID[id], false, DRILL_BY_ID[id].def, null, null, null)} />
       </>)}
+      {pendingStart && (
+        <div className="eye-choice-wrap" role="dialog" aria-modal="true" aria-label="Eye tracking choice">
+          <div className="eye-choice">
+            <h3>Reading with eye tracking?</h3>
+            <p>Turn on the webcam reading tracker for this session to see where your eyes go, or read normally. Nothing leaves your device, and you can delete the data any time.</p>
+            <div className="eye-choice-btns">
+              <button className="ud-btn" onClick={() => { const p = pendingStart; setPendingStart(null); launch(p.d, p.isExam, p.count, p.key, p.sub, p.theme, true); }}>
+                <b>Eye tracking</b><span>webcam, on-device</span>
+              </button>
+              <button className="ud-btn ghost" onClick={() => { const p = pendingStart; setPendingStart(null); launch(p.d, p.isExam, p.count, p.key, p.sub, p.theme, false); }}>
+                <b>No eye tracking</b><span>just read</span>
+              </button>
+            </div>
+            <button className="ud-quit" onClick={() => setPendingStart(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -252,6 +252,24 @@ export const CSS = `
 .eye-choice-btns .ud-btn.ghost { background:var(--slate); color:var(--body); border:1px solid var(--line); }
 .rg-wipe { display:block; margin:12px auto 0; background:none; border:none; color:var(--stop); font-size:11.5px; cursor:pointer; text-decoration:underline; }
 .rg-wipe:hover { opacity:0.8; }
+/* ---- Session log view ------------------------------------------------ */
+.logs-filter { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 16px; align-items:center; }
+.logs-filter button { background:var(--slate); border:1px solid var(--line); border-radius:999px; color:var(--body); font-size:12.5px; padding:7px 14px; cursor:pointer; }
+.logs-filter button.on { background:var(--sea); border-color:var(--sea); color:#fff; }
+.logs-filter .logs-clear { margin-left:auto; color:var(--stop); border-color:color-mix(in srgb, var(--stop) 40%, var(--line)); }
+.logs-empty { color:var(--mute); font-size:13.5px; padding:24px 4px; }
+.logs-list { display:flex; flex-direction:column; gap:8px; }
+.logs-row { display:grid; grid-template-columns:52px 1fr auto auto auto; align-items:center; gap:14px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
+.logs-sec { font-size:10px; font-weight:700; letter-spacing:0.08em; text-align:center; padding:4px 0; border-radius:6px; background:var(--slate); color:var(--mute); }
+.logs-sec.s-VR { background:color-mix(in srgb, var(--sea) 16%, transparent); color:var(--sea); }
+.logs-sec.s-QR { background:color-mix(in srgb, var(--go) 16%, transparent); color:var(--go); }
+.logs-sec.s-SJT { background:color-mix(in srgb, var(--signal) 18%, transparent); color:var(--signal); }
+.logs-name { font-size:14px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.logs-mode { font-size:11px; font-weight:600; color:var(--mute); background:var(--slate); border-radius:999px; padding:3px 10px; }
+.logs-mode.eye { color:var(--sea); background:color-mix(in srgb, var(--sea) 12%, transparent); }
+.logs-score { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; min-width:44px; text-align:right; }
+.logs-ts { font-size:11.5px; color:var(--mute); min-width:108px; text-align:right; }
+@media (max-width:620px) { .logs-row { grid-template-columns:46px 1fr auto; } .logs-mode, .logs-ts { display:none; } }
 .ud-panel h4 { font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#5A6675; margin:0 0 16px; }
 .ud-q { font-family:'Inter',sans-serif; font-size:clamp(26px,5.5vw,40px); font-weight:700; letter-spacing:-0.03em; margin:0 0 20px; }
 .ud-qs { font-size:16.5px; font-weight:600; line-height:1.45; margin:0 0 16px; }

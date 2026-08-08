@@ -9459,6 +9459,7 @@ const NAV_ICON = {
   ps: (<svg {...svgProps}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>),
   plan: (<svg {...svgProps}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>),
   progress: (<svg {...svgProps}><path d="M3 3v18h18" /><path d="M7 14l4-4 3 3 5-6" /></svg>),
+  logs: (<svg {...svgProps}><path d="M4 5h16M4 10h16M4 15h10M4 20h10" /></svg>),
   mistakes: (<svg {...svgProps}><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5" /></svg>),
   legal: (<svg {...svgProps}><path d="M12 2 4 5v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V5z" /></svg>),
   billing: (<svg {...svgProps}><circle cx="8" cy="15" r="4" /><path d="M10.8 12.2 20 3M16 5l3 3M14 7l3 3" /></svg>),
@@ -9535,6 +9536,41 @@ function FeatureTour({ onGoto, onClose }) {
           <button className="ud-btn" onClick={() => { if (last) { onGoto("drills"); onClose(); } else go(i + 1); }}>{last ? "Start" : "Next"}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* A plain, honest log of every finished session, split by whether the reading
+   eye tracker was on. Reads from the same history the rest of the app keeps. */
+function LogsView({ history, onClear }) {
+  const [filter, setFilter] = useState("all");
+  const rows = [...history].reverse().filter((h) => filter === "all" || (filter === "eye" ? h.eye : !h.eye));
+  const eyeN = history.filter((h) => h.eye).length;
+  const fmt = (ts) => { try { return new Date(ts).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } };
+  return (
+    <div className="ud-wrap">
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>Session log</h2><i /><span>{history.length} total · {eyeN} with eye tracking</span></div>
+      <div className="logs-filter">
+        {[["all", "All"], ["eye", "Eye tracking"], ["plain", "No eye tracking"]].map(([k, l]) => (
+          <button key={k} className={filter === k ? "on" : ""} onClick={() => setFilter(k)}>{l}</button>
+        ))}
+        {history.length > 0 && <button className="logs-clear" onClick={onClear}>Clear log</button>}
+      </div>
+      {rows.length === 0 ? (
+        <p className="logs-empty">No sessions here yet. Finish a drill and it shows up in the log.</p>
+      ) : (
+        <div className="logs-list">
+          {rows.map((h, n) => (
+            <div key={n} className="logs-row">
+              <span className={`logs-sec s-${h.section || "x"}`}>{h.section || "—"}</span>
+              <span className="logs-name">{h.name || (DRILL_BY_ID[h.drill] && DRILL_BY_ID[h.drill].name) || h.drill}</span>
+              <span className={`logs-mode${h.eye ? " eye" : ""}`}>{h.eye ? "Eye tracking" : "Read only"}</span>
+              <span className="logs-score" style={{ color: h.pct >= 70 ? "var(--go)" : h.pct >= 40 ? "var(--signal)" : "var(--stop)" }}>{h.pct}%</span>
+              <span className="logs-ts">{fmt(h.ts)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -9751,7 +9787,7 @@ export default function UcatDrillTrainer() {
     if (isReal) {
       const nextBest = (!best[drill.id] || pct > best[drill.id].pct) ? { ...best, [drill.id]: { pct, med } } : best;
       if (nextBest !== best) { setBest(nextBest); setJSON("ucat:best", nextBest); }
-      const nextHistory = [...history, { drill: drill.id, ts: Date.now(), pct, med, exam: runExam }].slice(-240);
+      const nextHistory = [...history, { drill: drill.id, name: drill.name, section: drill.section, ts: Date.now(), pct, med, exam: runExam, eye: !!runEye, n: l.length }].slice(-240);
       setHistory(nextHistory); setJSON("ucat:history", nextHistory);
       if (planKey && !plan[planKey]) {
         const nextPlan = { ...plan, [planKey]: Date.now() };
@@ -9821,7 +9857,7 @@ export default function UcatDrillTrainer() {
         <span className="ud-mark"><b>Tempo</b><span className="txt">UCAT</span></span>
       </button>
       <div className="ud-side-nav">
-        {[["drills", "Drills"], ["learn", "Learn"], ["mock", "Mock"], ["interview", "Interview"], ["unis", "University"], ["ps", "Statement"], ["plan", "Plan"], ["progress", "Progress"], ["mistakes", "Mistakes"], ["legal", "Legal"], ["billing", unlocked ? "Access" : "Unlock"]].map(([k, label]) => (
+        {[["drills", "Drills"], ["learn", "Learn"], ["mock", "Mock"], ["interview", "Interview"], ["unis", "University"], ["ps", "Statement"], ["plan", "Plan"], ["progress", "Progress"], ["logs", "Logs"], ["mistakes", "Mistakes"], ["legal", "Legal"], ["billing", unlocked ? "Access" : "Unlock"]].map(([k, label]) => (
           <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)} aria-current={view === k ? "page" : undefined} title={label}>
             {NAV_ICON[k]}
             <span className="lbl">{label}</span>
@@ -9915,6 +9951,7 @@ export default function UcatDrillTrainer() {
           <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.65 }}>Every session tracked per section, with the tags you keep dropping marks on surfaced automatically.</p></div>
         </Locked></div></>)}
       {view === "progress" && unlocked && (<><Header /><ProgressView history={history} weak={weak} best={best} plan={plan} prefs={prefs} onGoto={(v) => setView(v)} /></>)}
+      {view === "logs" && (<><Header /><LogsView history={history} onClear={() => { setHistory([]); setJSON("ucat:history", []); }} /></>)}
       {view === "mistakes" && (<><Header /><MistakesView mistakes={mistakes} active={activeMistakes} onRetry={startMistakes} onClear={() => { setMistakes([]); setJSON("ucat:mistakes", []); }} /></>)}
       {view === "run" && drill && drill.id === "speed" && <PacingDrill onDone={done} onQuit={() => setView("drills")} />}
       {view === "run" && drill && drill.id === "blurt" && <BlurtDrill onDone={done} onQuit={() => setView("drills")} />}

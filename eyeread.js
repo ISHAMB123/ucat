@@ -104,9 +104,11 @@ export function mapGaze(cal, g) {
     gx = Math.min(r.xmax + mx, Math.max(r.xmin - mx, gx));
     gy = Math.min(r.ymax + my, Math.max(r.ymin - my, gy));
   }
+  if (!Number.isFinite(gx) || !Number.isFinite(gy)) return null;
   const row = (cal.quad ? featQuad : featAffine)({ x: gx, y: gy });
   let x = 0, y = 0;
   for (let i = 0; i < row.length; i++) { x += cal.cx[i] * row[i]; y += cal.cy[i] * row[i]; }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x: clamp01(x), y: clamp01(y) };
 }
 
@@ -148,10 +150,13 @@ export function fitGaze(samples, lambda = 2e-3) {
 }
 
 /* Apply the head-pose model. The eye-signal part is clamped to the calibrated
-   range (as with mapGaze) so it cannot extrapolate and fly off. */
+   range (as with mapGaze) so it cannot extrapolate and fly off. Returns null
+   on any non-finite input or output so the caller can hold the previous gaze
+   rather than send the crosshair flying. */
 export function mapGazeFeat(model, s) {
   if (!model || !s) return null;
   let ex = s.ex, ey = s.ey;
+  if (!Number.isFinite(ex) || !Number.isFinite(ey)) return null;
   if (model.range) {
     const r = model.range;
     const mx = Math.max(0.04, (r.xmax - r.xmin) * 0.25), my = Math.max(0.04, (r.ymax - r.ymin) * 0.25);
@@ -161,7 +166,58 @@ export function mapGazeFeat(model, s) {
   const f = gazeFeatures({ ...s, ex, ey });
   let x = 0, y = 0;
   for (let i = 0; i < f.length; i++) { x += model.cx[i] * f[i]; y += model.cy[i] * f[i]; }
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x: clamp01(x), y: clamp01(y) };
+}
+
+/* Median prediction error of a model on held-out feature samples, in screen
+   fractions. Used to accept or reject a fresh calibration. */
+export function gazeError(model, samples) {
+  if (!model || !samples || !samples.length) return Infinity;
+  const errs = [];
+  for (const s of samples) {
+    const m = model.pose ? mapGazeFeat(model, s) : mapGaze(model, { x: s.ex, y: s.ey });
+    if (!m) continue;
+    errs.push(Math.hypot(m.x - s.t.x, m.y - s.t.y));
+  }
+  if (!errs.length) return Infinity;
+  errs.sort((a, b) => a - b);
+  return errs[Math.floor(errs.length / 2)];
+}
+
+/* ---- Calibration persistence (versioned, validated) ------------------ */
+/* A fitted calibration is a persistent artifact, not transient state: it is
+   saved so a returning reader is not asked to recalibrate on every reload or
+   new drill. Bump the feature version whenever the tracker's features change,
+   so a model made by an older tracker is discarded rather than trusted. */
+export const GAZE_FEATURE_VERSION = 3;
+export const GAZE_CAL_KEY = "ucat:gazecal";
+
+export function makeCalDoc(model, quality, viewport) {
+  return {
+    schemaVersion: 1,
+    featureVersion: GAZE_FEATURE_VERSION,
+    createdAt: Date.now(),
+    model,
+    quality: quality || {},
+    display: viewport ? { width: viewport.width, height: viewport.height } : null,
+  };
+}
+
+/* Reject anything that is corrupt, from an older tracker, or made for a very
+   different screen. Never throws. */
+export function isCalibrationUsable(doc, viewport) {
+  if (!doc || typeof doc !== "object") return false;
+  if (doc.featureVersion !== GAZE_FEATURE_VERSION) return false;
+  const m = doc.model;
+  if (!m || typeof m !== "object") return false;
+  const coeffs = [].concat(m.cx || [], m.cy || []);
+  if (!coeffs.length || !coeffs.every((v) => Number.isFinite(v))) return false;
+  if (viewport && doc.display && doc.display.width && doc.display.height) {
+    const wr = viewport.width / doc.display.width, hr = viewport.height / doc.display.height;
+    if (!(wr > 0.75 && wr < 1.34 && hr > 0.75 && hr < 1.34)) return false;
+  }
+  return true;
 }
 
 /* Mean residual of a calibration on its own samples, in screen fractions.

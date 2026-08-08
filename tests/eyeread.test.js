@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeFeatures, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence } from "../eyeread.js";
+import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeFeatures, gazeError, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence, makeCalDoc, isCalibrationUsable, GAZE_FEATURE_VERSION } from "../eyeread.js";
 
 describe("fitCalibration recovers a linear gaze-to-screen map", () => {
   it("recovers an identity map from clean samples", () => {
@@ -148,6 +148,40 @@ describe("fitGaze uses head pose to stay steady", () => {
     expect(wild.x).toBeLessThanOrEqual(1);
     expect(wild.y).toBeGreaterThanOrEqual(0);
     expect(wild.y).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("calibration is a persistent, validated artifact", () => {
+  const model = { pose: true, cx: [0.5, 0.8, 0, 0, 0, 0, 0, 0], cy: [0.5, 0, 0.8, 0, 0, 0, 0, 0], range: { xmin: -0.2, xmax: 0.2, ymin: -0.2, ymax: 0.2 } };
+  const vp = { width: 1280, height: 800 };
+
+  it("accepts a fresh, matching document", () => {
+    const doc = makeCalDoc(model, { heldErr: 0.05, n: 13 }, vp);
+    expect(doc.featureVersion).toBe(GAZE_FEATURE_VERSION);
+    expect(isCalibrationUsable(doc, vp)).toBe(true);
+  });
+
+  it("rejects an older tracker version", () => {
+    const doc = makeCalDoc(model, {}, vp);
+    doc.featureVersion = GAZE_FEATURE_VERSION - 1;
+    expect(isCalibrationUsable(doc, vp)).toBe(false);
+  });
+
+  it("rejects corrupt or non-finite coefficients", () => {
+    expect(isCalibrationUsable(null, vp)).toBe(false);
+    expect(isCalibrationUsable({ featureVersion: GAZE_FEATURE_VERSION, model: { cx: [NaN], cy: [1] } }, vp)).toBe(false);
+    expect(isCalibrationUsable({ featureVersion: GAZE_FEATURE_VERSION, model: {} }, vp)).toBe(false);
+  });
+
+  it("rejects a wildly different screen", () => {
+    const doc = makeCalDoc(model, {}, { width: 400, height: 900 });
+    expect(isCalibrationUsable(doc, vp)).toBe(false);
+  });
+
+  it("gazeError falls to Infinity with no samples and is finite otherwise", () => {
+    expect(gazeError(model, [])).toBe(Infinity);
+    const e = gazeError(model, [{ ex: 0.1, ey: 0.1, yaw: 0, pitch: 0, dist: 0.3, t: { x: 0.58, y: 0.58 } }]);
+    expect(Number.isFinite(e)).toBe(true);
   });
 });
 

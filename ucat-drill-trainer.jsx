@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
-import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence } from "./eyeread.js";
+import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeError, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence, makeCalDoc, isCalibrationUsable, GAZE_CAL_KEY } from "./eyeread.js";
 import { supabase, supabaseEnabled, getEntitlement } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -1702,6 +1702,11 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
      builder can check the tracker is stable before trusting the highlight. Off
      for readers; on via the intro checkbox or ?gazedebug=1. */
   const crossRef = useRef(null);
+  const hudRef = useRef(null);
+  const calRunningRef = useRef(false); // idempotency lock: one calibration at a time
+  const qualityRef = useRef(null);     // last calibration quality, for the debug HUD
+  const validRef = useRef(false);      // confidence gate with hysteresis
+  const confRef = useRef(0);
   const [debug, setDebug] = useState(() => { try { return /[?&]gazedebug=1/.test(window.location.search); } catch (e) { return false; } });
   const debugRef = useRef(debug); useEffect(() => { debugRef.current = debug; }, [debug]);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
@@ -1735,9 +1740,16 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
         return;
       }
       if (stageRef.current === "ready" && phaseRef.current === "answer" && calRef.current) {
-        /* Hold the previous gaze on a low-confidence frame (blink, head turned
-           away) rather than jumping to a bad reading. */
-        if (a.conf != null && a.conf < 0.45) return;
+        /* Confidence gate with hysteresis: enter the trusted state at 0.6,
+           stay in it until 0.4, so noise around the threshold does not flicker
+           the gaze on and off. While untrusted (blink, head turned away) hold
+           the previous position rather than jump to a bad reading. */
+        const conf = a.conf == null ? 1 : a.conf;
+        confRef.current = conf;
+        if (validRef.current) { if (conf < 0.4) validRef.current = false; }
+        else if (conf > 0.6) validRef.current = true;
+        writeHud(a);
+        if (!validRef.current) return;
         const sample = { ex: a.raw.x, ey: a.raw.y, yaw: pose.yaw || 0, pitch: pose.pitch || 0, dist: pose.dist || 0 };
         const mapped = calRef.current.pose ? mapGazeFeat(calRef.current, sample) : mapGaze(calRef.current, a.raw);
         const el = passageRef.current;
@@ -1822,6 +1834,24 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
           bar.style.opacity = "1";
         } else { bar.style.opacity = "0"; }
       }
+    };
+
+    /* Developer read-out (only when the test marker is on): the numbers needed
+       to tell apart "confidence collapsed" from "regression wrong" from "model
+       not loaded". Throttled and written straight to the DOM. */
+    let lastHud = 0;
+    const writeHud = (a) => {
+      if (!debugRef.current || !hudRef.current) return;
+      const now2 = performance.now(); if (now2 - lastHud < 180) return; lastHud = now2;
+      const pose = a.pose || {};
+      const q = qualityRef.current;
+      const deg = (r) => (r ? (r * 57.3).toFixed(0) : "0");
+      hudRef.current.textContent = [
+        `confidence: ${(confRef.current).toFixed(2)}  ${validRef.current ? "TRACK" : "hold"}`,
+        `yaw ${deg(pose.yaw)}deg  pitch ${deg(pose.pitch)}deg`,
+        `calibration: ${calRef.current ? (calRef.current.pose ? "READY pose" : "READY 2D") : "none"}`,
+        q ? `median err: ${(q.heldErr * 100).toFixed(0)}% of screen  (${q.n} pts)` : "median err: n/a",
+      ].join("\n");
     };
     (async () => {
       try {
@@ -1913,6 +1943,8 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
   }, [result]);
 
   const runCalibration = () => {
+    if (calRunningRef.current) return; // idempotent: never two loops at once
+    calRunningRef.current = true;
     calBucket.current = []; setStage("calibrating");
     let idx = 0; setCalIdx(0);
     /* Robust centre of one dot's feature samples: drop the settle-in frames,
@@ -1938,21 +1970,72 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
         const gs = byIdx[k]; if (!gs || !gs.length) return null;
         return { ...centre(gs), t };
       }).filter(Boolean);
-      /* Preferred: the pose-aware regression, which stays steady when the head
-         shifts. Fall back to the plain 2D map (eye signal only) if the fit is
-         underdetermined, so calibration always yields something usable. */
-      let best = fitGaze(feats);
-      if (!best) {
-        const flat = feats.map((f) => ({ g: { x: f.ex, y: f.ey }, t: f.t }));
-        best = fitCalibration(flat);
-        if (best && best.quad) {
-          const affine = fitCalibration(flat, "affine");
-          if (affine && calibrationError(affine, flat) < calibrationError(best, flat)) best = affine;
+
+      /* Fit the pose-aware regression, falling back to the plain 2D map if it
+         is underdetermined, so calibration always yields something usable. */
+      const buildModel = (samples) => {
+        let m = fitGaze(samples);
+        if (!m) {
+          const flat = samples.map((f) => ({ g: { x: f.ex, y: f.ey }, t: f.t }));
+          m = fitCalibration(flat);
+          if (m && m.quad) {
+            const affine = fitCalibration(flat, "affine");
+            if (affine && calibrationError(affine, flat) < calibrationError(m, flat)) m = affine;
+          }
         }
+        return m;
+      };
+
+      /* Transactional: hold out a few spread points, fit on the rest, and
+         measure the error on the held-out points. Only replace a working
+         calibration if the new one is at least as good; a returning reader
+         never loses a good model to a bad retry. The final model is refit on
+         all points once accepted. */
+      const held = new Set([2, 6, 10]);
+      const train = feats.filter((_, i) => !held.has(i));
+      const val = feats.filter((_, i) => held.has(i));
+      const candidate = buildModel(train.length >= 8 ? train : feats);
+      const heldErr = candidate ? gazeError(candidate, val.length ? val : feats) : Infinity;
+      const model = buildModel(feats);
+      const prev = calRef.current;
+      const prevDoc = getJSON(GAZE_CAL_KEY, null);
+      const prevErr = prevDoc && prevDoc.quality && Number.isFinite(prevDoc.quality.heldErr) ? prevDoc.quality.heldErr : Infinity;
+
+      let outcome = "failed";
+      if (model) {
+        const inSample = gazeError(model, feats);
+        const acceptable = Number.isFinite(heldErr) && heldErr < 0.25; // sanity gate
+        const betterThanOld = !prev || heldErr <= prevErr + 0.03;
+        if (acceptable && betterThanOld) {
+          calRef.current = model;
+          qualityRef.current = { heldErr, inSample, n: feats.length, pose: !!model.pose };
+          try { setJSON(GAZE_CAL_KEY, makeCalDoc(model, qualityRef.current, { width: window.innerWidth, height: window.innerHeight })); } catch (e) { /* storage full */ }
+          outcome = "ready";
+        } else if (prev) {
+          outcome = "ready"; // keep the previous good model, discard the worse retry
+        } else if (Number.isFinite(inSample) && inSample < 0.35) {
+          calRef.current = model; // first-ever calibration: accept a usable-enough fit
+          qualityRef.current = { heldErr, inSample, n: feats.length, pose: !!model.pose };
+          try { setJSON(GAZE_CAL_KEY, makeCalDoc(model, qualityRef.current, { width: window.innerWidth, height: window.innerHeight })); } catch (e) { /* storage full */ }
+          outcome = "ready";
+        }
+      } else if (prev) {
+        outcome = "ready"; // fit failed entirely, keep what we had
       }
-      calRef.current = best; setCalIdx(-1); setStage(best ? "ready" : "intro");
+
+      calRunningRef.current = false;
+      setCalIdx(-1);
+      setStage(outcome === "ready" && calRef.current ? "ready" : "failed");
     }, 1000);
     step();
+  };
+
+  /* The only route back into calibration: explicit. Clears the persisted and
+     in-memory model, then shows the calibration card. */
+  const requestRecalibration = () => {
+    if (calRunningRef.current) return;
+    try { localStorage.removeItem(GAZE_CAL_KEY); } catch (e) { /* ignore */ }
+    calRef.current = null; qualityRef.current = null; setStage("intro");
   };
 
   if (camErr) {
@@ -1963,18 +2046,20 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
   return (
     <>
       <video ref={videoRef} autoPlay playsInline muted className="rg-cam" />
-      {(stage === "intro" || stage === "calibrating") && (
+      {(stage === "intro" || stage === "calibrating" || stage === "failed") && (
         <div className="rg-cal">
-          {stage === "intro" ? (
+          {stage === "calibrating" ? (
+            calIdx >= 0 && <span className="rg-dot" style={{ left: `${CAL_DOTS[calIdx].x * 100}%`, top: `${CAL_DOTS[calIdx].y * 100}%` }} />
+          ) : (
             <div className="rg-cal-card">
               <h4>Reading eye tracking</h4>
-              <p>A quick calibration maps your gaze to the screen. Look at each dot as it appears and keep your head as still as you can. Everything stays on your device.</p>
-              <button className="ud-btn" onClick={runCalibration}>Calibrate (13 dots)</button>
-              <button className="ud-quit" onClick={() => { calRef.current = null; setStage("ready"); }}>Skip</button>
+              {stage === "failed"
+                ? <p>That calibration was not accurate enough to trust. Sit square to the camera, keep your whole face in the frame and your head still, and try again.</p>
+                : <p>A quick calibration maps your gaze to the screen. Look at each dot as it appears and keep your head as still as you can. Everything stays on your device.</p>}
+              <button className="ud-btn" onClick={runCalibration}>{stage === "failed" ? "Try calibration again" : "Calibrate (13 dots)"}</button>
+              <button className="ud-quit" onClick={() => { calRef.current = calRef.current || null; setStage("ready"); }}>Skip</button>
               <label className="rg-check"><input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} /> Show tracking marker (test)</label>
             </div>
-          ) : (
-            calIdx >= 0 && <span className="rg-dot" style={{ left: `${CAL_DOTS[calIdx].x * 100}%`, top: `${CAL_DOTS[calIdx].y * 100}%` }} />
           )}
         </div>
       )}
@@ -1984,6 +2069,8 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
             <span key={k} className="rg-sent" ref={(el) => { hlRefs.current[k] = el; }} aria-hidden="true" style={{ opacity: 0 }} />
           ))}
           {debug && <span className="rg-cross" ref={crossRef} aria-hidden="true" style={{ opacity: 0 }} />}
+          {debug && <pre className="rg-hud" ref={hudRef} aria-hidden="true" />}
+          <button className="rg-recal" onClick={requestRecalibration}>Recalibrate</button>
           <span className="rg-live" aria-hidden="true"><i />Following your reading</span>
         </>
       )}
@@ -2048,9 +2135,16 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   const q = questions[i];
 
   /* Reading gaze tracker: only on the Verbal Reasoning passages, only when
-     the candidate turned it on. Calibration is kept for the whole session. */
+     the candidate turned it on. Calibration is a persistent artifact: seed it
+     once from a saved, still-valid model so a returning reader is not made to
+     recalibrate on every reload or new drill. Undefined means "not loaded
+     yet"; null means "loaded, none usable". */
   const passageRef = useRef(null);
-  const calRef = useRef(null);
+  const calRef = useRef(undefined);
+  if (calRef.current === undefined) {
+    const doc = getJSON(GAZE_CAL_KEY, null);
+    calRef.current = isCalibrationUsable(doc, { width: window.innerWidth, height: window.innerHeight }) ? doc.model : null;
+  }
   const readOn = readEye && drill.section === "VR" && !!q && !!q.passageText;
 
   const advance = useCallback((list) => {

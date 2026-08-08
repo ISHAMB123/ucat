@@ -1870,6 +1870,11 @@ button.nav-row:hover { background:var(--signal)14; }
 .rg-cross::after { top:50%; left:4px; right:4px; height:2px; margin-top:-1px; }
 .rg-check { display:flex; align-items:center; gap:7px; margin-top:12px; font-size:12px; color:var(--mute); cursor:pointer; }
 .rg-check input { accent-color:var(--go); }
+/* developer read-out panel for the test marker */
+.rg-hud { position:fixed; z-index:132; left:12px; bottom:12px; margin:0; padding:9px 11px; font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.5; color:#EAF2FF; background:rgba(12,18,28,0.82); border:1px solid rgba(255,255,255,0.15); border-radius:8px; white-space:pre; pointer-events:none; }
+/* small, unobtrusive recalibrate control while reading */
+.rg-recal { position:fixed; z-index:122; right:12px; bottom:12px; font-size:11px; padding:5px 10px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--mute); cursor:pointer; opacity:0.7; }
+.rg-recal:hover { opacity:1; color:var(--body); }
 .rg-key { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:11px; }
 .rg-k { display:inline-flex; align-items:center; gap:7px; font-size:10.5px; color:var(--mute); }
 .rg-k em { font-style:normal; }

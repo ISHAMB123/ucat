@@ -3346,7 +3346,7 @@ function HeroReadiness({ best, history, plan, prefs, onGoto }) {
   );
 }
 
-function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext, plan }) {
+function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnlock, onTrial, mistakesCount, onMistakes, onWeakSpots, onLearnSjt, onGoto, planNext, plan }) {
   const bestBars = Object.entries(best || {}).filter(([id]) => DRILL_BY_ID[id]).map(([id, b]) => [id, b.pct]).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const weakTop = dedupeWeak(Object.entries(weak || {}).filter(([t, v]) => v >= 2 && liveTag(t)).sort((a, b) => b[1] - a[1])).slice(0, 6);
   const strongDrills = bestBars.filter(([, p]) => p >= 80).map(([id]) => (DRILL_BY_ID[id] || { name: id }).name);
@@ -3360,7 +3360,7 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
     ["SJT", "Situational Judgement", "banded separately, learnable"],
   ];
 
-  const tryCode = () => { if (code.trim().toUpperCase() === ACCESS_CODE) { setErr(""); onUnlock(); } else setErr("That code isn't recognised."); };
+  const tryCode = () => { const c = normCode(code); if (c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); } else if (c === ACCESS_CODE) { setErr(""); onUnlock(); } else setErr("That code isn't recognised."); };
 
   const sjtThemes = [...new Set(SJT_SCENARIOS.map((s) => s.theme))];
 
@@ -8228,6 +8228,10 @@ const IV_SESSION = (() => {
 const FULL_PRICE = "£39";
 const SALE_PRICE = "£25";
 const ACCESS_CODE = "UCAT18";
+/* Redeeming this code starts the one-day free trial (server-verified, one per
+   email/network). Matched case- and space-insensitively, so "Free ucat" works. */
+const TRIAL_CODE = "FREEUCAT";
+const normCode = (s) => String(s || "").trim().toUpperCase().replace(/\s+/g, "");
 const SALE_ENDS_LABEL = "31 August";
 const saleLive = () => Date.now() < new Date("2026-09-01T00:00:00").getTime();
 const PRICE_NOTE = "one payment, no subscription, no renewal";
@@ -8472,7 +8476,9 @@ function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const tryCode = () => {
-    if (code.trim().toUpperCase() === ACCESS_CODE) { setErr(""); onUnlock(); }
+    const c = normCode(code);
+    if (c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); }
+    else if (c === ACCESS_CODE) { setErr(""); onUnlock(); }
     else setErr("That code is not recognised.");
   };
   const checkout = () => {
@@ -8517,17 +8523,12 @@ function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }
             <p className="sub">{saleLive() ? `Launch price until ${SALE_ENDS_LABEL}, then ${FULL_PRICE}` : PRICE_NOTE}</p>
             <ul>{PLAN_INCLUDES.map((x) => <li key={x}>{x}</li>)}</ul>
             <button className="ud-btn full" onClick={checkout}>Unlock everything</button>
-            {onTrial && (
-              <div className="bill-trial">
-                <button className="ud-btn ghost full" onClick={onTrial}>Start 1-day free trial</button>
-                <p className="bill-trial-note">Full app for 24 hours. One per person. The AI interview and AI voice are not included, so nothing you do can run up a cost.</p>
-                {trialMsg && <p className={`bill-trial-msg${/Starting/.test(trialMsg) ? "" : " err"}`}>{trialMsg}</p>}
-              </div>
-            )}
             <div className="bill-code">
               <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryCode()} placeholder="Access code" aria-label="Access code" />
               <button className="ud-btn ghost" onClick={tryCode}>Redeem</button>
             </div>
+            <p className="bill-trial-note">Have a code? Enter <b>FREE UCAT</b> to start a 1-day free trial: the full app for 24 hours, one per person. The AI interview and AI voice are not included, so a trial can never run up a cost.</p>
+            {trialMsg && <p className={`bill-trial-msg${/Starting/.test(trialMsg) ? "" : " err"}`}>{trialMsg}</p>}
             {err && <p className="auth-err" style={{ marginTop: 10 }}>{err}</p>}
           </div>
         </div>
@@ -9943,7 +9944,7 @@ export default function UcatDrillTrainer() {
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}
       {showTour && authDone && prefs.track && <FeatureTour onGoto={(v) => setView(v)} onClose={closeTour} />}
-      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} plan={plan} /></>)}
+      {view === "drills" && (<><Header /><Home unlocked={unlocked} best={best} weak={weak} history={history} prefs={prefs} setPrefs={setPrefs} onStart={start} onUnlock={unlock} onTrial={startFreeTrial} mistakesCount={activeMistakes.length} onMistakes={startMistakes} onWeakSpots={startWeakSpots} onLearnSjt={() => setView("sjtlearn")} onGoto={(v) => setView(v)} planNext={planNextName} plan={plan} /></>)}
       {view === "sjtlearn" && (<><Header /><div className="ud-wrap">
         <button className="learn-back" onClick={() => setView("learn")}>
           <svg {...svgProps} width="15" height="15"><path d="M15 18l-6-6 6-6" /></svg>

@@ -73,19 +73,38 @@ function fitModel(samples, quad) {
    samples: [{ g:{x,y}, t:{x,y} }]. */
 export function fitCalibration(samples, model = "auto") {
   if (!samples || samples.length < 3) return null;
-  if (model === "affine") return fitModel(samples, false);
-  if (model === "quad") return samples.length >= 6 ? fitModel(samples, true) : null;
-  if (samples.length >= 8) {
-    const q = fitModel(samples, true);
-    if (q) return q;
+  let cal;
+  if (model === "affine") cal = fitModel(samples, false);
+  else if (model === "quad") cal = samples.length >= 6 ? fitModel(samples, true) : null;
+  else {
+    cal = samples.length >= 8 ? fitModel(samples, true) : null;
+    if (!cal) cal = fitModel(samples, false);
   }
-  return fitModel(samples, false);
+  if (!cal) return null;
+  /* Record the sampled input range. mapGaze refuses to extrapolate beyond it,
+     which is what stops a quadratic map from flying off when the raw gaze
+     wanders past the calibrated area (the "dot jumping around" problem). */
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const s of samples) {
+    if (s.g.x < xmin) xmin = s.g.x; if (s.g.x > xmax) xmax = s.g.x;
+    if (s.g.y < ymin) ymin = s.g.y; if (s.g.y > ymax) ymax = s.g.y;
+  }
+  cal.range = { xmin, xmax, ymin, ymax };
+  return cal;
 }
 
 /* Apply a fitted calibration to a raw gaze estimate. */
 export function mapGaze(cal, g) {
   if (!cal || !g) return null;
-  const row = (cal.quad ? featQuad : featAffine)(g);
+  let gx = g.x, gy = g.y;
+  if (cal.range) {
+    const r = cal.range;
+    const mx = Math.max(0.06, (r.xmax - r.xmin) * 0.2);
+    const my = Math.max(0.06, (r.ymax - r.ymin) * 0.2);
+    gx = Math.min(r.xmax + mx, Math.max(r.xmin - mx, gx));
+    gy = Math.min(r.ymax + my, Math.max(r.ymin - my, gy));
+  }
+  const row = (cal.quad ? featQuad : featAffine)({ x: gx, y: gy });
   let x = 0, y = 0;
   for (let i = 0; i < row.length; i++) { x += cal.cx[i] * row[i]; y += cal.cy[i] * row[i]; }
   return { x: clamp01(x), y: clamp01(y) };
@@ -107,7 +126,7 @@ export function calibrationError(cal, samples) {
    while a real saccade still moves quickly. Far better than a fixed average,
    which either jitters or lags. Coordinates are 0..1 screen fractions, time in
    milliseconds. Returns an object with filter(point, tMs). */
-export function makeSmoother(minCutoff = 1.2, beta = 0.5, dCutoff = 1.0) {
+export function makeSmoother(minCutoff = 0.7, beta = 0.8, dCutoff = 1.0) {
   const alpha = (cutoff, dt) => { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); };
   let xp = null, yp = null, dxp = 0, dyp = 0, tp = null;
   return {
@@ -132,12 +151,12 @@ export function makeReadLog(cols = 16, rows = 12) {
     cols, rows,
     grid: new Float32Array(cols * rows),
     path: [],
-    add(nx, ny) {
+    add(nx, ny, t) {
       nx = clamp01(nx); ny = clamp01(ny);
       const cx = Math.min(cols - 1, Math.floor(nx * cols));
       const cy = Math.min(rows - 1, Math.floor(ny * rows));
       this.grid[cy * cols + cx] += 1;
-      this.path.push({ x: nx, y: ny });
+      this.path.push({ x: nx, y: ny, t });
     },
   };
 }
@@ -284,6 +303,52 @@ export function pathKey(text) {
   return "rgpath:" + seedFromText(text).toString(36);
 }
 
+/* ---- Locating the line that actually answers the question ---------- */
+/* So the review can highlight the relevant line and time when the reader's
+   eyes reached it. Precise when the question carries an explicit evidence
+   quote (inference) or the literal answer appears in the passage (scanning),
+   otherwise the sentence with the most word overlap with the question. */
+const STOP = new Set("the a an of to in on at and or but for with as is are was were be been being by that this these those it its it's from than then so which who whom whose into over under about above below between after before during it their they them he she his her our your not no".split(" "));
+const wordsOf = (s) => (String(s || "").toLowerCase().match(/[a-z0-9]+/g) || []);
+const splitSentences = (t) => (String(t || "").match(/[^.!?]+[.!?]+/g) || [String(t || "")]).map((s) => s.trim()).filter(Boolean);
+
+function expandToSentence(text, start, end) {
+  let a = start, b = end;
+  while (a > 0 && !/[.!?]/.test(text[a - 1])) a--;
+  while (a < text.length && /\s/.test(text[a])) a++;
+  while (b < text.length && !/[.!?]/.test(text[b - 1])) b++;
+  return { start: a, end: b };
+}
+
+function findLiteral(text, needle) {
+  const n = String(needle || "").trim();
+  if (!n) return null;
+  const i = text.toLowerCase().indexOf(n.toLowerCase());
+  return i < 0 ? null : { start: i, end: i + n.length };
+}
+
+/* Returns { start, end } char offsets into passageText, or null. */
+export function locateEvidence(passageText, q) {
+  const text = String(passageText || "");
+  if (!text || !q) return null;
+  let span = findLiteral(text, q.evidence);
+  if (span) return expandToSentence(text, span.start, span.end);
+  if (typeof q.answer === "string") {
+    span = findLiteral(text, q.answer);
+    if (span) return expandToSentence(text, span.start, span.end);
+  }
+  const key = new Set(wordsOf(q.stem || q.prompt).concat(typeof q.answer === "string" ? wordsOf(q.answer) : []).filter((w) => w.length > 2 && !STOP.has(w)));
+  if (!key.size) return null;
+  const sentences = splitSentences(text);
+  let best = null, bestScore = 0, pos = 0;
+  for (const s of sentences) {
+    const start = text.indexOf(s, pos); if (start < 0) continue; pos = start + s.length;
+    let score = 0; for (const w of new Set(wordsOf(s))) if (key.has(w)) score++;
+    if (score > bestScore) { bestScore = score; best = { start, end: start + s.length }; }
+  }
+  return bestScore > 0 ? best : null;
+}
+
 const BAND = ["top", "middle", "bottom"];
 
 /* Coach the reading pattern. Region-level only. `drill` is the drill id
@@ -302,6 +367,9 @@ export function readingTips(a, drill) {
     tips.push(a.coverage < 0.5
       ? `You concentrated on part of the passage and gave little to the ${weak}. True, false and can't tell answers hide in the exact lines that get skimmed.`
       : "Solid coverage of the passage. Now slow the load-bearing sentences: can't tell is missed when a skimmed line is assumed rather than actually read.");
+    if (drill === "infer" || drill === "reading") {
+      tips.push("For an inference question, read the first and last sentence before anything else: the passage usually sets up its claim at the start and resolves it at the end, so the two together often frame the answer.");
+    }
     if (a.sweepRatio > 2.2) tips.push("Your eyes jumped around the passage. For comprehension, read in order, line by line, so you do not import a claim from the wrong place.");
   }
   if (tips.length < 3) tips.push(`Your gaze was lightest on the ${weak} of the passage, so that is where to slow down next time.`);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "../eyeread.js";
+import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence } from "../eyeread.js";
 
 describe("fitCalibration recovers a linear gaze-to-screen map", () => {
   it("recovers an identity map from clean samples", () => {
@@ -67,6 +67,42 @@ describe("fitCalibration recovers a linear gaze-to-screen map", () => {
     expect(qErr).toBeLessThan(aErr);
     expect(qErr).toBeLessThan(0.02);
     expect(calibrationError(quad, samples)).toBeLessThan(0.01);
+  });
+});
+
+describe("locateEvidence finds the answer line", () => {
+  const passage = "The reservoir was completed in 1934. At its opening it held 6.2 million cubic metres. A survey published in 2011 found the wall had shifted. The reservoir is not used for recreation.";
+
+  it("uses an explicit evidence quote", () => {
+    const span = locateEvidence(passage, { evidence: "held 6.2 million cubic metres" });
+    expect(span).not.toBeNull();
+    const found = passage.slice(span.start, span.end);
+    expect(found).toContain("6.2 million cubic metres");
+    /* Expanded to the whole sentence. */
+    expect(found).toContain("At its opening");
+  });
+
+  it("falls back to the literal answer when present", () => {
+    const span = locateEvidence(passage, { answer: "2011" });
+    expect(passage.slice(span.start, span.end)).toContain("2011");
+  });
+
+  it("falls back to keyword overlap when neither is present", () => {
+    const span = locateEvidence(passage, { stem: "Is the reservoir used for recreation?" });
+    expect(passage.slice(span.start, span.end).toLowerCase()).toContain("recreation");
+  });
+
+  it("returns null when nothing matches", () => {
+    expect(locateEvidence("", { evidence: "x" })).toBeNull();
+    expect(locateEvidence(passage, {})).toBeNull();
+  });
+});
+
+describe("makeReadLog records timestamps", () => {
+  it("stores the time passed to add", () => {
+    const log = makeReadLog();
+    log.add(0.5, 0.5, 1200);
+    expect(log.path[0].t).toBe(1200);
   });
 });
 

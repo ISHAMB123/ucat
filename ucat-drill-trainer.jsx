@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
-import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "./eyeread.js";
+import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence } from "./eyeread.js";
 import { supabase, supabaseEnabled, getEntitlement } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -1575,7 +1575,7 @@ function strokePath(ctx, path, w, h) {
    each cell is shaded by how long the eyes dwelt there. The crowd's average
    path (people who answered right, in time) is drawn over it as a distinct,
    numbered white line, clipped to the grid so it never spills outside. */
-function drawReadHeat(canvas, log, avgPath, rows) {
+function drawReadHeat(canvas, log, avgPath, rows, evBands) {
   if (!canvas || !log) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const W = canvas.clientWidth, H = canvas.clientHeight;
@@ -1607,11 +1607,22 @@ function drawReadHeat(canvas, log, avgPath, rows) {
       if (max <= 0 || v <= 0) {
         ctx.fillStyle = "rgba(148,163,184,0.10)"; // faint empty cell
       } else {
-        const t = Math.pow(v / max, 0.7); // ease so mid values read clearly
+        const t = Math.pow(v / max, 0.6); // ease so mid values read clearly
         const c = heatLUT(t);
-        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(0.32 + t * 0.6).toFixed(3)})`;
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(0.5 + t * 0.5).toFixed(3)})`;
       }
       ctx.fillRect(px + gap / 2, py + gap / 2, cw - gap, ch - gap);
+    }
+  }
+
+  /* Shade the line(s) that hold the answer in green, with a solid left marker,
+     so the reader can see whether their heat overlapped the evidence. */
+  if (evBands && evBands.length) {
+    for (const b of evBands) {
+      const y0 = Math.max(0, b.y0) * H, y1 = Math.min(1, b.y1) * H;
+      if (y1 <= y0) continue;
+      ctx.fillStyle = "rgba(34,197,94,0.30)"; ctx.fillRect(0, y0, W, y1 - y0);
+      ctx.fillStyle = "rgba(22,163,74,0.95)"; ctx.fillRect(0, y0, 4, y1 - y0);
     }
   }
 
@@ -1634,7 +1645,36 @@ function drawReadHeat(canvas, log, avgPath, rows) {
   }
 }
 
-function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solvedFast }) {
+/* Tailored coaching from what the gaze actually did on this question: whether
+   the eyes reached the line that holds the answer, when, and whether the
+   answer was right. Region-level and honest, never a word-by-word claim. */
+function readAdvice({ a, evBands, foundMs, correct, drill }) {
+  if (!a) return [];
+  const out = [];
+  const secs = foundMs != null ? (foundMs / 1000).toFixed(1) : null;
+  if (evBands) {
+    if (foundMs != null) {
+      if (correct) {
+        out.push(`You reached the answer line (green) at ${secs}s and got it right. That is the move: find the line that settles it, then commit.`);
+        if (foundMs > 12000) out.push("It took a while to land on it, though. Read the question first and scan for its key words so you get there sooner.");
+      } else {
+        out.push(`You did look at the answer line (green), at ${secs}s, but still answered wrong. The fix is care, not speed: read that line word for word and watch for a swapped absolute, an invented cause, or outside knowledge creeping in.`);
+      }
+    } else {
+      out.push(correct
+        ? "Your eyes never settled on the line that holds the answer (green). You got it right anyway, but on a harder question that guess would cost you, so learn to find the evidence."
+        : "Your eyes never settled on the line that holds the answer (green). Scan for the key words from the question first, then read the line they point to before choosing.");
+    }
+  } else if (!correct) {
+    if (a.coverage < 0.5) out.push("You answered wrong and reached only part of the passage. Slow down and cover the lines you skipped: the answer is usually in one of them.");
+    else if (a.sweepRatio > 2.2) out.push("You answered wrong after jumping around the passage. Read in order so you do not carry a claim in from the wrong place.");
+    else out.push("You answered wrong despite good coverage, so read the load-bearing sentences more carefully rather than faster.");
+  }
+  if (drill === "scan" && foundMs != null && foundMs > 8000) out.push("For scanning, aim to find the figure in a few seconds. Hunt the shape of the answer, a number or a name, before reading any prose.");
+  return out.slice(0, 2);
+}
+
+function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, question, answeredCorrect, solvedFast }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const lmRef = useRef(null);
@@ -1645,6 +1685,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
   const calBucket = useRef([]);
   const smoothRef = useRef(makeSmoother());
   const lastPtRef = useRef(null);
+  const startRef = useRef(0);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
   const [calIdx, setCalIdx] = useState(-1);
   const [camErr, setCamErr] = useState(false);
@@ -1687,7 +1728,8 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
           if (!moving && el) {
             const r = el.getBoundingClientRect();
             if (r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) {
-              logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height);
+              if (!startRef.current) startRef.current = now;
+              logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height, now - startRef.current);
             }
           }
         }
@@ -1706,8 +1748,8 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
     return () => { dead = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); const s = streamRef.current; if (s) s.getTracks().forEach((t) => t.stop()); };
   }, []);
 
-  /* Fresh heat log and gaze smoother per question. */
-  useEffect(() => { logRef.current = makeReadLog(); smoothRef.current = makeSmoother(); lastPtRef.current = null; setResult(null); }, [qKey]);
+  /* Fresh heat log, gaze smoother and question timer per question. */
+  useEffect(() => { logRef.current = makeReadLog(); smoothRef.current = makeSmoother(); lastPtRef.current = null; startRef.current = 0; setResult(null); }, [qKey]);
 
   /* When the question is answered, freeze the analysis, fold this attempt
      into the crowd path if it was right and in time, and paint the map. */
@@ -1736,10 +1778,41 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
       const inner = el.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
       if (inner > 0) lines = Math.max(3, Math.min(40, Math.round(inner / lh)));
     }
-    setResult({ a, tips: readingTips(a, drill), avg, crowdN: stored ? stored.n : 0, seeded, tech, lines });
-  }, [phase, drill, passageText, solvedFast]);
+
+    /* Locate the line that actually holds the answer and turn it into the
+       normalised y-bands the heat map can shade green, using a DOM range so
+       the highlight lands on the exact rendered lines. Then find the first
+       moment the reader's gaze reached one of those bands. */
+    let evBands = null, foundMs = null;
+    const span = locateEvidence(passageText, question);
+    if (span && el && el.firstChild && el.firstChild.nodeType === 3) {
+      try {
+        const node = el.firstChild;
+        const range = document.createRange();
+        range.setStart(node, Math.max(0, Math.min(span.start, node.length)));
+        range.setEnd(node, Math.max(0, Math.min(span.end, node.length)));
+        const pr = el.getBoundingClientRect();
+        const bands = [];
+        for (const rc of range.getClientRects()) {
+          if (rc.height <= 0 || pr.height <= 0) continue;
+          bands.push({ y0: (rc.top - pr.top) / pr.height, y1: (rc.bottom - pr.top) / pr.height });
+        }
+        if (bands.length) {
+          evBands = bands;
+          for (const p of logRef.current.path) {
+            if (p.t == null) continue;
+            if (bands.some((b) => p.y >= b.y0 - 0.02 && p.y <= b.y1 + 0.02)) { foundMs = p.t; break; }
+          }
+        }
+      } catch (e) { /* range failed, skip the highlight */ }
+    }
+
+    const tips = readingTips(a, drill);
+    const advice = readAdvice({ a, evBands, foundMs, correct: answeredCorrect, drill });
+    setResult({ a, tips, advice, avg, crowdN: stored ? stored.n : 0, seeded, tech, lines, evBands, foundMs });
+  }, [phase, drill, passageText, question, answeredCorrect, solvedFast]);
   useEffect(() => {
-    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, result.avg, result.lines);
+    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, result.avg, result.lines, result.evBands);
   }, [result]);
 
   const runCalibration = () => {
@@ -1816,7 +1889,11 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
           <div className="rg-key">
             <span className="rg-k rg-k-scale"><i /><em>looked less</em><em className="r">looked more</em></span>
             <span className="rg-k rg-k-avg"><i /><em>{result.seeded ? `suggested path: ${result.tech.name}` : `average of ${result.crowdN} correct, in-time reads`}</em></span>
+            {result.evBands && <span className="rg-k rg-k-ev"><i /><em>answer line{result.foundMs != null ? ` (reached at ${(result.foundMs / 1000).toFixed(1)}s)` : " (you missed it)"}</em></span>}
           </div>
+          {result.advice && result.advice.length > 0 && (
+            <div className="rg-advice">{result.advice.map((t, n) => <p key={n}>{t}</p>)}</div>
+          )}
           {result.seeded && result.tech && <p className="rg-tech"><b>{result.tech.name}.</b> {result.tech.cue}</p>}
           <ul className="rg-tips">{result.tips.map((t, n) => <li key={n}>{t}</li>)}</ul>
           {result.a && <p className="rg-foot">Lightest on the {band} third. The white line is {result.seeded ? "the suggested path for this passage" : "how people who got this right in time moved their eyes"}. Webcam gaze is approximate, so read this as your pattern, not a word-by-word record. Only the heat map is kept; no face image is stored.</p>}
@@ -2515,7 +2592,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
           )}
 
           {readOn && <ReadingGaze passageRef={passageRef} calRef={calRef} drill={q.drill} phase={phase} qKey={i}
-            passageText={q.passageText} solvedFast={!!(lastEntry && lastEntry.correct && (!exam || lastEntry.ms <= budgetMs))} />}
+            passageText={q.passageText} question={q} answeredCorrect={!!(lastEntry && lastEntry.correct)}
+            solvedFast={!!(lastEntry && lastEntry.correct && (!exam || lastEntry.ms <= budgetMs))} />}
         </div>
       </div>
     </div>

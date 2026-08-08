@@ -1875,6 +1875,12 @@ button.nav-row:hover { background:var(--signal)14; }
 /* small, unobtrusive recalibrate control while reading */
 .rg-recal { position:fixed; z-index:122; right:12px; bottom:12px; font-size:11px; padding:5px 10px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--mute); cursor:pointer; opacity:0.7; }
 .rg-recal:hover { opacity:1; color:var(--body); }
+/* minimal, subordinate text-size slider on the right edge of the reading area */
+.rg-fs { position:fixed; z-index:122; right:14px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; align-items:center; gap:8px; padding:10px 6px; border-radius:999px; background:var(--card); border:1px solid var(--line); opacity:0.55; transition:opacity .15s; }
+.rg-fs:hover { opacity:1; }
+.rg-fs span { color:var(--mute); font-weight:700; line-height:1; font-size:16px; }
+.rg-fs span.sm { font-size:10px; }
+.rg-fs input[type="range"] { writing-mode:vertical-lr; direction:rtl; width:6px; height:120px; accent-color:var(--go); cursor:pointer; }
 .rg-key { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:11px; }
 .rg-k { display:inline-flex; align-items:center; gap:7px; font-size:10.5px; color:var(--mute); }
 .rg-k em { font-style:normal; }

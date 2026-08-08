@@ -1694,7 +1694,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
      answer, and a dwell accumulator so "found the answer" only fires on a
      genuine, sustained read of that sentence, not a passing glance. */
   const hlRefs = useRef([]);
-  const sentCacheRef = useRef(null);
+  const geomRef = useRef(null);
   const curSentRef = useRef(-1);
   const dwellRef = useRef({ acc: 0, lastT: 0 });
   const foundRef = useRef(null);
@@ -1709,6 +1709,15 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
   const confRef = useRef(0);
   const [debug, setDebug] = useState(() => { try { return /[?&]gazedebug=1/.test(window.location.search); } catch (e) { return false; } });
   const debugRef = useRef(debug); useEffect(() => { debugRef.current = debug; }, [debug]);
+  /* Reading text size (px). Bigger text means bigger gaze targets, which makes
+     the word hit-test far more tolerant of webcam error. One source of truth,
+     applied straight to the passage element and persisted. */
+  const [fontPx, setFontPx] = useState(() => { const v = Number(getJSON("ucat:readingfs", 0)); return v >= 18 && v <= 48 ? v : 30; });
+  useEffect(() => {
+    if (passageRef.current) passageRef.current.style.fontSize = fontPx + "px";
+    geomRef.current = null; // force geometry recompute after the reflow
+    try { setJSON("ucat:readingfs", fontPx); } catch (e) { /* ignore */ }
+  }, [fontPx, qKey, passageRef]);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
   const [calIdx, setCalIdx] = useState(-1);
   const [camErr, setCamErr] = useState(false);
@@ -1748,36 +1757,47 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
         confRef.current = conf;
         if (validRef.current) { if (conf < 0.4) validRef.current = false; }
         else if (conf > 0.6) validRef.current = true;
-        writeHud(a);
-        if (!validRef.current) return;
+        if (!validRef.current) { writeHud({ a, valid: false }); return; }
         const sample = { ex: a.raw.x, ey: a.raw.y, yaw: pose.yaw || 0, pitch: pose.pitch || 0, dist: pose.dist || 0 };
         const mapped = calRef.current.pose ? mapGazeFeat(calRef.current, sample) : mapGaze(calRef.current, a.raw);
         const el = passageRef.current;
         if (!mapped || !el) return;
-        const m = smoothRef.current.filter(mapped, now); // one-euro: still when resting
+        /* ONE canonical gaze point. The one-euro filter gives a lightly
+           smoothed position for the visual cursor and hit-test (not the 400ms
+           fixation, which would lag). Everything downstream, crosshair, word
+           hit-test and heat log, consumes exactly this px/py in viewport CSS
+           pixels, so they can never disagree about where the gaze is. */
+        const m = smoothRef.current.filter(mapped, now);
         const px = m.x * window.innerWidth, py = m.y * window.innerHeight;
         if (debugRef.current && crossRef.current) { crossRef.current.style.left = px + "px"; crossRef.current.style.top = py + "px"; crossRef.current.style.opacity = "1"; }
         const r = el.getBoundingClientRect();
-        ensureSentences(el, r);
+        ensureGeom(el, r);
         const inside = r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
         const prev = lastPtRef.current;
         const moving = prev && Math.hypot(m.x - prev.x, m.y - prev.y) > 0.03; // fixation vs saccade
         lastPtRef.current = { x: m.x, y: m.y };
-        if (!inside) { setHighlight(-1); dwellRef.current.acc = 0; dwellRef.current.lastT = 0; return; }
+        const g = geomRef.current;
+        /* Word hit-test against live DOM geometry, with a tolerance margin so
+           webcam error does not fall between words. */
+        let wi = -1;
+        if (inside && g) {
+          const MX = 6, MY = 8;
+          for (let w = 0; w < g.words.length; w++) {
+            const rc = g.words[w].rect;
+            if (px >= rc.left - MX && px <= rc.right + MX && py >= rc.top - MY && py <= rc.bottom + MY) { wi = w; break; }
+          }
+        }
+        setHighlight(wi);
+        const word = wi >= 0 ? g.words[wi] : null;
+        writeHud({ a, m, px, py, sample, inside, word, wordText: word ? g.text.slice(word.start, word.end) : "", procMs: performance.now() - now });
+        if (!inside) { dwellRef.current.acc = 0; dwellRef.current.lastT = 0; return; }
         if (!startRef.current) startRef.current = now;
         const tSince = now - startRef.current;
         /* Heat log: fixations only, so the map reflects where the eyes rested. */
         if (!moving) logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height, tSince);
-        /* Which sentence is the gaze over? Highlight it live. */
-        const sc = sentCacheRef.current;
-        let cur = -1;
-        if (sc) for (let s = 0; s < sc.sents.length; s++) {
-          if (sc.sents[s].rects.some((rc) => py >= rc.top - 2 && py <= rc.bottom + 2 && px >= rc.left - 6 && px <= rc.right + 6)) { cur = s; break; }
-        }
-        setHighlight(cur);
-        /* "Found the answer" only on a real read: sustained fixation on the
-           answer sentence, not a fast sweep across it. */
-        const onEv = cur >= 0 && sc && sc.sents[cur].isEvidence;
+        /* "Found the answer" only on a real read: sustained fixation on a word
+           within the answer sentence, not a fast sweep across it. */
+        const onEv = !!word && word.isEvidence;
         const d = dwellRef.current;
         if (onEv) {
           const dt = d.lastT ? now - d.lastT : 0; d.lastT = now;
@@ -1787,70 +1807,102 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       }
     };
 
-    /* Build (once, then reuse) the on-screen rectangles of every sentence in
-       the passage and mark the one(s) that hold the answer. Recomputed only
-       when the passage moves (scroll/resize), so it is cheap per frame. */
-    const ensureSentences = (el, r) => {
-      const cached = sentCacheRef.current;
-      if (cached && Math.abs(cached.top - r.top) < 2 && Math.abs(cached.left - r.left) < 2) return;
+    /* Build (once, then reuse) the live on-screen geometry of the passage:
+       every word's bounding rect and every sentence's line rects, all from the
+       browser via getBoundingClientRect/getClientRects so they are in the same
+       viewport CSS pixels as the gaze point. Recomputed whenever the passage
+       moves OR reflows (scroll, resize, or the text-size slider changing the
+       font), which is what keeps hit-testing honest after a resize. */
+    const ensureGeom = (el, r) => {
+      const cached = geomRef.current;
+      const fs = parseFloat(window.getComputedStyle(el).fontSize) || 0;
+      if (cached && Math.abs(cached.top - r.top) < 2 && Math.abs(cached.left - r.left) < 2
+        && Math.abs(cached.height - r.height) < 2 && Math.abs(cached.fs - fs) < 0.5) return;
       const node = el.firstChild;
-      if (!node || node.nodeType !== 3) { sentCacheRef.current = { top: r.top, left: r.left, sents: [] }; return; }
+      if (!node || node.nodeType !== 3) { geomRef.current = { top: r.top, left: r.left, height: r.height, fs, text: "", words: [], sents: [] }; return; }
       const text = node.textContent || "";
       const span = locateEvidence(passageText, question);
-      const parts = text.match(/[^.!?]+[.!?]+/g) || [text];
-      const sents = []; let pos = 0;
+      const inEv = (s, e) => !!(span && s < span.end && e > span.start);
+      const rangeRects = (s, e) => {
+        try {
+          const range = document.createRange();
+          range.setStart(node, Math.min(s, node.length));
+          range.setEnd(node, Math.min(e, node.length));
+          return Array.from(range.getClientRects()).filter((rc) => rc.height > 0).map((rc) => ({ top: rc.top, bottom: rc.bottom, left: rc.left, right: rc.right }));
+        } catch (e2) { return []; }
+      };
+      /* Words: each run of non-space characters, with its own bounding box. */
+      const words = [];
+      const re = /\S+/g; let mt;
+      while ((mt = re.exec(text))) {
+        const start = mt.index, end = start + mt[0].length;
+        const rects = rangeRects(start, end);
+        if (!rects.length) continue;
+        let top = Infinity, bottom = -Infinity, left = Infinity, right = -Infinity;
+        for (const rc of rects) { top = Math.min(top, rc.top); bottom = Math.max(bottom, rc.bottom); left = Math.min(left, rc.left); right = Math.max(right, rc.right); }
+        words.push({ start, end, rect: { top, bottom, left, right }, isEvidence: inEv(start, end) });
+      }
+      /* Sentences: line rects, for the faint context highlight. */
+      const sents = []; const parts = text.match(/[^.!?]+[.!?]+/g) || [text]; let pos = 0;
       for (const part of parts) {
         const start = text.indexOf(part, pos); if (start < 0) continue; const end = start + part.length; pos = end;
         let s0 = start; while (s0 < end && /\s/.test(text[s0])) s0++;
-        let rects = [];
-        try {
-          const range = document.createRange();
-          range.setStart(node, Math.min(s0, node.length));
-          range.setEnd(node, Math.min(end, node.length));
-          rects = Array.from(range.getClientRects()).filter((rc) => rc.height > 0).map((rc) => ({ top: rc.top, bottom: rc.bottom, left: rc.left, right: rc.right }));
-        } catch (e) { /* skip */ }
-        const isEvidence = !!(span && start < span.end && end > span.start);
-        sents.push({ start, end, rects, isEvidence });
+        sents.push({ start, end, rects: rangeRects(s0, end), isEvidence: inEv(start, end) });
       }
-      sentCacheRef.current = { top: r.top, left: r.left, sents };
+      geomRef.current = { top: r.top, left: r.left, height: r.height, fs, text, words, sents };
     };
 
-    /* Move the overlay bars onto the given sentence's lines, hiding the rest.
-       No React re-render, so it stays smooth at 30 Hz. */
-    const setHighlight = (idx) => {
-      if (idx === curSentRef.current) return;
-      curSentRef.current = idx;
+    /* Paint the current word (strong) and the sentence around it (faint), from
+       the pool of overlay bars. No React re-render, so it stays smooth. */
+    const setHighlight = (wi) => {
+      if (wi === curSentRef.current) return;
+      curSentRef.current = wi;
       const pool = hlRefs.current;
-      const sc = sentCacheRef.current;
-      const rects = idx >= 0 && sc && sc.sents[idx] ? sc.sents[idx].rects : [];
-      const evi = idx >= 0 && sc && sc.sents[idx] ? sc.sents[idx].isEvidence : false;
+      const g = geomRef.current;
+      const word = wi >= 0 && g && g.words[wi] ? g.words[wi] : null;
+      /* the sentence containing this word, for the faint context bars */
+      let sentRects = [];
+      if (word && g) { const s = g.sents.find((sn) => word.start >= sn.start && word.start < sn.end); if (s) sentRects = s.rects; }
+      const evi = word ? word.isEvidence : false;
       for (let k = 0; k < pool.length; k++) {
         const bar = pool[k]; if (!bar) continue;
-        const rc = rects[k];
-        if (rc) {
+        if (k === 0 && word) {
+          const rc = word.rect;
           bar.style.left = rc.left + "px"; bar.style.top = rc.top + "px";
           bar.style.width = (rc.right - rc.left) + "px"; bar.style.height = (rc.bottom - rc.top) + "px";
-          bar.style.background = evi ? "rgba(34,197,94,0.38)" : "rgba(250,204,21,0.42)";
+          bar.style.background = evi ? "rgba(34,197,94,0.55)" : "rgba(250,204,21,0.6)";
+          bar.style.opacity = "1";
+        } else if (k >= 1 && sentRects[k - 1]) {
+          const rc = sentRects[k - 1];
+          bar.style.left = rc.left + "px"; bar.style.top = rc.top + "px";
+          bar.style.width = (rc.right - rc.left) + "px"; bar.style.height = (rc.bottom - rc.top) + "px";
+          bar.style.background = evi ? "rgba(34,197,94,0.16)" : "rgba(250,204,21,0.18)";
           bar.style.opacity = "1";
         } else { bar.style.opacity = "0"; }
       }
     };
 
-    /* Developer read-out (only when the test marker is on): the numbers needed
-       to tell apart "confidence collapsed" from "regression wrong" from "model
-       not loaded". Throttled and written straight to the DOM. */
+    /* Developer read-out (only when the test marker is on): the whole pipeline
+       for the current frame, so a wrong crosshair, a wrong hit-test and a wrong
+       highlight can be told apart at a glance. Throttled, written to the DOM. */
     let lastHud = 0;
-    const writeHud = (a) => {
+    const writeHud = (diag) => {
       if (!debugRef.current || !hudRef.current) return;
-      const now2 = performance.now(); if (now2 - lastHud < 180) return; lastHud = now2;
-      const pose = a.pose || {};
-      const q = qualityRef.current;
-      const deg = (r) => (r ? (r * 57.3).toFixed(0) : "0");
+      const now2 = performance.now(); if (now2 - lastHud < 150) return; lastHud = now2;
+      const a = diag.a || {}, pose = a.pose || {}, q = qualityRef.current;
+      const deg = (v) => (v ? (v * 57.3).toFixed(0) : "0");
+      const f2 = (v) => (v == null ? "-" : Number(v).toFixed(2));
+      const f0 = (v) => (v == null ? "-" : Math.round(v));
+      const rc = diag.word ? diag.word.rect : null;
       hudRef.current.textContent = [
-        `confidence: ${(confRef.current).toFixed(2)}  ${validRef.current ? "TRACK" : "hold"}`,
-        `yaw ${deg(pose.yaw)}deg  pitch ${deg(pose.pitch)}deg`,
-        `calibration: ${calRef.current ? (calRef.current.pose ? "READY pose" : "READY 2D") : "none"}`,
-        q ? `median err: ${(q.heldErr * 100).toFixed(0)}% of screen  (${q.n} pts)` : "median err: n/a",
+        `conf ${f2(confRef.current)}  ${validRef.current ? "TRACK" : "HOLD"}   yaw ${deg(pose.yaw)} pitch ${deg(pose.pitch)}`,
+        `raw   ${f2(a.raw && a.raw.x)}, ${f2(a.raw && a.raw.y)}`,
+        `norm  ${f2(diag.m && diag.m.x)}, ${f2(diag.m && diag.m.y)}`,
+        `view  ${f0(diag.px)}, ${f0(diag.py)} px   inside ${diag.inside ? "Y" : "N"}`,
+        `cal   ${calRef.current ? (calRef.current.pose ? "READY pose" : "READY 2D") : "NONE"}   err ${q ? Math.round(q.heldErr * 100) + "%" : "n/a"}`,
+        `word  ${diag.wordText ? '"' + diag.wordText + '"' : "(none)"}`,
+        rc ? `rect  ${f0(rc.left)},${f0(rc.top)} ${f0(rc.right - rc.left)}x${f0(rc.bottom - rc.top)}` : "rect  -",
+        `lat   ${f0(diag.procMs)} ms/frame`,
       ].join("\n");
     };
     (async () => {
@@ -1871,7 +1923,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
   useEffect(() => {
     logRef.current = makeReadLog(); smoothRef.current = makeSmoother();
     lastPtRef.current = null; startRef.current = 0;
-    sentCacheRef.current = null; curSentRef.current = -1;
+    geomRef.current = null; curSentRef.current = -1;
     dwellRef.current = { acc: 0, lastT: 0 }; foundRef.current = null;
     hlRefs.current.forEach((b) => { if (b) b.style.opacity = "0"; });
     setResult(null);
@@ -2070,6 +2122,12 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
           ))}
           {debug && <span className="rg-cross" ref={crossRef} aria-hidden="true" style={{ opacity: 0 }} />}
           {debug && <pre className="rg-hud" ref={hudRef} aria-hidden="true" />}
+          <div className="rg-fs" title="Text size">
+            <span aria-hidden="true">A</span>
+            <input type="range" min={20} max={46} step={2} value={fontPx} aria-label="Reading text size"
+              onChange={(e) => setFontPx(Number(e.target.value))} />
+            <span className="sm" aria-hidden="true">a</span>
+          </div>
           <button className="rg-recal" onClick={requestRecalibration}>Recalibrate</button>
           <span className="rg-live" aria-hidden="true"><i />Following your reading</span>
         </>

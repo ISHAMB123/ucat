@@ -19,51 +19,110 @@ export { loadTracker, analyse };
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
-/* Solve a 3x3 linear system by Gaussian elimination with partial
-   pivoting. Returns null if the system is (near) singular. */
-function solve3(A, b) {
-  const m = [[A[0][0], A[0][1], A[0][2], b[0]], [A[1][0], A[1][1], A[1][2], b[1]], [A[2][0], A[2][1], A[2][2], b[2]]];
-  for (let c = 0; c < 3; c++) {
+/* Solve an n x n linear system by Gauss-Jordan elimination with partial
+   pivoting. Every column is cleared from every other row, so the matrix ends
+   diagonal and x[i] = m[i][n] / m[i][i]. Returns null if (near) singular. */
+function solveLinear(A, b) {
+  const n = b.length;
+  const m = A.map((row, i) => [...row, b[i]]);
+  for (let c = 0; c < n; c++) {
     let piv = c;
-    for (let r = c + 1; r < 3; r++) if (Math.abs(m[r][c]) > Math.abs(m[piv][c])) piv = r;
+    for (let r = c + 1; r < n; r++) if (Math.abs(m[r][c]) > Math.abs(m[piv][c])) piv = r;
     if (Math.abs(m[piv][c]) < 1e-9) return null;
     [m[c], m[piv]] = [m[piv], m[c]];
-    for (let r = 0; r < 3; r++) {
+    for (let r = 0; r < n; r++) {
       if (r === c) continue;
       const f = m[r][c] / m[c][c];
-      for (let k = c; k < 4; k++) m[r][k] -= f * m[c][k];
+      for (let k = c; k <= n; k++) m[r][k] -= f * m[c][k];
     }
   }
-  return [m[0][3] / m[0][0], m[1][3] / m[1][1], m[2][3] / m[2][2]];
+  return m.map((row, i) => row[n] / row[i]);
 }
 
-/* Least-squares affine fit of the raw gaze estimate (0..1) to the true
-   on-screen target (0..1), one independent 3-parameter map per axis:
-   sx = a*gx + b*gy + c. samples: [{ g:{x,y}, t:{x,y} }]. */
-export function fitCalibration(samples) {
-  if (!samples || samples.length < 3) return null;
-  const normal = (axis) => {
-    const S = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-    const rhs = [0, 0, 0];
+/* Feature rows for the two calibration models. Affine (3 terms) is a plane;
+   quadratic (6 terms) can bend to correct the curvature a webcam gaze
+   estimate has toward the edges of the screen, which is where a linear fit is
+   worst. */
+const featAffine = (g) => [1, g.x, g.y];
+const featQuad = (g) => [1, g.x, g.y, g.x * g.x, g.y * g.y, g.x * g.y];
+
+function fitModel(samples, quad) {
+  const feat = quad ? featQuad : featAffine;
+  const P = quad ? 6 : 3;
+  const fitAxis = (axis) => {
+    const S = Array.from({ length: P }, () => new Array(P).fill(0));
+    const rhs = new Array(P).fill(0);
     for (const s of samples) {
-      const row = [s.g.x, s.g.y, 1];
+      const row = feat(s.g);
       const y = s.t[axis];
-      for (let i = 0; i < 3; i++) { rhs[i] += row[i] * y; for (let j = 0; j < 3; j++) S[i][j] += row[i] * row[j]; }
+      for (let i = 0; i < P; i++) { rhs[i] += row[i] * y; for (let j = 0; j < P; j++) S[i][j] += row[i] * row[j]; }
     }
-    return solve3(S, rhs);
+    return solveLinear(S, rhs);
   };
-  const ax = normal("x");
-  const ay = normal("y");
-  if (!ax || !ay) return null;
-  return { ax, ay };
+  const cx = fitAxis("x");
+  const cy = fitAxis("y");
+  if (!cx || !cy) return null;
+  return { quad, cx, cy };
+}
+
+/* Least-squares fit of the raw gaze estimate to the true on-screen target,
+   one independent map per axis. With enough calibration points a quadratic
+   fit is used for a tighter, less distorted mapping; with only a handful it
+   falls back to affine, and to null when there are too few to fit at all.
+   Pass model "affine" or "quad" to force one; the default picks by count.
+   samples: [{ g:{x,y}, t:{x,y} }]. */
+export function fitCalibration(samples, model = "auto") {
+  if (!samples || samples.length < 3) return null;
+  if (model === "affine") return fitModel(samples, false);
+  if (model === "quad") return samples.length >= 6 ? fitModel(samples, true) : null;
+  if (samples.length >= 8) {
+    const q = fitModel(samples, true);
+    if (q) return q;
+  }
+  return fitModel(samples, false);
 }
 
 /* Apply a fitted calibration to a raw gaze estimate. */
 export function mapGaze(cal, g) {
   if (!cal || !g) return null;
-  const x = cal.ax[0] * g.x + cal.ax[1] * g.y + cal.ax[2];
-  const y = cal.ay[0] * g.x + cal.ay[1] * g.y + cal.ay[2];
+  const row = (cal.quad ? featQuad : featAffine)(g);
+  let x = 0, y = 0;
+  for (let i = 0; i < row.length; i++) { x += cal.cx[i] * row[i]; y += cal.cy[i] * row[i]; }
   return { x: clamp01(x), y: clamp01(y) };
+}
+
+/* Mean residual of a calibration on its own samples, in screen fractions.
+   A rough quality read: below ~0.06 is good, above ~0.12 is loose. */
+export function calibrationError(cal, samples) {
+  if (!cal || !samples || !samples.length) return 1;
+  let sum = 0;
+  for (const s of samples) {
+    const m = mapGaze(cal, s.g);
+    sum += Math.hypot(m.x - s.t.x, m.y - s.t.y);
+  }
+  return sum / samples.length;
+}
+
+/* One-euro filter: smooths the live gaze so a resting eye gives a still dot,
+   while a real saccade still moves quickly. Far better than a fixed average,
+   which either jitters or lags. Coordinates are 0..1 screen fractions, time in
+   milliseconds. Returns an object with filter(point, tMs). */
+export function makeSmoother(minCutoff = 1.2, beta = 0.5, dCutoff = 1.0) {
+  const alpha = (cutoff, dt) => { const tau = 1 / (2 * Math.PI * cutoff); return 1 / (1 + tau / dt); };
+  let xp = null, yp = null, dxp = 0, dyp = 0, tp = null;
+  return {
+    filter(p, t) {
+      if (xp === null) { xp = p.x; yp = p.y; tp = t; return { x: xp, y: yp }; }
+      let dt = (t - tp) / 1000; if (!(dt > 0)) dt = 1 / 30; tp = t;
+      const ad = alpha(dCutoff, dt);
+      const dx = (p.x - xp) / dt, dy = (p.y - yp) / dt;
+      dxp += ad * (dx - dxp); dyp += ad * (dy - dyp);
+      const ax = alpha(minCutoff + beta * Math.abs(dxp), dt);
+      const ay = alpha(minCutoff + beta * Math.abs(dyp), dt);
+      xp += ax * (p.x - xp); yp += ay * (p.y - yp);
+      return { x: xp, y: yp };
+    },
+  };
 }
 
 /* A per-passage accumulator: a coarse heat grid plus the fixation path,

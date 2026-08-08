@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
-import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "./eyeread.js";
+import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "./eyeread.js";
 import { supabase, supabaseEnabled, getEntitlement } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
@@ -1529,7 +1529,15 @@ function snapAnswered(q, snap) {
    MediaPipe tracker: five-dot calibration, a heat grid accumulated over the
    passage while answering, then a heat map and reading-pattern coaching once
    the question is answered. Nothing leaves the device. */
-const CAL_DOTS = [{ x: 0.5, y: 0.5 }, { x: 0.1, y: 0.12 }, { x: 0.9, y: 0.12 }, { x: 0.9, y: 0.88 }, { x: 0.1, y: 0.88 }];
+/* A nine-point (3x3) calibration grid. More points, spread to the corners,
+   edges and centre, is what lets the quadratic fit correct the curvature of a
+   webcam gaze estimate, so the mapped point is accurate across the whole
+   passage and not only near the middle. */
+const CAL_DOTS = [
+  { x: 0.1, y: 0.12 }, { x: 0.5, y: 0.12 }, { x: 0.9, y: 0.12 },
+  { x: 0.1, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.9, y: 0.5 },
+  { x: 0.1, y: 0.88 }, { x: 0.5, y: 0.88 }, { x: 0.9, y: 0.88 },
+];
 
 /* Green to red heat gradient, matching a classic density heat map. */
 /* Colour ramp for the heat grid, from "looked less" to "looked more". A wide
@@ -1635,6 +1643,8 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
   const heatRef = useRef(null);
   const gazeDotRef = useRef(null);
   const calBucket = useRef([]);
+  const smoothRef = useRef(makeSmoother());
+  const lastPtRef = useRef(null);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
   const [calIdx, setCalIdx] = useState(-1);
   const [camErr, setCamErr] = useState(false);
@@ -1652,22 +1662,29 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
       const v = videoRef.current, lm = lmRef.current;
       if (!v || !lm || v.readyState < 2 || !v.videoWidth) return;
       const now = performance.now();
-      if (now - last < 45) return; last = now;
+      if (now - last < 33) return; last = now; // ~30 Hz: denser sampling per fixation
       const ts = Math.max(now, lastTs + 1); lastTs = ts;
       let a = null; try { a = analyseGaze(lm.detectForVideo(v, ts)); } catch (e) { a = null; }
-      if (!a || !a.gaze) return;
+      if (!a || !a.raw) return;
       if (stageRef.current === "calibrating" && calIdxRef.current >= 0) {
-        calBucket.current.push({ g: { x: a.gaze.x, y: a.gaze.y }, idx: calIdxRef.current });
+        calBucket.current.push({ g: { x: a.raw.x, y: a.raw.y }, idx: calIdxRef.current });
         return;
       }
       if (stageRef.current === "ready" && phaseRef.current === "answer" && calRef.current) {
-        const m = mapGaze(calRef.current, a.gaze);
-        if (m) {
+        const mapped = mapGaze(calRef.current, a.raw);
+        if (mapped) {
+          const m = smoothRef.current.filter(mapped, now); // one-euro: still when resting
           const px = m.x * window.innerWidth, py = m.y * window.innerHeight;
           const dot = gazeDotRef.current;
           if (dot) { dot.style.left = px + "px"; dot.style.top = py + "px"; dot.style.opacity = "1"; }
+          /* Log fixations, not the fast flights between them: a big jump from
+             the last point is a saccade in progress and would smear the heat
+             map, so it moves the live dot but is not counted. */
+          const prev = lastPtRef.current;
+          const moving = prev && Math.hypot(m.x - prev.x, m.y - prev.y) > 0.045;
+          lastPtRef.current = { x: m.x, y: m.y };
           const el = passageRef.current;
-          if (el) {
+          if (!moving && el) {
             const r = el.getBoundingClientRect();
             if (r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) {
               logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height);
@@ -1689,8 +1706,8 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
     return () => { dead = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); const s = streamRef.current; if (s) s.getTracks().forEach((t) => t.stop()); };
   }, []);
 
-  /* Fresh heat log per question. */
-  useEffect(() => { logRef.current = makeReadLog(); setResult(null); }, [qKey]);
+  /* Fresh heat log and gaze smoother per question. */
+  useEffect(() => { logRef.current = makeReadLog(); smoothRef.current = makeSmoother(); lastPtRef.current = null; setResult(null); }, [qKey]);
 
   /* When the question is answered, freeze the analysis, fold this attempt
      into the crowd path if it was right and in time, and paint the map. */
@@ -1728,6 +1745,19 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
   const runCalibration = () => {
     calBucket.current = []; setStage("calibrating");
     let idx = 0; setCalIdx(0);
+    /* Robust centre of one dot's samples: drop the settle-in frames, take the
+       median, then average only the closest 70% so a blink or a stray glance
+       cannot drag the calibration point off target. */
+    const centre = (gs) => {
+      const mid = gs.slice(Math.floor(gs.length * 0.4));
+      const use = mid.length >= 3 ? mid : gs;
+      const med = (arr) => { const s = [...arr].sort((a, b) => a - b); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+      const mx = med(use.map((g) => g.x)), my = med(use.map((g) => g.y));
+      const keep = use.map((g) => ({ g, d: Math.hypot(g.x - mx, g.y - my) })).sort((a, b) => a.d - b.d)
+        .slice(0, Math.max(3, Math.floor(use.length * 0.7))).map((o) => o.g);
+      const sum = keep.reduce((acc, g) => ({ x: acc.x + g.x, y: acc.y + g.y }), { x: 0, y: 0 });
+      return { x: sum.x / keep.length, y: sum.y / keep.length };
+    };
     const step = () => setTimeout(() => {
       idx += 1;
       if (idx < CAL_DOTS.length) { setCalIdx(idx); step(); return; }
@@ -1735,14 +1765,19 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
       for (const s of calBucket.current) { (byIdx[s.idx] || (byIdx[s.idx] = [])).push(s.g); }
       const samples = CAL_DOTS.map((t, k) => {
         const gs = byIdx[k]; if (!gs || !gs.length) return null;
-        const mid = gs.slice(Math.floor(gs.length * 0.4)); // drop the settle-in frames
-        const use = mid.length ? mid : gs;
-        const mg = use.reduce((acc, g) => ({ x: acc.x + g.x, y: acc.y + g.y }), { x: 0, y: 0 });
-        return { g: { x: mg.x / use.length, y: mg.y / use.length }, t };
+        return { g: centre(gs), t };
       }).filter(Boolean);
       const cal = fitCalibration(samples);
-      calRef.current = cal; setCalIdx(-1); setStage(cal ? "ready" : "intro");
-    }, 1200);
+      /* If the quadratic fit turns out loose (residual too large, usually from
+         head movement during calibration), the affine fit is steadier, so
+         keep whichever maps its own points more tightly. */
+      let best = cal;
+      if (cal && cal.quad) {
+        const affine = fitCalibration(samples, "affine");
+        if (affine && calibrationError(affine, samples) < calibrationError(cal, samples)) best = affine;
+      }
+      calRef.current = best; setCalIdx(-1); setStage(best ? "ready" : "intro");
+    }, 1000);
     step();
   };
 
@@ -1760,7 +1795,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
             <div className="rg-cal-card">
               <h4>Reading eye tracking</h4>
               <p>A quick calibration maps your gaze to the screen. Look at each dot as it appears and keep your head still. Everything stays on your device.</p>
-              <button className="ud-btn" onClick={runCalibration}>Calibrate (5 dots)</button>
+              <button className="ud-btn" onClick={runCalibration}>Calibrate (9 dots)</button>
               <button className="ud-quit" onClick={() => { calRef.current = null; setStage("ready"); }}>Skip</button>
             </div>
           ) : (

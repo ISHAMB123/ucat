@@ -72,6 +72,12 @@ export function analyse(result) {
   const gaze = { x: clamp(0.5 - ox * 2.6), y: clamp(0.5 + oy * 2.2) };
   const contact = Math.abs(ox) < 0.09 && Math.abs(oy) < 0.16;
 
+  /* The un-amplified, un-clamped iris offset (x flipped for a mirror). This is
+     the honest signal to calibrate against: the polynomial fit learns the
+     amplification and any curvature itself, and nothing is thrown away at the
+     edges by an early clamp, which is what makes precise mapping possible. */
+  const raw = { x: -ox, y: oy };
+
   const box = (ids) => {
     let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
     for (const i of ids) { const q = p[i]; if (q.x < x0) x0 = q.x; if (q.y < y0) y0 = q.y; if (q.x > x1) x1 = q.x; if (q.y > y1) y1 = q.y; }
@@ -83,6 +89,6 @@ export function analyse(result) {
     irisL, irisR,
     eyeL: box(IDX.eyeL), eyeR: box(IDX.eyeR),
     ring: IDX.ring.map((i) => p[i]),
-    gaze, contact,
+    gaze, raw, contact,
   };
 }

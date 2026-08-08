@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "../eyeread.js";
+import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "../eyeread.js";
 
 describe("fitCalibration recovers a linear gaze-to-screen map", () => {
   it("recovers an identity map from clean samples", () => {
@@ -46,6 +46,47 @@ describe("fitCalibration recovers a linear gaze-to-screen map", () => {
     const m = mapGaze(cal, { x: 5, y: -5 });
     expect(m.x).toBe(1);
     expect(m.y).toBe(0);
+  });
+
+  it("fits a quadratic map from a 9-point grid and beats affine on a curved signal", () => {
+    /* A curved raw->true relationship a plane cannot represent, kept inside
+       the unit square so nothing is lost to the output clamp. */
+    const warp = (v) => 0.3 * v * v + 0.7 * v;
+    const grid = [0, 0.5, 1];
+    const samples = [];
+    for (const gx of grid) for (const gy of grid) samples.push({ g: { x: gx, y: gy }, t: { x: warp(gx), y: warp(gy) } });
+    const quad = fitCalibration(samples);
+    expect(quad.quad).toBe(true);
+    const affine = fitCalibration(samples, "affine");
+    /* On a held-out point the quadratic should be markedly closer to truth. */
+    const held = { x: 0.25, y: 0.75 };
+    const truth = { x: warp(0.25), y: warp(0.75) };
+    const qm = mapGaze(quad, held), am = mapGaze(affine, held);
+    const qErr = Math.hypot(qm.x - truth.x, qm.y - truth.y);
+    const aErr = Math.hypot(am.x - truth.x, am.y - truth.y);
+    expect(qErr).toBeLessThan(aErr);
+    expect(qErr).toBeLessThan(0.02);
+    expect(calibrationError(quad, samples)).toBeLessThan(0.01);
+  });
+});
+
+describe("makeSmoother steadies the live gaze", () => {
+  it("converges to a held point and reduces jitter", () => {
+    const s = makeSmoother();
+    let t = 0, out;
+    for (let i = 0; i < 20; i++) { out = s.filter({ x: 0.5, y: 0.5 }, (t += 33)); }
+    expect(out.x).toBeCloseTo(0.5, 2);
+    expect(out.y).toBeCloseTo(0.5, 2);
+  });
+
+  it("lags a sudden jump rather than teleporting", () => {
+    const s = makeSmoother();
+    let t = 0;
+    for (let i = 0; i < 10; i++) s.filter({ x: 0.2, y: 0.2 }, (t += 33));
+    const out = s.filter({ x: 0.8, y: 0.2 }, (t += 33));
+    /* First frame after the jump should be between the old and new position. */
+    expect(out.x).toBeGreaterThan(0.2);
+    expect(out.x).toBeLessThan(0.8);
   });
 });
 

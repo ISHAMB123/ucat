@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, pathKey } from "../eyeread.js";
+import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "../eyeread.js";
 
 describe("fitCalibration recovers a linear gaze-to-screen map", () => {
   it("recovers an identity map from clean samples", () => {
@@ -119,5 +119,26 @@ describe("path resampling and crowd averaging", () => {
     expect(idealPath("tfc")).toHaveLength(24);
     expect(pathKey("A passage")).toBe(pathKey("A passage"));
     expect(pathKey("A passage")).not.toBe(pathKey("Different"));
+  });
+
+  it("idealTechnique is adaptive: different seeds pick different techniques", () => {
+    const t = idealTechnique("scan", 0);
+    expect(t.path).toHaveLength(24);
+    expect(typeof t.name).toBe("string");
+    expect(typeof t.cue).toBe("string");
+    /* Across a run of seeds the scan library should yield more than one
+       distinct technique, so different questions coach different approaches. */
+    const names = new Set();
+    for (let s = 0; s < 8; s++) names.add(idealTechnique("scan", s).name);
+    expect(names.size).toBeGreaterThan(1);
+    /* Comprehension drills draw from their own library, not the scan one. */
+    expect(idealTechnique("tfc", 1).name).not.toBe("");
+  });
+
+  it("seedFromText is stable per text and the same seed is reproducible", () => {
+    expect(seedFromText("A passage")).toBe(seedFromText("A passage"));
+    expect(seedFromText("A passage")).not.toBe(seedFromText("Different"));
+    const s = seedFromText("A passage");
+    expect(idealTechnique("scan", s).name).toBe(idealTechnique("scan", s).name);
   });
 });

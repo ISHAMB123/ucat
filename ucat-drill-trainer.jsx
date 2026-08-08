@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportLocalData, deleteLocalData } from "./storage.js";
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
-import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, pathKey } from "./eyeread.js";
-import { supabase, supabaseEnabled } from "./supabaseClient.js";
+import { fitCalibration, mapGaze, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey } from "./eyeread.js";
+import { supabase, supabaseEnabled, getEntitlement } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
   MARKING_DISCLOSURE, fillLegal, legalPlaceholdersPending,
@@ -1532,8 +1532,21 @@ function snapAnswered(q, snap) {
 const CAL_DOTS = [{ x: 0.5, y: 0.5 }, { x: 0.1, y: 0.12 }, { x: 0.9, y: 0.12 }, { x: 0.9, y: 0.88 }, { x: 0.1, y: 0.88 }];
 
 /* Green to red heat gradient, matching a classic density heat map. */
+/* Colour ramp for the heat grid, from "looked less" to "looked more". A wide
+   multi-hue gradient (cool blue -> teal -> green -> yellow -> orange -> red)
+   so small differences in dwell are easy to tell apart at a glance. */
 function heatLUT(t) {
-  const stops = [[0, [46, 190, 120]], [0.4, [214, 214, 60]], [0.6, [245, 197, 36]], [0.8, [240, 140, 50]], [1, [231, 76, 60]]];
+  const stops = [
+    [0, [37, 99, 173]],     // deep blue: barely looked
+    [0.18, [46, 154, 196]], // blue-teal
+    [0.36, [46, 190, 152]], // teal-green
+    [0.52, [122, 201, 79]], // green
+    [0.66, [222, 210, 63]], // yellow
+    [0.8, [245, 168, 44]],  // orange
+    [0.92, [237, 116, 45]], // deep orange
+    [1, [227, 58, 52]],     // red: looked most
+  ];
+  if (t <= 0) return stops[0][1];
   for (let i = 1; i < stops.length; i++) {
     if (t <= stops[i][0]) {
       const a = stops[i - 1], b = stops[i], u = (t - a[0]) / (b[0] - a[0]);
@@ -1549,10 +1562,12 @@ function strokePath(ctx, path, w, h) {
   ctx.stroke();
 }
 
-/* Smooth density heat map of where the eyes dwelt, with the crowd's average
-   path (people who answered right, in time) drawn over it as a distinct,
-   numbered white line. */
-function drawReadHeat(canvas, log, avgPath) {
+/* Grid heat map ("square format"): the passage is divided into rows that
+   match the number of lines in the passage, and a fixed set of columns, and
+   each cell is shaded by how long the eyes dwelt there. The crowd's average
+   path (people who answered right, in time) is drawn over it as a distinct,
+   numbered white line, clipped to the grid so it never spills outside. */
+function drawReadHeat(canvas, log, avgPath, rows) {
   if (!canvas || !log) return;
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const W = canvas.clientWidth, H = canvas.clientHeight;
@@ -1562,43 +1577,52 @@ function drawReadHeat(canvas, log, avgPath) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
 
-  /* Splat a soft blob per fixation into an intensity buffer, then map the
-     accumulated intensity through the colour ramp. */
-  const buf = document.createElement("canvas");
-  buf.width = W; buf.height = H;
-  const bx = buf.getContext("2d");
-  const R = Math.max(20, Math.min(W, H) * 0.24);
-  bx.globalCompositeOperation = "lighter";
+  const R = Math.max(4, Math.min(40, Math.round(rows || 12)));
+  const C = 24;
+  /* Re-bin the fixation path into an R x C grid so the number of rows tracks
+     the number of lines regardless of how the log was accumulated. */
+  const cells = new Float32Array(R * C);
+  let max = 0;
   for (const p of log.path) {
-    const cx = p.x * W, cy = p.y * H;
-    const g = bx.createRadialGradient(cx, cy, 0, cx, cy, R);
-    g.addColorStop(0, "rgba(0,0,0,0.10)"); g.addColorStop(1, "rgba(0,0,0,0)");
-    bx.fillStyle = g; bx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    const cx = Math.min(C - 1, Math.max(0, Math.floor(p.x * C)));
+    const cy = Math.min(R - 1, Math.max(0, Math.floor(p.y * R)));
+    const idx = cy * C + cx;
+    cells[idx] += 1;
+    if (cells[idx] > max) max = cells[idx];
   }
-  const img = bx.getImageData(0, 0, W, H); const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const a = d[i + 3] / 255;
-    if (a <= 0.01) { d[i + 3] = 0; continue; }
-    const t = Math.min(1, a * 1.4);
-    const c = heatLUT(t);
-    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = Math.min(235, 40 + t * 210);
+
+  const cw = W / C, ch = H / R, gap = Math.min(2, cw * 0.12, ch * 0.12);
+  for (let y = 0; y < R; y++) {
+    for (let x = 0; x < C; x++) {
+      const v = cells[y * C + x];
+      const px = x * cw, py = y * ch;
+      if (max <= 0 || v <= 0) {
+        ctx.fillStyle = "rgba(148,163,184,0.10)"; // faint empty cell
+      } else {
+        const t = Math.pow(v / max, 0.7); // ease so mid values read clearly
+        const c = heatLUT(t);
+        ctx.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${(0.32 + t * 0.6).toFixed(3)})`;
+      }
+      ctx.fillRect(px + gap / 2, py + gap / 2, cw - gap, ch - gap);
+    }
   }
-  bx.putImageData(img, 0, 0);
-  ctx.drawImage(buf, 0, 0, W, H);
 
   if (avgPath && avgPath.length > 1) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.clip(); // keep the line on the map only
     ctx.lineJoin = "round"; ctx.lineCap = "round";
     ctx.strokeStyle = "rgba(12,18,28,0.6)"; ctx.lineWidth = 5.5; strokePath(ctx, avgPath, W, H);
     ctx.strokeStyle = "#FFFFFF"; ctx.lineWidth = 2.5; strokePath(ctx, avgPath, W, H);
     const marks = 6;
     for (let k = 0; k < marks; k++) {
       const p = avgPath[Math.round((k / (marks - 1)) * (avgPath.length - 1))];
-      const cx = p.x * W, cy = p.y * H;
+      const cx = Math.max(9, Math.min(W - 9, p.x * W)), cy = Math.max(9, Math.min(H - 9, p.y * H));
       ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 7); ctx.fillStyle = "#FFFFFF"; ctx.fill();
       ctx.lineWidth = 2.5; ctx.strokeStyle = "#2F71B8"; ctx.stroke();
       ctx.fillStyle = "#2F71B8"; ctx.font = "700 9px Inter, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillText(String(k + 1), cx, cy + 0.5);
     }
+    ctx.restore();
   }
 }
 
@@ -1679,12 +1703,26 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
       const fresh = resamplePath(logRef.current.path, 24);
       if (fresh) { stored = blendPath(stored, fresh); try { setJSON(key, stored); } catch (e) { /* storage full */ } }
     }
-    const avg = stored && stored.path ? stored.path : idealPath(drill);
+    /* Adaptive: pick the ideal reading technique for this specific passage so
+       different questions coach different approaches, seeded from the text so
+       it is stable per passage. */
+    const tech = idealTechnique(drill, seedFromText(passageText));
+    const avg = stored && stored.path ? stored.path : tech.path;
     const seeded = !(stored && stored.path);
-    setResult({ a, tips: readingTips(a, drill), avg, crowdN: stored ? stored.n : 0, seeded });
+    /* Rows track the number of lines actually rendered in the passage. */
+    const el = passageRef.current;
+    let lines = 12;
+    if (el) {
+      const cs = window.getComputedStyle(el);
+      let lh = parseFloat(cs.lineHeight);
+      if (!lh || Number.isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.5 || 24;
+      const inner = el.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+      if (inner > 0) lines = Math.max(3, Math.min(40, Math.round(inner / lh)));
+    }
+    setResult({ a, tips: readingTips(a, drill), avg, crowdN: stored ? stored.n : 0, seeded, tech, lines });
   }, [phase, drill, passageText, solvedFast]);
   useEffect(() => {
-    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, result.avg);
+    if (result && heatRef.current) drawReadHeat(heatRef.current, logRef.current, result.avg, result.lines);
   }, [result]);
 
   const runCalibration = () => {
@@ -1742,10 +1780,11 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, solv
           <div className="rg-map"><canvas ref={heatRef} /></div>
           <div className="rg-key">
             <span className="rg-k rg-k-scale"><i /><em>looked less</em><em className="r">looked more</em></span>
-            <span className="rg-k rg-k-avg"><i /><em>{result.seeded ? "target reading path" : `average of ${result.crowdN} correct, in-time reads`}</em></span>
+            <span className="rg-k rg-k-avg"><i /><em>{result.seeded ? `suggested path: ${result.tech.name}` : `average of ${result.crowdN} correct, in-time reads`}</em></span>
           </div>
+          {result.seeded && result.tech && <p className="rg-tech"><b>{result.tech.name}.</b> {result.tech.cue}</p>}
           <ul className="rg-tips">{result.tips.map((t, n) => <li key={n}>{t}</li>)}</ul>
-          {result.a && <p className="rg-foot">Lightest on the {band} third. The white line is how people who got this right in time moved their eyes. Webcam gaze is approximate, so read this as your pattern, not a word-by-word record. Only the heat map is kept; no face image is stored.</p>}
+          {result.a && <p className="rg-foot">Lightest on the {band} third. The white line is {result.seeded ? "the suggested path for this passage" : "how people who got this right in time moved their eyes"}. Webcam gaze is approximate, so read this as your pattern, not a word-by-word record. Only the heat map is kept; no face image is stored.</p>}
         </div>
       )}
     </>
@@ -9170,14 +9209,25 @@ export default function UcatDrillTrainer() {
      No-op when Supabase is not configured (local preview mode). */
   useEffect(() => {
     if (!supabaseEnabled) return;
+    /* Ask the server whether this signed-in user owns full access. The
+       entitlements row is written only by the Stripe webhook, so an active
+       row is proof of payment that cannot be forged in the browser. This is
+       the real unlock; ?checkout=success and the access code stay as a
+       fallback until the webhook is confirmed live in production. */
+    const syncEntitlement = () => {
+      getEntitlement().then((ent) => {
+        if (ent && ent.active) { setUnlocked(true); setJSON("ucat:unlocked", true); }
+      });
+    };
     supabase.auth.getSession().then(({ data }) => {
       if (data && data.session) {
         setAccount({ email: data.session.user.email });
         setAuthDone(true);
+        syncEntitlement();
       }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) { setAccount({ email: session.user.email }); setAuthDone(true); }
+      if (session) { setAccount({ email: session.user.email }); setAuthDone(true); syncEntitlement(); }
       else setAccount(null);
     });
     return () => { if (listener && listener.subscription) listener.subscription.unsubscribe(); };

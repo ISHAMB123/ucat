@@ -54,7 +54,13 @@ Deno.serve(async (req) => {
     if (event.type === "checkout.session.completed") {
       const s = event.data.object as Stripe.Checkout.Session;
       const email = s.customer_details?.email ?? s.customer_email;
-      if (email) {
+      // Only the £25 full-access purchase unlocks the app. Credit packs
+      // (£1.49 / £5.99 / £14.99, i.e. 149 / 599 / 1499 pence) go through the
+      // Checkout + /api/verify path and must NOT grant full access, so gate
+      // on the amount: anything at or above £20 is the unlock, nothing below.
+      const paid = s.payment_status === "paid";
+      const isUnlock = (s.amount_total ?? 0) >= 2000;
+      if (email && paid && isUnlock) {
         const { error } = await admin.from("entitlements").upsert(
           {
             email: email.toLowerCase(),

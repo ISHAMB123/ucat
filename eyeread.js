@@ -153,21 +153,76 @@ export function blendPath(stored, freshResampled) {
   return { path, n };
 }
 
-/* The seed "ideal" path used until enough real correct-in-time attempts
-   have been recorded for a passage: a descending zig-zag for scanning,
-   line-by-line sweeps for comprehension. */
-export function idealPath(drill) {
-  const scan = [{ x: 0.08, y: 0.12 }, { x: 0.92, y: 0.2 }, { x: 0.08, y: 0.42 }, { x: 0.92, y: 0.52 }, { x: 0.08, y: 0.74 }, { x: 0.92, y: 0.84 }];
-  const read = [{ x: 0.06, y: 0.12 }, { x: 0.94, y: 0.17 }, { x: 0.06, y: 0.32 }, { x: 0.94, y: 0.37 }, { x: 0.06, y: 0.52 }, { x: 0.94, y: 0.57 }, { x: 0.06, y: 0.72 }, { x: 0.94, y: 0.77 }, { x: 0.06, y: 0.9 }];
-  return resamplePath(drill === "scan" ? scan : read, 24);
+/* The seed "ideal" reading techniques used until enough real correct-in-time
+   attempts have been recorded for a passage. Each drill has a small library
+   of genuinely different techniques, and a passage picks one by a stable seed
+   so different questions coach different approaches (adaptive), not the same
+   zig-zag every time. Each has a name and a one-line coaching cue. */
+const SCAN_TECH = [
+  {
+    name: "descending zig-zag",
+    cue: "Sweep left to right across a band, drop a line, sweep back. A steady zig-zag down the passage.",
+    path: [{ x: 0.08, y: 0.12 }, { x: 0.92, y: 0.2 }, { x: 0.08, y: 0.42 }, { x: 0.92, y: 0.52 }, { x: 0.08, y: 0.74 }, { x: 0.92, y: 0.84 }],
+  },
+  {
+    name: "numbers-first hop",
+    cue: "Hunt the figures first: jump down the right of the passage where dates and quantities sit, then read the words around the one that matters.",
+    path: [{ x: 0.5, y: 0.1 }, { x: 0.85, y: 0.18 }, { x: 0.8, y: 0.36 }, { x: 0.88, y: 0.54 }, { x: 0.3, y: 0.6 }, { x: 0.82, y: 0.78 }, { x: 0.5, y: 0.9 }],
+  },
+  {
+    name: "column skim",
+    cue: "Run your eyes straight down the left edge to catch the opener of every line, then dip right only where a line looks promising.",
+    path: [{ x: 0.12, y: 0.1 }, { x: 0.14, y: 0.34 }, { x: 0.6, y: 0.4 }, { x: 0.13, y: 0.58 }, { x: 0.7, y: 0.66 }, { x: 0.13, y: 0.86 }],
+  },
+  {
+    name: "edges-then-middle",
+    cue: "Anchor on the first and last lines for the gist, then close in on the middle where the detail usually hides.",
+    path: [{ x: 0.1, y: 0.1 }, { x: 0.9, y: 0.14 }, { x: 0.1, y: 0.9 }, { x: 0.9, y: 0.86 }, { x: 0.12, y: 0.48 }, { x: 0.88, y: 0.52 }],
+  },
+];
+const READ_TECH = [
+  {
+    name: "line-by-line",
+    cue: "Read in order, one line at a time, so no claim gets imported from the wrong place.",
+    path: [{ x: 0.06, y: 0.12 }, { x: 0.94, y: 0.17 }, { x: 0.06, y: 0.32 }, { x: 0.94, y: 0.37 }, { x: 0.06, y: 0.52 }, { x: 0.94, y: 0.57 }, { x: 0.06, y: 0.72 }, { x: 0.94, y: 0.77 }, { x: 0.06, y: 0.9 }],
+  },
+  {
+    name: "question-anchored",
+    cue: "Read the question first, then go to the band of the passage it points at and read those lines closely before deciding.",
+    path: [{ x: 0.1, y: 0.08 }, { x: 0.9, y: 0.12 }, { x: 0.5, y: 0.4 }, { x: 0.1, y: 0.46 }, { x: 0.9, y: 0.52 }, { x: 0.1, y: 0.6 }, { x: 0.9, y: 0.64 }, { x: 0.4, y: 0.9 }],
+  },
+  {
+    name: "skim then deep-read",
+    cue: "Take one fast pass top to bottom for the shape of the argument, then a careful second pass on the load-bearing sentences.",
+    path: [{ x: 0.1, y: 0.1 }, { x: 0.8, y: 0.3 }, { x: 0.2, y: 0.55 }, { x: 0.85, y: 0.85 }, { x: 0.06, y: 0.14 }, { x: 0.94, y: 0.2 }, { x: 0.06, y: 0.5 }, { x: 0.94, y: 0.56 }, { x: 0.06, y: 0.88 }],
+  },
+];
+
+/* Pick the technique for a drill and seed. The seed makes the choice stable
+   per passage while varying across passages. */
+export function idealTechnique(drill, seed = 0) {
+  const lib = drill === "scan" ? SCAN_TECH : READ_TECH;
+  const i = ((Math.trunc(seed) % lib.length) + lib.length) % lib.length;
+  const t = lib[i];
+  return { name: t.name, cue: t.cue, path: resamplePath(t.path, 24) };
+}
+
+/* Back-compatible: just the resampled seed path. */
+export function idealPath(drill, seed = 0) {
+  return idealTechnique(drill, seed).path;
+}
+
+/* Stable numeric seed for a passage, from its text. */
+export function seedFromText(text) {
+  let h = 0;
+  const s = (text || "").slice(0, 400);
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h >>> 0;
 }
 
 /* Stable local-storage key for a passage, from its text. */
 export function pathKey(text) {
-  let h = 0;
-  const s = (text || "").slice(0, 400);
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return "rgpath:" + (h >>> 0).toString(36);
+  return "rgpath:" + seedFromText(text).toString(36);
 }
 
 const BAND = ["top", "middle", "bottom"];

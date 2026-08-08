@@ -9,7 +9,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 export default [
   {
     files: ["**/*.{js,jsx}"],
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", "public/mediapipe/**"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

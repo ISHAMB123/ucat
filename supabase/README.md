@@ -1,9 +1,9 @@
 # Tempo backend (Supabase)
 
-This is the groundwork for turning payment and the leaderboard from
-"trust the browser" into server-enforced. None of it is wired into the
-client yet, so the app keeps running in its local-only mode until you
-deploy this and connect it. Do this when you have Stripe access.
+This turns payment and the leaderboard from "trust the browser" into
+server-enforced. The client is now wired to it (step 3), so once you run
+the SQL and deploy the webhook below, entitlement becomes the real unlock.
+Until then the app keeps running in its local-only mode.
 
 ## 1. Create the tables
 
@@ -22,7 +22,10 @@ Open the Supabase SQL editor and run [`schema.sql`](./schema.sql). It creates:
 
 [`functions/stripe-webhook/index.ts`](./functions/stripe-webhook/index.ts)
 verifies the Stripe signature and writes `active = true` into
-`entitlements`.
+`entitlements`. It only grants full access for the £25 unlock: the grant is
+gated on `amount_total >= 2000` pence, so credit-pack purchases (£1.49 /
+£5.99 / £14.99) do not unlock the whole app. Those go through
+`/api/checkout` + `/api/verify` and top up credits instead.
 
 ```bash
 supabase functions deploy stripe-webhook --no-verify-jwt
@@ -36,22 +39,23 @@ Then in the Stripe dashboard add a webhook endpoint at
 `https://YOURPROJECT.functions.supabase.co/stripe-webhook` and subscribe to
 `checkout.session.completed`.
 
-## 3. Wire the client (the last step)
+## 3. Wire the client (done)
 
-`supabaseClient.js` already exposes `getEntitlement()`. After a user signs
-in, call it and unlock when it returns active:
+This is already implemented. `supabaseClient.js` exposes `getEntitlement()`,
+and `UcatDrillTrainer` calls it after `getSession()` and on every
+`onAuthStateChange`, unlocking when the row is active:
 
 ```js
-import { getEntitlement } from "./supabaseClient.js";
-// after auth:
 const ent = await getEntitlement();
-if (ent?.active) unlock();
+if (ent?.active) { setUnlocked(true); setJSON("ucat:unlocked", true); }
 ```
 
-Once this is live, the `?checkout=success` client unlock and the `UCAT18`
-access code can be removed: entitlement becomes the single source of truth,
-and it cannot be forged from the browser because the anon key is bound by
-Row Level Security.
+`?checkout=success` and the `UCAT18` access code are deliberately kept as a
+fallback so unlock keeps working before the webhook is confirmed live in
+production. Once you have verified a real £25 purchase flips the
+`entitlements` row and the app unlocks on next sign-in, you can remove them:
+entitlement then becomes the single source of truth, and it cannot be forged
+from the browser because the anon key is bound by Row Level Security.
 
 ## Why this order
 

@@ -270,6 +270,11 @@ export const CSS = `
 .logs-score { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; min-width:44px; text-align:right; }
 .logs-ts { font-size:11.5px; color:var(--mute); min-width:108px; text-align:right; }
 @media (max-width:620px) { .logs-row { grid-template-columns:46px 1fr auto; } .logs-mode, .logs-ts { display:none; } }
+/* free-trial block on the billing card */
+.bill-trial { margin-top:12px; padding-top:14px; border-top:1px dashed var(--line); }
+.bill-trial-note { font-size:11.5px; line-height:1.55; color:var(--mute); margin:8px 2px 0; }
+.bill-trial-msg { font-size:12.5px; margin:8px 2px 0; color:var(--body); }
+.bill-trial-msg.err { color:var(--stop); }
 .ud-panel h4 { font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#5A6675; margin:0 0 16px; }
 .ud-q { font-family:'Inter',sans-serif; font-size:clamp(26px,5.5vw,40px); font-weight:700; letter-spacing:-0.03em; margin:0 0 20px; }
 .ud-qs { font-size:16.5px; font-weight:600; line-height:1.45; margin:0 0 16px; }

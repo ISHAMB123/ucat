@@ -17,6 +17,33 @@ Open the Supabase SQL editor and run [`schema.sql`](./schema.sql). It creates:
   signed-in users).
 - **`scores`** — the recommended per-row leaderboard to migrate to, so one
   user cannot overwrite another's score.
+- **`trials`** — one free trial per email and (softly) per network. Written
+  only by the `/api/trial` function; never readable by clients.
+
+## 1a. Free trial (email + IP soft-block)
+
+The 1-day free trial is granted by [`../api/trial.js`](../api/trial.js) (a
+Vercel serverless function, deployed automatically with the app). It verifies
+the signed-in user, records a row in `trials`, and writes a time-limited
+`entitlements` row (`product = 'trial'`, `expires_at` 24h out). The trial
+unlocks the app but grants **no credits**, so the paid AI features still need a
+purchase — nothing a trial user does can run up an AI cost.
+
+It needs the same two server secrets as the webhook, set in **Vercel** (not in
+the browser, never `VITE_`-prefixed):
+
+```
+SUPABASE_URL=https://YOURPROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...      # server only
+```
+
+Anti-abuse is deliberately a *soft* block: one trial per verified email, plus
+one per IP within a week. Shared networks (a school, a family) share an IP, so
+a blocked repeat may be a different person — this is the documented trade-off,
+and it is lawful. The IP is stored only to rate-limit trials and **must be
+disclosed in the privacy policy**. Covert device/Wi-Fi fingerprinting was
+deliberately not built: it needs consent under UK GDPR/PECR (especially for
+under-18s), is trivially bypassed, and blocks innocent users.
 
 ## 2. Deploy the Stripe webhook
 

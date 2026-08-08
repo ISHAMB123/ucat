@@ -23,10 +23,14 @@ create table if not exists public.entitlements (
   email                       text primary key,
   active                      boolean not null default false,
   product                     text not null default 'full_access',
+  expires_at                  timestamptz,               -- set only for time-limited trials; null = never expires
   stripe_customer_id          text,
   stripe_checkout_session_id  text,
   updated_at                  timestamptz not null default now()
 );
+
+-- If the table pre-dates the trial feature, add the expiry column in place.
+alter table public.entitlements add column if not exists expires_at timestamptz;
 
 alter table public.entitlements enable row level security;
 
@@ -38,7 +42,27 @@ create policy "read own entitlement" on public.entitlements
   using (lower(email) = lower(auth.jwt() ->> 'email'));
 
 -- No insert/update/delete policies exist, so anon and authenticated clients
--- are denied all writes. Only the service role (the webhook) can write.
+-- are denied all writes. Only the service role (the webhook and the trial
+-- function) can write.
+
+-- ---------------------------------------------------------------------------
+-- 1b. TRIALS  --  one free trial per email and (softly) per network
+--
+--    Written only by the service role (the /api/trial serverless function),
+--    which verifies the signed-in user before recording a trial and granting a
+--    time-limited entitlement. Never readable or writable by clients: the IP is
+--    kept only to rate-limit abuse and must be covered by the privacy policy.
+-- ---------------------------------------------------------------------------
+create table if not exists public.trials (
+  email       text primary key,
+  ip          text,
+  started_at  timestamptz not null default now()
+);
+
+create index if not exists trials_ip_idx on public.trials (ip, started_at desc);
+
+alter table public.trials enable row level security;
+-- No policies: only the service role can touch this table.
 
 -- ---------------------------------------------------------------------------
 -- 2. KV  --  the key/value store the app uses today for weekly leaderboards

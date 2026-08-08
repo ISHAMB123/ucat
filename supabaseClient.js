@@ -32,11 +32,34 @@ export async function getEntitlement() {
     if (!sess || !sess.session) return null;
     const { data, error } = await supabase
       .from("entitlements")
-      .select("active, product")
+      .select("active, product, expires_at")
       .maybeSingle();
     if (error || !data) return null;
+    /* A time-limited trial stays active only until it expires. Full-access
+       rows have no expiry. Never grant an expired row. */
+    if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) {
+      return { ...data, active: false };
+    }
     return data;
   } catch (e) {
     return null;
+  }
+}
+
+/* Ask the server for a one-day free trial. The serverless function verifies
+   the signed-in user, checks that neither the email nor the network has had a
+   trial, and (if clear) writes a time-limited entitlement. Returns
+   { ok, expires_at } or { ok:false, reason }. The trial unlocks the app but
+   grants no credits, so the paid AI features still need a purchase. */
+export async function startTrial() {
+  if (!supabase) return { ok: false, reason: "not_configured" };
+  try {
+    const { data: sess } = await supabase.auth.getSession();
+    const token = sess && sess.session && sess.session.access_token;
+    if (!token) return { ok: false, reason: "not_signed_in" };
+    const r = await fetch("/api/trial", { method: "POST", headers: { Authorization: "Bearer " + token } });
+    return await r.json().catch(() => ({ ok: false, reason: "bad_response" }));
+  } catch (e) {
+    return { ok: false, reason: "error" };
   }
 }

@@ -3,7 +3,7 @@ import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportL
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
 import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeError, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence, makeCalDoc, isCalibrationUsable, GAZE_CAL_KEY } from "./eyeread.js";
-import { supabase, supabaseEnabled, getEntitlement } from "./supabaseClient.js";
+import { supabase, supabaseEnabled, getEntitlement, startTrial } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
   MARKING_DISCLOSURE, fillLegal, legalPlaceholdersPending,
@@ -8468,7 +8468,7 @@ function AuthScreen({ onAuthed, onSkip }) {
   );
 }
 
-function BillingView({ unlocked, onUnlock, email, onSignOut }) {
+function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
   const tryCode = () => {
@@ -8517,6 +8517,13 @@ function BillingView({ unlocked, onUnlock, email, onSignOut }) {
             <p className="sub">{saleLive() ? `Launch price until ${SALE_ENDS_LABEL}, then ${FULL_PRICE}` : PRICE_NOTE}</p>
             <ul>{PLAN_INCLUDES.map((x) => <li key={x}>{x}</li>)}</ul>
             <button className="ud-btn full" onClick={checkout}>Unlock everything</button>
+            {onTrial && (
+              <div className="bill-trial">
+                <button className="ud-btn ghost full" onClick={onTrial}>Start 1-day free trial</button>
+                <p className="bill-trial-note">Full app for 24 hours. One per person. The AI interview and AI voice are not included, so nothing you do can run up a cost.</p>
+                {trialMsg && <p className={`bill-trial-msg${/Starting/.test(trialMsg) ? "" : " err"}`}>{trialMsg}</p>}
+              </div>
+            )}
             <div className="bill-code">
               <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryCode()} placeholder="Access code" aria-label="Access code" />
               <button className="ud-btn ghost" onClick={tryCode}>Redeem</button>
@@ -9827,6 +9834,28 @@ export default function UcatDrillTrainer() {
   const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); if (!prefs.tourSeen) setShowTour(true); };
   const closeTour = () => { setShowTour(false); setPrefs({ ...prefs, tourSeen: true }); };
 
+  /* Start the one-day free trial (server-verified, one per email/network). It
+     unlocks the app but grants no credits, so the paid AI features still need a
+     purchase. Returns a human message for the billing screen. */
+  const [trialMsg, setTrialMsg] = useState("");
+  const startFreeTrial = async () => {
+    setTrialMsg("Starting your trial…");
+    const r = await startTrial();
+    if (r && r.ok) {
+      setUnlocked(true); setJSON("ucat:unlocked", true); setTrialMsg("");
+      if (!prefs.tourSeen) setShowTour(true);
+      return;
+    }
+    const reasons = {
+      email_used: "This email has already used its free trial.",
+      network_used: "A free trial has already been started on this network.",
+      already_entitled: "You already have access on this account.",
+      not_signed_in: "Please sign in first, then start the trial.",
+      not_configured: "The free trial is not switched on yet.",
+    };
+    setTrialMsg((r && reasons[r.reason]) || "Could not start the trial. Please try again.");
+  };
+
   /* Self-service deletion: wipe every key on this device, sign out of
      Supabase, and reset to a clean, signed-out state. Full server-side
      erasure of the account needs the email route in the privacy policy
@@ -9941,7 +9970,7 @@ export default function UcatDrillTrainer() {
             <div className="ud-trend" style={{ padding: 20, minHeight: 220 }}><h3>Map your grades against every school</h3>
             <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.65 }}>Enter your GCSEs, UCAT and predictions and see where you are strong, in range or aspirational, with contextual weighting, course detail and living costs.</p></div>
           </Locked></div>}</>)}
-      {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} email={account ? account.email : ""} onSignOut={signOut} /></>)}
+      {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} onTrial={startFreeTrial} trialMsg={trialMsg} email={account ? account.email : ""} onSignOut={signOut} /></>)}
       {view === "legal" && (<><Header /><LegalView account={account} prefs={prefs} setPrefs={setPrefs} onDeleteAccount={deleteAccount} /></>)}
       {view === "ps" && (<><Header /><PsBuilder unlocked={unlocked} onUnlock={() => setView("billing")} /></>)}
       {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} prefs={prefs} setPrefs={setPrefs} setPlanDone={setPlanDone} weak={weak} best={best} history={history} /></>)}

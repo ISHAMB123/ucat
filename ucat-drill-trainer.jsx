@@ -1709,15 +1709,6 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
   const confRef = useRef(0);
   const [debug, setDebug] = useState(() => { try { return /[?&]gazedebug=1/.test(window.location.search); } catch (e) { return false; } });
   const debugRef = useRef(debug); useEffect(() => { debugRef.current = debug; }, [debug]);
-  /* Reading text size (px). Bigger text means bigger gaze targets, which makes
-     the word hit-test far more tolerant of webcam error. One source of truth,
-     applied straight to the passage element and persisted. */
-  const [fontPx, setFontPx] = useState(() => { const v = Number(getJSON("ucat:readingfs", 0)); return v >= 18 && v <= 48 ? v : 30; });
-  useEffect(() => {
-    if (passageRef.current) passageRef.current.style.fontSize = fontPx + "px";
-    geomRef.current = null; // force geometry recompute after the reflow
-    try { setJSON("ucat:readingfs", fontPx); } catch (e) { /* ignore */ }
-  }, [fontPx, qKey, passageRef]);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
   const [calIdx, setCalIdx] = useState(-1);
   const [camErr, setCamErr] = useState(false);
@@ -2122,12 +2113,6 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
           ))}
           {debug && <span className="rg-cross" ref={crossRef} aria-hidden="true" style={{ opacity: 0 }} />}
           {debug && <pre className="rg-hud" ref={hudRef} aria-hidden="true" />}
-          <div className="rg-fs" title="Text size">
-            <span aria-hidden="true">A</span>
-            <input type="range" min={20} max={46} step={2} value={fontPx} aria-label="Reading text size"
-              onChange={(e) => setFontPx(Number(e.target.value))} />
-            <span className="sm" aria-hidden="true">a</span>
-          </div>
           <button className="rg-recal" onClick={requestRecalibration}>Recalibrate</button>
           <span className="rg-live" aria-hidden="true"><i />Following your reading</span>
         </>
@@ -2163,6 +2148,10 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
   const [confirmExit, setConfirmExit] = useState(false);
   const [i, setI] = useState(0);
   const [val, setVal] = useState("");
+  /* Reading text size (px), one source of truth for the passage, persisted.
+     Bigger text is easier to read and gives the gaze tracker larger targets. */
+  const [readFont, setReadFont] = useState(() => { const v = Number(getJSON("ucat:readingfs", 0)); return v >= 16 && v <= 46 ? v : 21; });
+  useEffect(() => { try { setJSON("ucat:readingfs", readFont); } catch (e) { /* ignore */ } }, [readFont]);
   const [rankPicks, setRankPicks] = useState([]);
   const [syllPicks, setSyllPicks] = useState([]);
   const [picked, setPicked] = useState(null);
@@ -2643,7 +2632,7 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
             </div>
           </div>
         )}
-        <div className={`ud-panel${phase === "celebrate" ? " correct" : ""}`}>
+        <div className={`ud-panel${phase === "celebrate" ? " correct" : ""}${q.passageText ? " reading" : ""}`}>
           <div className="ud-goflash" />
           {phase === "celebrate" && (
             <div className="ud-stars" aria-hidden="true">
@@ -2664,7 +2653,6 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
           )}
 
           {q.scenarioText && <p className="ud-scenario">{q.scenarioText}</p>}
-          {q.passageText && <p ref={passageRef} className="ud-passage" style={{ marginTop: 0, marginBottom: 18 }}>{q.passageText}</p>}
           {q.context && <p className="ud-context">{q.context}</p>}
           {q.venn3 && (
             <svg viewBox="0 0 300 178" style={{ width: "100%", maxWidth: 330, margin: "4px 0 12px" }} aria-label="Three-set Venn diagram">
@@ -2722,6 +2710,18 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
             </>
           )}
 
+          <div className={q.passageText ? "rd-split" : "rd-flow"}>
+          {q.passageText && (
+            <div className="rd-col-p">
+              <p ref={passageRef} className="ud-passage" style={{ margin: 0, fontSize: readFont + "px" }}>{q.passageText}</p>
+              <div className="rd-size" title="Text size">
+                <button aria-label="Smaller text" onClick={() => setReadFont((f) => Math.max(16, f - 2))}>A<span className="mn">-</span></button>
+                <input type="range" min={16} max={46} step={1} value={readFont} aria-label="Reading text size" onChange={(e) => setReadFont(Number(e.target.value))} />
+                <button aria-label="Larger text" onClick={() => setReadFont((f) => Math.min(46, f + 2))}>A<span className="mj">+</span></button>
+              </div>
+            </div>
+          )}
+          <div className="rd-col-q">
           <p className={q.kind === "typed" && !q.passageText ? "ud-q" : "ud-qs"}>{q.stem || q.prompt}</p>
 
           {phase !== "review" && q.kind === "rank" && (
@@ -2847,6 +2847,8 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
                 q.drill === "scan" ? "Read the question first. Hunt for the shape of the answer." : ""}
             </p>
           )}
+          </div>
+          </div>
 
           {readOn && <ReadingGaze passageRef={passageRef} calRef={calRef} drill={q.drill} phase={phase} qKey={i}
             passageText={q.passageText} question={q} answeredCorrect={!!(lastEntry && lastEntry.correct)}

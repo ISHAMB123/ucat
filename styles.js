@@ -5,14 +5,14 @@ export const CSS = `
 .ud, .ud * { box-sizing: border-box; }
 .ud {
   --ink:#0E1319; --slate:#18202B; --line:#2A3441; --paper:#EDEFF2; --paperline:#C6CDD7;
-  --signal:#F5A524; --go:#3ECF8E; --stop:#F2555A; --mute:#8794A5;
+  --signal:#F5A524; --go:#3ECF8E; --stop:#F2555A; --mute:#8794A5; --sea:#2F71B8;
   --body:#C0CAD6; --card:#EDEFF2;
   background:var(--ink); color:var(--paper); font-family:'Inter',system-ui,sans-serif;
   min-height:100vh; width:100%; -webkit-font-smoothing:antialiased;
 }
 .ud.light {
   --ink:#F1F3F6; --slate:#FFFFFF; --line:#D8DEE7; --paper:#16202B; --paperline:#C6CDD7;
-  --signal:#D98E00; --go:#1E8E5A; --stop:#D64545; --mute:#5C6B7C;
+  --signal:#D98E00; --go:#1E8E5A; --stop:#D64545; --mute:#5C6B7C; --sea:#2F71B8;
   --body:#3F4E5F; --card:#FFFFFF;
 }
 .ud.light .ud-panel, .ud.light .ud-review, .ud.light .ud-opt, .ud.light .ud-syl { box-shadow:0 1px 3px #10182008; }
@@ -205,6 +205,23 @@ export const CSS = `
 .q-gocard { background:var(--slate); border:1px solid var(--signal); border-radius:6px; padding:22px 26px; text-align:center; box-shadow:0 14px 40px #0e131966; max-width:320px; }
 .q-gocard p { font-size:13px; color:var(--body); line-height:1.55; margin:0 0 14px; }
 .ud-panel { background:var(--card); color:#131A22; border-radius:4px; width:100%; max-width:660px; padding:26px; position:relative; overflow:hidden; }
+/* ---- Wide reading layout: passage beside the question ---------------- */
+.ud-panel.reading { max-width:1120px; border-radius:14px; border:1px solid var(--line); border-top:4px solid var(--sea); box-shadow:0 10px 40px #10182014; }
+.rd-split { display:grid; grid-template-columns:1.18fr 0.82fr; gap:24px; align-items:start; }
+.rd-col-p { background:linear-gradient(180deg, color-mix(in srgb, var(--sea) 7%, var(--card)), var(--card)); border:1px solid var(--line); border-left:4px solid var(--sea); border-radius:12px; padding:22px 24px; max-height:70vh; overflow-y:auto; }
+.rd-col-p .ud-passage { color:#232C36; }
+.rd-col-q { max-height:70vh; overflow-y:auto; padding:2px 6px 2px 2px; }
+/* the question column scrolls, so the explanation lives on the same slide */
+.rd-col-q::-webkit-scrollbar, .rd-col-p::-webkit-scrollbar { width:9px; }
+.rd-col-q::-webkit-scrollbar-thumb, .rd-col-p::-webkit-scrollbar-thumb { background:color-mix(in srgb, var(--sea) 40%, transparent); border-radius:9px; }
+.rd-flow, .rd-flow .rd-col-q { display:block; max-height:none; overflow:visible; padding:0; }
+/* text-size bar under the passage */
+.rd-size { display:flex; align-items:center; gap:10px; margin-top:16px; padding-top:14px; border-top:1px dashed var(--line); }
+.rd-size button { display:flex; align-items:baseline; gap:1px; background:var(--slate); border:1px solid var(--line); border-radius:8px; color:var(--body); cursor:pointer; padding:5px 9px; font-weight:700; }
+.rd-size button:hover { border-color:var(--sea); color:var(--sea); }
+.rd-size button .mn { font-size:10px; } .rd-size button .mj { font-size:13px; }
+.rd-size input[type="range"] { flex:1; accent-color:var(--sea); cursor:pointer; }
+@media (max-width:820px) { .rd-split { grid-template-columns:1fr; } .rd-col-p, .rd-col-q { max-height:none; overflow:visible; } }
 .ud-panel h4 { font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase; color:#5A6675; margin:0 0 16px; }
 .ud-q { font-family:'Inter',sans-serif; font-size:clamp(26px,5.5vw,40px); font-weight:700; letter-spacing:-0.03em; margin:0 0 20px; }
 .ud-qs { font-size:16.5px; font-weight:600; line-height:1.45; margin:0 0 16px; }

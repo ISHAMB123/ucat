@@ -1859,8 +1859,10 @@ button.nav-row:hover { background:var(--signal)14; }
 .rg-head b { color:var(--go); font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:0; }
 .rg-map { position:relative; }
 .rg-map canvas { width:100%; height:168px; display:block; border:1px solid var(--line); border-radius:8px; background:color-mix(in srgb, var(--slate) 55%, var(--ink)); }
-/* live gaze dot: white fill with a coloured ring, fixed to the viewport */
-.rg-gaze { position:fixed; z-index:130; width:20px; height:20px; margin:-10px 0 0 -10px; border-radius:50%; background:rgba(255,255,255,0.92); box-shadow:0 0 0 3px rgba(242,85,90,0.95),0 1px 10px rgba(0,0,0,0.35); pointer-events:none; transition:opacity .2s; }
+/* live sentence highlight: a translucent marker bar laid over the line the
+   reader is looking at, tinting the words like a highlighter. Green when the
+   sentence holds the answer. Fixed to the viewport, behind pointer events. */
+.rg-sent { position:fixed; z-index:120; background:rgba(250,204,21,0.42); mix-blend-mode:multiply; border-radius:3px; pointer-events:none; transition:opacity .12s ease, left .09s linear, top .09s linear, width .09s linear; }
 .rg-key { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:11px; }
 .rg-k { display:inline-flex; align-items:center; gap:7px; font-size:10.5px; color:var(--mute); }
 .rg-k em { font-style:normal; }
@@ -1877,4 +1879,5 @@ button.nav-row:hover { background:var(--signal)14; }
 .rg-tips li { font-size:13px; line-height:1.55; color:var(--body); margin-bottom:7px; }
 .rg-foot { font-size:11px; color:var(--mute); margin:10px 0 0; line-height:1.5; }
 .no-motion .rg-dot, .no-motion .rg-live i { animation:none !important; }
+.no-motion .rg-sent { transition:opacity .12s ease !important; }
 `;

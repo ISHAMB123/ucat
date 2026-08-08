@@ -1655,15 +1655,15 @@ function readAdvice({ a, evBands, foundMs, correct, drill }) {
   if (evBands) {
     if (foundMs != null) {
       if (correct) {
-        out.push(`You reached the answer line (green) at ${secs}s and got it right. That is the move: find the line that settles it, then commit.`);
+        out.push(`You read the answer line (green) closely at ${secs}s and got it right. That is the move: find the line that settles it, then commit.`);
         if (foundMs > 12000) out.push("It took a while to land on it, though. Read the question first and scan for its key words so you get there sooner.");
       } else {
-        out.push(`You did look at the answer line (green), at ${secs}s, but still answered wrong. The fix is care, not speed: read that line word for word and watch for a swapped absolute, an invented cause, or outside knowledge creeping in.`);
+        out.push(`You did read the answer line (green) closely, at ${secs}s, but still answered wrong. The fix is care, not speed: read that line word for word and watch for a swapped absolute, an invented cause, or outside knowledge creeping in.`);
       }
     } else {
       out.push(correct
-        ? "Your eyes never settled on the line that holds the answer (green). You got it right anyway, but on a harder question that guess would cost you, so learn to find the evidence."
-        : "Your eyes never settled on the line that holds the answer (green). Scan for the key words from the question first, then read the line they point to before choosing.");
+        ? "You never actually settled on the line that holds the answer (green): a quick pass is not a read. You got it right anyway, but on a harder question that guess would cost you, so learn to stop on the evidence."
+        : "You never actually settled on the line that holds the answer (green). Scan for the key words from the question, then stop and read the line they point to before choosing.");
     }
   } else if (!correct) {
     if (a.coverage < 0.5) out.push("You answered wrong and reached only part of the passage. Slow down and cover the lines you skipped: the answer is usually in one of them.");
@@ -1681,11 +1681,20 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
   const rafRef = useRef(null);
   const logRef = useRef(makeReadLog());
   const heatRef = useRef(null);
-  const gazeDotRef = useRef(null);
   const calBucket = useRef([]);
   const smoothRef = useRef(makeSmoother());
   const lastPtRef = useRef(null);
   const startRef = useRef(0);
+  /* Live sentence highlighting: a small pool of fixed overlay bars we move
+     onto the rendered lines of whichever sentence the gaze is over, plus a
+     cache of every sentence's on-screen rectangles and which one holds the
+     answer, and a dwell accumulator so "found the answer" only fires on a
+     genuine, sustained read of that sentence, not a passing glance. */
+  const hlRefs = useRef([]);
+  const sentCacheRef = useRef(null);
+  const curSentRef = useRef(-1);
+  const dwellRef = useRef({ acc: 0, lastT: 0 });
+  const foundRef = useRef(null);
   const [stage, setStage] = useState(calRef.current ? "ready" : "intro");
   const [calIdx, setCalIdx] = useState(-1);
   const [camErr, setCamErr] = useState(false);
@@ -1713,26 +1722,86 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       }
       if (stageRef.current === "ready" && phaseRef.current === "answer" && calRef.current) {
         const mapped = mapGaze(calRef.current, a.raw);
-        if (mapped) {
-          const m = smoothRef.current.filter(mapped, now); // one-euro: still when resting
-          const px = m.x * window.innerWidth, py = m.y * window.innerHeight;
-          const dot = gazeDotRef.current;
-          if (dot) { dot.style.left = px + "px"; dot.style.top = py + "px"; dot.style.opacity = "1"; }
-          /* Log fixations, not the fast flights between them: a big jump from
-             the last point is a saccade in progress and would smear the heat
-             map, so it moves the live dot but is not counted. */
-          const prev = lastPtRef.current;
-          const moving = prev && Math.hypot(m.x - prev.x, m.y - prev.y) > 0.045;
-          lastPtRef.current = { x: m.x, y: m.y };
-          const el = passageRef.current;
-          if (!moving && el) {
-            const r = el.getBoundingClientRect();
-            if (r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) {
-              if (!startRef.current) startRef.current = now;
-              logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height, now - startRef.current);
-            }
-          }
+        const el = passageRef.current;
+        if (!mapped || !el) return;
+        const m = smoothRef.current.filter(mapped, now); // one-euro: still when resting
+        const px = m.x * window.innerWidth, py = m.y * window.innerHeight;
+        const r = el.getBoundingClientRect();
+        ensureSentences(el, r);
+        const inside = r.width > 0 && px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
+        const prev = lastPtRef.current;
+        const moving = prev && Math.hypot(m.x - prev.x, m.y - prev.y) > 0.03; // fixation vs saccade
+        lastPtRef.current = { x: m.x, y: m.y };
+        if (!inside) { setHighlight(-1); dwellRef.current.acc = 0; dwellRef.current.lastT = 0; return; }
+        if (!startRef.current) startRef.current = now;
+        const tSince = now - startRef.current;
+        /* Heat log: fixations only, so the map reflects where the eyes rested. */
+        if (!moving) logRef.current.add((px - r.left) / r.width, (py - r.top) / r.height, tSince);
+        /* Which sentence is the gaze over? Highlight it live. */
+        const sc = sentCacheRef.current;
+        let cur = -1;
+        if (sc) for (let s = 0; s < sc.sents.length; s++) {
+          if (sc.sents[s].rects.some((rc) => py >= rc.top - 2 && py <= rc.bottom + 2 && px >= rc.left - 6 && px <= rc.right + 6)) { cur = s; break; }
         }
+        setHighlight(cur);
+        /* "Found the answer" only on a real read: sustained fixation on the
+           answer sentence, not a fast sweep across it. */
+        const onEv = cur >= 0 && sc && sc.sents[cur].isEvidence;
+        const d = dwellRef.current;
+        if (onEv) {
+          const dt = d.lastT ? now - d.lastT : 0; d.lastT = now;
+          if (!moving) d.acc += dt;
+          if (d.acc >= 400 && foundRef.current == null) foundRef.current = tSince;
+        } else { d.acc = 0; d.lastT = 0; }
+      }
+    };
+
+    /* Build (once, then reuse) the on-screen rectangles of every sentence in
+       the passage and mark the one(s) that hold the answer. Recomputed only
+       when the passage moves (scroll/resize), so it is cheap per frame. */
+    const ensureSentences = (el, r) => {
+      const cached = sentCacheRef.current;
+      if (cached && Math.abs(cached.top - r.top) < 2 && Math.abs(cached.left - r.left) < 2) return;
+      const node = el.firstChild;
+      if (!node || node.nodeType !== 3) { sentCacheRef.current = { top: r.top, left: r.left, sents: [] }; return; }
+      const text = node.textContent || "";
+      const span = locateEvidence(passageText, question);
+      const parts = text.match(/[^.!?]+[.!?]+/g) || [text];
+      const sents = []; let pos = 0;
+      for (const part of parts) {
+        const start = text.indexOf(part, pos); if (start < 0) continue; const end = start + part.length; pos = end;
+        let s0 = start; while (s0 < end && /\s/.test(text[s0])) s0++;
+        let rects = [];
+        try {
+          const range = document.createRange();
+          range.setStart(node, Math.min(s0, node.length));
+          range.setEnd(node, Math.min(end, node.length));
+          rects = Array.from(range.getClientRects()).filter((rc) => rc.height > 0).map((rc) => ({ top: rc.top, bottom: rc.bottom, left: rc.left, right: rc.right }));
+        } catch (e) { /* skip */ }
+        const isEvidence = !!(span && start < span.end && end > span.start);
+        sents.push({ start, end, rects, isEvidence });
+      }
+      sentCacheRef.current = { top: r.top, left: r.left, sents };
+    };
+
+    /* Move the overlay bars onto the given sentence's lines, hiding the rest.
+       No React re-render, so it stays smooth at 30 Hz. */
+    const setHighlight = (idx) => {
+      if (idx === curSentRef.current) return;
+      curSentRef.current = idx;
+      const pool = hlRefs.current;
+      const sc = sentCacheRef.current;
+      const rects = idx >= 0 && sc && sc.sents[idx] ? sc.sents[idx].rects : [];
+      const evi = idx >= 0 && sc && sc.sents[idx] ? sc.sents[idx].isEvidence : false;
+      for (let k = 0; k < pool.length; k++) {
+        const bar = pool[k]; if (!bar) continue;
+        const rc = rects[k];
+        if (rc) {
+          bar.style.left = rc.left + "px"; bar.style.top = rc.top + "px";
+          bar.style.width = (rc.right - rc.left) + "px"; bar.style.height = (rc.bottom - rc.top) + "px";
+          bar.style.background = evi ? "rgba(34,197,94,0.38)" : "rgba(250,204,21,0.42)";
+          bar.style.opacity = "1";
+        } else { bar.style.opacity = "0"; }
       }
     };
     (async () => {
@@ -1748,8 +1817,21 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
     return () => { dead = true; if (rafRef.current) cancelAnimationFrame(rafRef.current); const s = streamRef.current; if (s) s.getTracks().forEach((t) => t.stop()); };
   }, []);
 
-  /* Fresh heat log, gaze smoother and question timer per question. */
-  useEffect(() => { logRef.current = makeReadLog(); smoothRef.current = makeSmoother(); lastPtRef.current = null; startRef.current = 0; setResult(null); }, [qKey]);
+  /* Fresh heat log, gaze smoother, question timer and highlight state per
+     question. */
+  useEffect(() => {
+    logRef.current = makeReadLog(); smoothRef.current = makeSmoother();
+    lastPtRef.current = null; startRef.current = 0;
+    sentCacheRef.current = null; curSentRef.current = -1;
+    dwellRef.current = { acc: 0, lastT: 0 }; foundRef.current = null;
+    hlRefs.current.forEach((b) => { if (b) b.style.opacity = "0"; });
+    setResult(null);
+  }, [qKey]);
+
+  /* Clear the live highlight the moment reading stops (answer submitted). */
+  useEffect(() => {
+    if (phase !== "answer") { curSentRef.current = -1; hlRefs.current.forEach((b) => { if (b) b.style.opacity = "0"; }); }
+  }, [phase]);
 
   /* When the question is answered, freeze the analysis, fold this attempt
      into the crowd path if it was right and in time, and paint the map. */
@@ -1781,9 +1863,11 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
 
     /* Locate the line that actually holds the answer and turn it into the
        normalised y-bands the heat map can shade green, using a DOM range so
-       the highlight lands on the exact rendered lines. Then find the first
-       moment the reader's gaze reached one of those bands. */
-    let evBands = null, foundMs = null;
+       the highlight lands on the exact rendered lines. The "found" time comes
+       from the live dwell tracker: it only counts a sustained, careful read of
+       the answer sentence, not a passing sweep. */
+    let evBands = null;
+    const foundMs = foundRef.current;
     const span = locateEvidence(passageText, question);
     if (span && el && el.firstChild && el.firstChild.nodeType === 3) {
       try {
@@ -1797,13 +1881,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
           if (rc.height <= 0 || pr.height <= 0) continue;
           bands.push({ y0: (rc.top - pr.top) / pr.height, y1: (rc.bottom - pr.top) / pr.height });
         }
-        if (bands.length) {
-          evBands = bands;
-          for (const p of logRef.current.path) {
-            if (p.t == null) continue;
-            if (bands.some((b) => p.y >= b.y0 - 0.02 && p.y <= b.y1 + 0.02)) { foundMs = p.t; break; }
-          }
-        }
+        if (bands.length) evBands = bands;
       } catch (e) { /* range failed, skip the highlight */ }
     }
 
@@ -1878,8 +1956,10 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       )}
       {stage === "ready" && phase === "answer" && (
         <>
-          <span className="rg-gaze" ref={gazeDotRef} aria-hidden="true" style={{ opacity: 0 }} />
-          <span className="rg-live" aria-hidden="true"><i />Reading tracker on</span>
+          {[0, 1, 2, 3, 4, 5].map((k) => (
+            <span key={k} className="rg-sent" ref={(el) => { hlRefs.current[k] = el; }} aria-hidden="true" style={{ opacity: 0 }} />
+          ))}
+          <span className="rg-live" aria-hidden="true"><i />Following your reading</span>
         </>
       )}
       {phase !== "answer" && result && (
@@ -1889,14 +1969,14 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
           <div className="rg-key">
             <span className="rg-k rg-k-scale"><i /><em>looked less</em><em className="r">looked more</em></span>
             <span className="rg-k rg-k-avg"><i /><em>{result.seeded ? `suggested path: ${result.tech.name}` : `average of ${result.crowdN} correct, in-time reads`}</em></span>
-            {result.evBands && <span className="rg-k rg-k-ev"><i /><em>answer line{result.foundMs != null ? ` (reached at ${(result.foundMs / 1000).toFixed(1)}s)` : " (you missed it)"}</em></span>}
+            {result.evBands && <span className="rg-k rg-k-ev"><i /><em>answer line{result.foundMs != null ? ` (read at ${(result.foundMs / 1000).toFixed(1)}s)` : " (never read closely)"}</em></span>}
           </div>
           {result.advice && result.advice.length > 0 && (
             <div className="rg-advice">{result.advice.map((t, n) => <p key={n}>{t}</p>)}</div>
           )}
           {result.seeded && result.tech && <p className="rg-tech"><b>{result.tech.name}.</b> {result.tech.cue}</p>}
           <ul className="rg-tips">{result.tips.map((t, n) => <li key={n}>{t}</li>)}</ul>
-          {result.a && <p className="rg-foot">Lightest on the {band} third. The white line is {result.seeded ? "the suggested path for this passage" : "how people who got this right in time moved their eyes"}. Webcam gaze is approximate, so read this as your pattern, not a word-by-word record. Only the heat map is kept; no face image is stored.</p>}
+          {result.a && <p className="rg-foot">Lightest on the {band} third. The white line is {result.seeded ? "the suggested path for this passage" : "how people who got this right in time moved their eyes"}. As you read, the sentence you are looking at is highlighted live, and the answer counts as read only once your eyes settle on it, not on a quick pass. Webcam gaze is approximate, so read this region by region, not word by word. Only the heat map is kept; no face image is stored.</p>}
         </div>
       )}
     </>

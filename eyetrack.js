@@ -72,11 +72,19 @@ export function analyse(result) {
   const gaze = { x: clamp(0.5 - ox * 2.6), y: clamp(0.5 + oy * 2.2) };
   const contact = Math.abs(ox) < 0.09 && Math.abs(oy) < 0.16;
 
+  /* Reject blinks: when an eye is nearly shut the iris landmark is unreliable
+     and would throw a spurious sample into calibration or the live gaze. A
+     standard eye-openness ratio (lid gap over eye width) gates it out, the
+     same idea trackers like WebGazer and eyetrax use. */
+  const openness = (top, bot, inn, out) => Math.abs(p[bot].y - p[top].y) / (Math.abs(p[out].x - p[inn].x) || 1e-6);
+  const open = (openness(IDX.lTop, IDX.lBot, IDX.lIn, IDX.lOut) + openness(IDX.rTop, IDX.rBot, IDX.rIn, IDX.rOut)) / 2;
+
   /* The un-amplified, un-clamped iris offset (x flipped for a mirror). This is
      the honest signal to calibrate against: the polynomial fit learns the
      amplification and any curvature itself, and nothing is thrown away at the
-     edges by an early clamp, which is what makes precise mapping possible. */
-  const raw = { x: -ox, y: oy };
+     edges by an early clamp, which is what makes precise mapping possible.
+     Null while blinking so the caller skips the frame. */
+  const raw = open > 0.12 ? { x: -ox, y: oy } : null;
 
   const box = (ids) => {
     let x0 = 1, y0 = 1, x1 = 0, y1 = 0;

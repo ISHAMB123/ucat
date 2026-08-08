@@ -2168,9 +2168,9 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
      Bigger text is easier to read and gives the gaze tracker larger targets.
      Loaded async (getJSON is a promise); saved only after the load so the
      default does not clobber the stored value on mount. */
-  const [readFont, setReadFont] = useState(21);
+  const [readFont, setReadFont] = useState(24);
   const fontLoaded = useRef(false);
-  useEffect(() => { getJSON("ucat:readingfs", 21).then((v) => { const n = Number(v); if (n >= 16 && n <= 46) setReadFont(n); fontLoaded.current = true; }); }, []);
+  useEffect(() => { getJSON("ucat:readingfs", 24).then((v) => { const n = Number(v); if (n >= 16 && n <= 52) setReadFont(n); fontLoaded.current = true; }); }, []);
   useEffect(() => { if (fontLoaded.current) setJSON("ucat:readingfs", readFont); }, [readFont]);
   const [rankPicks, setRankPicks] = useState([]);
   const [syllPicks, setSyllPicks] = useState([]);
@@ -2742,15 +2742,22 @@ function DrillRunner({ drill, questions, exam, budget, showCalc, hideStart, revi
           <div className={q.passageText ? "rd-split" : "rd-flow"}>
           {q.passageText && (
             <div className="rd-col-p">
+              <div className="rd-p-head">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" /><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5z" /></svg>
+                <span>{q.passageTitle || "Passage"}</span>
+                <span className="rd-p-tag">Verbal Reasoning</span>
+              </div>
               <p ref={passageRef} className="ud-passage" style={{ margin: 0, fontSize: readFont + "px" }}>{q.passageText}</p>
               <div className="rd-size" title="Text size">
+                <span className="rd-size-lbl">Text size</span>
                 <button aria-label="Smaller text" onClick={() => setReadFont((f) => Math.max(16, f - 2))}>A<span className="mn">-</span></button>
-                <input type="range" min={16} max={46} step={1} value={readFont} aria-label="Reading text size" onChange={(e) => setReadFont(Number(e.target.value))} />
-                <button aria-label="Larger text" onClick={() => setReadFont((f) => Math.min(46, f + 2))}>A<span className="mj">+</span></button>
+                <input type="range" min={16} max={52} step={1} value={readFont} aria-label="Reading text size" onChange={(e) => setReadFont(Number(e.target.value))} />
+                <button aria-label="Larger text" onClick={() => setReadFont((f) => Math.min(52, f + 2))}>A<span className="mj">+</span></button>
               </div>
             </div>
           )}
           <div className="rd-col-q">
+          {q.passageText && <div className="rd-q-head"><span className="dot" />Question</div>}
           <p className={q.kind === "typed" && !q.passageText ? "ud-q" : "ud-qs"}>{q.stem || q.prompt}</p>
 
           {phase !== "review" && q.kind === "rank" && (

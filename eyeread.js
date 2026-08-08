@@ -110,6 +110,60 @@ export function mapGaze(cal, g) {
   return { x: clamp01(x), y: clamp01(y) };
 }
 
+/* ---- Head-pose-aware gaze regression --------------------------------- */
+/* The plain 2D map above ties eye position straight to the screen, so any
+   head movement drifts it. This model adds head pose and viewing distance to
+   the inputs and lets the calibration learn how they couple, which is what
+   keeps the estimate steady when the reader shifts, leans or turns a little.
+   Sample shape: { ex, ey, yaw, pitch, dist, t:{x,y} }. */
+export function gazeFeatures(s) {
+  const ex = s.ex || 0, ey = s.ey || 0, yaw = s.yaw || 0, pitch = s.pitch || 0, d = s.dist || 0;
+  return [1, ex, ey, ex * ex, ey * ey, yaw, pitch, d];
+}
+
+/* Ridge-regularised least squares per axis. Ridge keeps the extra pose terms
+   from overfitting the handful of calibration points. Needs >= 8 samples. */
+export function fitGaze(samples, lambda = 2e-3) {
+  if (!samples || samples.length < 8) return null;
+  const rows = samples.map(gazeFeatures);
+  const P = rows[0].length;
+  const fitAxis = (axis) => {
+    const S = Array.from({ length: P }, () => new Array(P).fill(0));
+    const rhs = new Array(P).fill(0);
+    for (let n = 0; n < samples.length; n++) {
+      const row = rows[n], y = samples[n].t[axis];
+      for (let i = 0; i < P; i++) { rhs[i] += row[i] * y; for (let j = 0; j < P; j++) S[i][j] += row[i] * row[j]; }
+    }
+    for (let i = 1; i < P; i++) S[i][i] += lambda; // ridge, never on the bias
+    return solveLinear(S, rhs);
+  };
+  const cx = fitAxis("x"), cy = fitAxis("y");
+  if (!cx || !cy) return null;
+  let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+  for (const s of samples) {
+    if (s.ex < xmin) xmin = s.ex; if (s.ex > xmax) xmax = s.ex;
+    if (s.ey < ymin) ymin = s.ey; if (s.ey > ymax) ymax = s.ey;
+  }
+  return { pose: true, cx, cy, range: { xmin, xmax, ymin, ymax } };
+}
+
+/* Apply the head-pose model. The eye-signal part is clamped to the calibrated
+   range (as with mapGaze) so it cannot extrapolate and fly off. */
+export function mapGazeFeat(model, s) {
+  if (!model || !s) return null;
+  let ex = s.ex, ey = s.ey;
+  if (model.range) {
+    const r = model.range;
+    const mx = Math.max(0.04, (r.xmax - r.xmin) * 0.25), my = Math.max(0.04, (r.ymax - r.ymin) * 0.25);
+    ex = Math.min(r.xmax + mx, Math.max(r.xmin - mx, ex));
+    ey = Math.min(r.ymax + my, Math.max(r.ymin - my, ey));
+  }
+  const f = gazeFeatures({ ...s, ex, ey });
+  let x = 0, y = 0;
+  for (let i = 0; i < f.length; i++) { x += model.cx[i] * f[i]; y += model.cy[i] * f[i]; }
+  return { x: clamp01(x), y: clamp01(y) };
+}
+
 /* Mean residual of a calibration on its own samples, in screen fractions.
    A rough quality read: below ~0.06 is good, above ~0.12 is loose. */
 export function calibrationError(cal, samples) {

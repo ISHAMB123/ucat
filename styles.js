@@ -1863,6 +1863,13 @@ button.nav-row:hover { background:var(--signal)14; }
    reader is looking at, tinting the words like a highlighter. Green when the
    sentence holds the answer. Fixed to the viewport, behind pointer events. */
 .rg-sent { position:fixed; z-index:120; background:rgba(250,204,21,0.42); mix-blend-mode:multiply; border-radius:3px; pointer-events:none; transition:opacity .12s ease, left .09s linear, top .09s linear, width .09s linear; }
+/* optional test crosshair for verifying the tracker follows the gaze */
+.rg-cross { position:fixed; z-index:131; width:26px; height:26px; margin:-13px 0 0 -13px; border-radius:50%; border:2px solid rgba(242,85,90,0.95); box-shadow:0 0 0 1px rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,0.9); pointer-events:none; transition:opacity .2s; }
+.rg-cross::before, .rg-cross::after { content:""; position:absolute; background:rgba(242,85,90,0.95); }
+.rg-cross::before { left:50%; top:4px; bottom:4px; width:2px; margin-left:-1px; }
+.rg-cross::after { top:50%; left:4px; right:4px; height:2px; margin-top:-1px; }
+.rg-check { display:flex; align-items:center; gap:7px; margin-top:12px; font-size:12px; color:var(--mute); cursor:pointer; }
+.rg-check input { accent-color:var(--go); }
 .rg-key { display:flex; flex-wrap:wrap; gap:14px 20px; margin-top:11px; }
 .rg-k { display:inline-flex; align-items:center; gap:7px; font-size:10.5px; color:var(--mute); }
 .rg-k em { font-style:normal; }

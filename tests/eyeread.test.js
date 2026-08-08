@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fitCalibration, mapGaze, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence } from "../eyeread.js";
+import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeFeatures, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence } from "../eyeread.js";
 
 describe("fitCalibration recovers a linear gaze-to-screen map", () => {
   it("recovers an identity map from clean samples", () => {
@@ -103,6 +103,51 @@ describe("makeReadLog records timestamps", () => {
     const log = makeReadLog();
     log.add(0.5, 0.5, 1200);
     expect(log.path[0].t).toBe(1200);
+  });
+});
+
+describe("fitGaze uses head pose to stay steady", () => {
+  /* A ground-truth mapping where the SAME eye position lands on a different
+     screen point once the head turns: screen depends on eye signal AND yaw.
+     A pose-blind fit cannot represent that; fitGaze can. */
+  const trueX = (ex, yaw) => 0.5 + 0.8 * ex + 0.5 * yaw;
+  const trueY = (ey, pitch) => 0.5 + 0.8 * ey + 0.5 * pitch;
+
+  it("recovers a mapping that depends on head pose", () => {
+    /* Pose varies independently of eye position, so the fit must genuinely
+       separate the two to recover the mapping. */
+    const samples = [];
+    const grid = [-0.2, 0, 0.2];
+    const poses = [-0.2, 0.2];
+    for (const ex of grid) for (const ey of grid) for (const yaw of poses) {
+      const pitch = -yaw;
+      samples.push({ ex, ey, yaw, pitch, dist: 0.3, t: { x: trueX(ex, yaw), y: trueY(ey, pitch) } });
+    }
+    const model = fitGaze(samples, 1e-6);
+    expect(model).not.toBeNull();
+    expect(model.pose).toBe(true);
+    /* A held-out reading: same eye position, head turned differently. */
+    const held = { ex: 0.1, ey: -0.1, yaw: 0.15, pitch: -0.1, dist: 0.3 };
+    const m = mapGazeFeat(model, held);
+    expect(m.x).toBeCloseTo(trueX(0.1, 0.15), 1);
+    expect(m.y).toBeCloseTo(trueY(-0.1, -0.1), 1);
+  });
+
+  it("gazeFeatures has a stable length and fitGaze needs enough points", () => {
+    expect(gazeFeatures({ ex: 0.1, ey: 0.2, yaw: 0, pitch: 0, dist: 0.3 })).toHaveLength(8);
+    expect(fitGaze([{ ex: 0, ey: 0, t: { x: 0, y: 0 } }])).toBeNull();
+  });
+
+  it("mapGazeFeat clamps the eye signal so it cannot fly off", () => {
+    const samples = [];
+    const grid = [-0.2, 0, 0.2];
+    for (const ex of grid) for (const ey of grid) samples.push({ ex, ey, yaw: 0, pitch: 0, dist: 0.3, t: { x: 0.5 + ex, y: 0.5 + ey } });
+    const model = fitGaze(samples);
+    const wild = mapGazeFeat(model, { ex: 9, ey: -9, yaw: 0, pitch: 0, dist: 0.3 });
+    expect(wild.x).toBeGreaterThanOrEqual(0);
+    expect(wild.x).toBeLessThanOrEqual(1);
+    expect(wild.y).toBeGreaterThanOrEqual(0);
+    expect(wild.y).toBeLessThanOrEqual(1);
   });
 });
 

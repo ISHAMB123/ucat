@@ -86,6 +86,29 @@ export function analyse(result) {
      Null while blinking so the caller skips the frame. */
   const raw = open > 0.12 ? { x: -ox, y: oy } : null;
 
+  /* Head pose, geometric from landmarks (no matrix needed): the same eye
+     position means a different gaze once the head turns or moves, so the
+     calibration must see pose too or the mapping drifts. yaw/pitch are the
+     nose offset from the eye-corner midpoint, roll is the eye-line tilt, and
+     inter-ocular distance stands in for how close the face is to the camera.
+     x is flipped to match the mirrored raw signal. */
+  const eyeMidX = (p[IDX.lOut].x + p[IDX.rOut].x) / 2;
+  const eyeMidY = (p[IDX.lOut].y + p[IDX.rOut].y) / 2;
+  const iod = Math.hypot(p[IDX.rOut].x - p[IDX.lOut].x, p[IDX.rOut].y - p[IDX.lOut].y) || 1e-6;
+  const faceH = Math.hypot(p[152].x - p[10].x, p[152].y - p[10].y) || 1e-6;
+  const nose = p[1];
+  const yaw = -(nose.x - eyeMidX) / iod;
+  const pitch = (nose.y - eyeMidY) / faceH;
+  const roll = Math.atan2(p[IDX.rOut].y - p[IDX.lOut].y, p[IDX.rOut].x - p[IDX.lOut].x);
+  const pose = { yaw, pitch, roll, dist: iod };
+
+  /* Confidence: trust the frame less when an eye is closing or the head is
+     turned well away, where the estimate is unreliable. The caller holds the
+     previous gaze rather than jumping to a low-confidence reading. */
+  let conf = open <= 0.12 ? 0 : Math.min(1, (open - 0.12) / 0.12);
+  conf *= Math.max(0, 1 - Math.abs(yaw) * 2.2);
+  conf *= Math.max(0, 1 - Math.abs(pitch) * 2.6);
+
   const box = (ids) => {
     let x0 = 1, y0 = 1, x1 = 0, y1 = 0;
     for (const i of ids) { const q = p[i]; if (q.x < x0) x0 = q.x; if (q.y < y0) y0 = q.y; if (q.x > x1) x1 = q.x; if (q.y > y1) y1 = q.y; }
@@ -95,6 +118,7 @@ export function analyse(result) {
   return {
     pts: p,
     irisL, irisR,
+    pose, conf,
     eyeL: box(IDX.eyeL), eyeR: box(IDX.eyeR),
     ring: IDX.ring.map((i) => p[i]),
     gaze, raw, contact,

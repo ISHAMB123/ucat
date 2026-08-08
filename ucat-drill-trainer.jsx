@@ -5882,8 +5882,11 @@ function LiveInterview({ track, prefs, setPrefs }) {
     return () => { window.speechSynthesis.removeEventListener("voiceschanged", set); };
   }, [ttsOK]);
 
-  const speak = (text) => {
-    if (!voiceOn || !ttsOK || !text) return;
+  const audioRef = useRef(null);
+  const ttsModeRef = useRef("auto"); // auto: try the neural voice; browser: fall back
+
+  const browserSpeak = (text) => {
+    if (!ttsOK || !text) return;
     try {
       window.speechSynthesis.cancel();
       /* Speak sentence by sentence with a small gap, which reads far more
@@ -5899,7 +5902,35 @@ function LiveInterview({ track, prefs, setPrefs }) {
       });
     } catch (e) { /* ignore */ }
   };
-  const hush = () => { if (ttsOK) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } } };
+
+  /* Prefer the neural voice (Fish, via our /api/tts proxy). If it is not
+     configured or fails, fall back to the browser voice so the interview
+     always speaks. */
+  const speak = async (text) => {
+    if (!voiceOn || !text) return;
+    hush();
+    if (ttsModeRef.current === "browser") { browserSpeak(text); return; }
+    try {
+      const clean = text.replace(/SCORES[\s\S]*$/i, "").trim();
+      const r = await fetch("/api/tts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: clean }) });
+      if (!r.ok) throw new Error("tts");
+      const blob = await r.blob();
+      if (!voiceOn) return; // toggled off while the audio was fetching
+      const url = URL.createObjectURL(blob);
+      const a = audioRef.current || new Audio();
+      audioRef.current = a;
+      a.src = url; a.onended = () => URL.revokeObjectURL(url);
+      await a.play();
+    } catch (e) {
+      /* Remember it is unavailable so we do not keep retrying the request. */
+      ttsModeRef.current = "browser";
+      browserSpeak(text);
+    }
+  };
+  const hush = () => {
+    if (ttsOK) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignore */ } }
+    const a = audioRef.current; if (a) { try { a.pause(); } catch (e) { /* ignore */ } }
+  };
   useEffect(() => { if (!voiceOn) hush(); }, [voiceOn]);
 
   /* Like a real station: a short thinking window to gather your answer, then

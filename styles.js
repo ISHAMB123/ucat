@@ -699,6 +699,9 @@ button.nav-row:hover { background:var(--signal)14; }
 .pwbar span { font-family:'Inter',sans-serif; font-size:10px; color:var(--mute); }
 .ud-btn.full { width:100%; text-align:center; }
 .auth-err { color:var(--stop); font-size:12.5px; margin:0 0 12px; }
+.auth-dup { display:flex; flex-direction:column; gap:8px; align-items:center; }
+.auth-dup .auth-link { background:transparent; border:none; color:var(--mute); font-size:12.5px; cursor:pointer; }
+.auth-dup .auth-link:hover { color:var(--signal); }
 .auth-sent { background:var(--ink); border:1px solid var(--go); border-radius:3px; padding:13px 15px; font-size:13px; color:var(--body); line-height:1.6; margin-bottom:14px; }
 .auth-alt { display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:14px; }
 .auth-alt button { background:transparent; color:var(--mute); font-size:12.5px; }

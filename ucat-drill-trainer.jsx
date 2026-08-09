@@ -8232,6 +8232,15 @@ const ACCESS_CODE = "UCAT18";
    email/network). Matched case- and space-insensitively, so "Free ucat" works. */
 const TRIAL_CODE = "FREEUCAT";
 const normCode = (s) => String(s || "").trim().toUpperCase().replace(/\s+/g, "");
+/* A short list of the passwords attackers try first. Not a full breach list
+   (that belongs server side), just enough to stop the worst choices at sign
+   up. Supabase already hashes every password with bcrypt, so we never store or
+   send a plain one; this only nudges users off guessable ones. */
+const COMMON_PASSWORDS = new Set([
+  "password", "password1", "password123", "12345678", "123456789", "1234567890",
+  "qwerty123", "iloveyou", "admin123", "welcome1", "letmein1", "abc12345",
+  "football", "monkey123", "dragon123", "sunshine1", "princess1", "tempo123", "ucat1234",
+]);
 const SALE_ENDS_LABEL = "31 August";
 const saleLive = () => Date.now() < new Date("2026-09-01T00:00:00").getTime();
 const PRICE_NOTE = "one payment, no subscription, no renewal";
@@ -8247,7 +8256,7 @@ const PLAN_INCLUDES = [
 
 function validEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()); }
 
-function AuthScreen({ onAuthed, onSkip }) {
+function AuthScreen({ onAuthed }) {
   const [mode, setMode] = useState("signup");
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
@@ -8262,6 +8271,7 @@ function AuthScreen({ onAuthed, onSkip }) {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeImprove, setAgreeImprove] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
+  const [dup, setDup] = useState(false); // email already registered
 
   const strength = (() => {
     let n = 0;
@@ -8274,12 +8284,19 @@ function AuthScreen({ onAuthed, onSkip }) {
   const strengthLabel = ["Too short", "Weak", "Fair", "Good", "Strong"][strength];
 
   const submit = async () => {
-    setErr("");
+    setErr(""); setDup(false);
     if (!validEmail(email)) { setErr("That email address does not look right."); return; }
     if (mode !== "reset") {
       if (pw.length < 8) { setErr("Passwords need at least 8 characters."); return; }
       /* A strong password: mixed case plus a number or symbol. */
       if (mode === "signup" && strength < 3) { setErr("Choose a stronger password: at least 8 characters with upper and lower case letters and a number or symbol."); return; }
+      /* Block the obvious guesses and a password built from the email itself. */
+      if (mode === "signup") {
+        const low = pw.toLowerCase();
+        const localPart = email.split("@")[0].toLowerCase();
+        if (COMMON_PASSWORDS.has(low) || /^(password|welcome|qwerty|letmein|123456)/.test(low)) { setErr("That password is too common. Pick something only you would think of."); return; }
+        if (localPart.length >= 4 && low.includes(localPart)) { setErr("Do not base your password on your email address."); return; }
+      }
       if (mode === "signup" && pw !== pw2) { setErr("The two passwords do not match."); return; }
       if (mode === "signup" && !agreeTerms) { setErr("Please accept the Terms and Privacy Policy to create an account."); return; }
     }
@@ -8302,14 +8319,14 @@ function AuthScreen({ onAuthed, onSkip }) {
       if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({ email: addr, password: pw });
         if (error) {
-          if (/already registered|already exists|already been/i.test(error.message)) { setErr("An account with that email already exists. Sign in instead."); return; }
+          if (/already registered|already exists|already been/i.test(error.message)) { setDup(true); setErr("This email is already registered."); return; }
           throw error;
         }
         /* Supabase returns a user with no identities when the email is already
            taken (it will not say so outright, to avoid leaking who has an
            account). Treat that as a duplicate. */
         if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          setErr("An account with that email already exists. Sign in instead."); return;
+          setDup(true); setErr("This email is already registered."); return;
         }
         if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id, ...consent }); }
         else { setSentMsg(`Enter the 6-digit code we emailed to ${addr}. It expires shortly.`); setStep("code"); }
@@ -8447,10 +8464,18 @@ function AuthScreen({ onAuthed, onSkip }) {
             )}
 
             {err && <p className="auth-err">{err}</p>}
+            {dup && (
+              <div className="auth-dup">
+                <button className="ud-btn full" onClick={() => { setMode("login"); setErr(""); setDup(false); }}>Sign in to this account</button>
+                <button className="auth-link" onClick={() => { setMode("reset"); setErr(""); setDup(false); }}>Forgotten your password?</button>
+              </div>
+            )}
 
-            <button className="ud-btn full" onClick={submit} disabled={busy}>
-              {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
-            </button>
+            {!dup && (
+              <button className="ud-btn full" onClick={submit} disabled={busy}>
+                {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
+              </button>
+            )}
 
             <div className="auth-alt">
               {mode === "login" && <button onClick={() => { setMode("reset"); setErr(""); }}>Forgotten your password?</button>}
@@ -8462,9 +8487,8 @@ function AuthScreen({ onAuthed, onSkip }) {
         )}
 
         <div className="auth-foot">
-          <button className="ud-quit" onClick={onSkip}>Continue without an account</button>
           <p>{supabaseEnabled
-            ? "No tracking cookies and no analytics. Without an account your progress stays in this browser; with one it also syncs so it follows you between devices."
+            ? "No tracking cookies and no analytics. Your account keeps your progress and syncs it across your devices."
             : "No tracking cookies and no analytics. Progress saves to this browser only until account sync is connected."}</p>
         </div>
       </div>
@@ -9939,7 +9963,6 @@ export default function UcatDrillTrainer() {
             setAccount(acct); setAuthDone(true);
             setPrefs({ ...prefs, account: acct, ...(a.consentImprove !== undefined ? { consentImprove: a.consentImprove } : {}) });
           }}
-          onSkip={() => { setAuthDone(true); setPrefs({ ...prefs, skippedAuth: true }); }}
         />
       )}
       {authDone && !prefs.track && <TrackGate onPick={(t) => setPrefs({ ...prefs, track: t })} />}

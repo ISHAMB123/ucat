@@ -8322,11 +8322,18 @@ function AuthScreen({ onAuthed }) {
       new Promise((_, rej) => setTimeout(() => rej(new Error("The request timed out. Check your connection and try again.")), 15000)),
     ]);
     /* Turn Supabase's raw errors into something a student can act on. */
-    const friendly = (msg) => {
-      const m = String(msg || "");
+    const friendly = (e) => {
+      const m = String((e && e.message) || "");
+      const status = Number((e && (e.status || e.statusCode)) || 0);
       if (/rate limit|only request this after|too many/i.test(m)) return "Too many attempts just now (the email service is rate-limited). Wait a minute and try again.";
       if (/invalid login|invalid credentials/i.test(m)) return "That email and password do not match an account.";
       if (/failed to fetch|networkerror|load failed/i.test(m)) return "Could not reach the server. Check your connection and try again.";
+      /* A 500 on sign-up is nearly always Supabase failing to send the
+         confirmation email (SMTP not configured or the address is not
+         verified). Nothing the student can fix, so keep it calm. */
+      if (status >= 500 || /retryable|sending (confirmation|email)/i.test(m + ((e && e.name) || ""))) {
+        return "We could not create your account right now. This is a temporary problem on our side, not you. Please try again in a little while.";
+      }
       return m || "Something went wrong. Please try again.";
     };
     try {
@@ -8355,7 +8362,7 @@ function AuthScreen({ onAuthed }) {
       }
     } catch (e) {
       console.error("auth error", e);
-      setErr(friendly(e && e.message));
+      setErr(friendly(e));
     } finally {
       setBusy(false);
     }

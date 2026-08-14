@@ -8314,28 +8314,33 @@ function AuthScreen({ onAuthed }) {
       return;
     }
 
-    /* Supabase-backed auth. */
+    /* Supabase-backed auth. A timeout guarantees the button never stays stuck
+       on a request that hangs (bad network, blocked host): after 20s it fails
+       cleanly and the button is usable again. */
+    const withTimeout = (p) => Promise.race([
+      p,
+      new Promise((_, rej) => setTimeout(() => rej(new Error("The request timed out. Check your connection and try again.")), 20000)),
+    ]);
     try {
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email: addr, password: pw });
+        const { data, error } = await withTimeout(supabase.auth.signUp({ email: addr, password: pw }));
         if (error) {
           if (/already registered|already exists|already been/i.test(error.message)) { setDup(true); setErr("This email is already registered."); return; }
           throw error;
         }
-        /* Supabase returns a user with no identities when the email is already
-           taken (it will not say so outright, to avoid leaking who has an
-           account). Treat that as a duplicate. */
-        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          setDup(true); setErr("This email is already registered."); return;
-        }
+        /* Do NOT try to detect duplicates from an empty identities array: with
+           email confirmation on, Supabase returns identities: [] for brand new
+           signups too, so that check wrongly blocks real accounts. Just move on
+           to the code step; a genuine duplicate surfaces as an explicit error
+           above or at verification. */
         if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id, ...consent }); }
         else { setSentMsg(`Enter the 6-digit code we emailed to ${addr}. It expires shortly.`); setStep("code"); }
       } else if (mode === "login") {
-        const { data, error } = await supabase.auth.signInWithPassword({ email: addr, password: pw });
+        const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email: addr, password: pw }));
         if (error) throw error;
         onAuthed({ email: data.user.email || addr, id: data.user.id });
       } else {
-        const { error } = await supabase.auth.resetPasswordForEmail(addr);
+        const { error } = await withTimeout(supabase.auth.resetPasswordForEmail(addr));
         if (error) throw error;
         setSentMsg(`If an account exists for ${addr}, a reset link is on its way. Check spam if it does not arrive within a few minutes.`);
         setSent(true);
@@ -8464,17 +8469,16 @@ function AuthScreen({ onAuthed }) {
             )}
 
             {err && <p className="auth-err">{err}</p>}
+
+            <button className="ud-btn full" onClick={submit} disabled={busy}>
+              {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
+            </button>
+
             {dup && (
               <div className="auth-dup">
-                <button className="ud-btn full" onClick={() => { setMode("login"); setErr(""); setDup(false); }}>Sign in to this account</button>
+                <button className="auth-link" onClick={() => { setMode("login"); setErr(""); setDup(false); }}>Sign in to this account instead</button>
                 <button className="auth-link" onClick={() => { setMode("reset"); setErr(""); setDup(false); }}>Forgotten your password?</button>
               </div>
-            )}
-
-            {!dup && (
-              <button className="ud-btn full" onClick={submit} disabled={busy}>
-                {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
-              </button>
             )}
 
             <div className="auth-alt">

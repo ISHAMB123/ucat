@@ -8309,7 +8309,7 @@ function AuthScreen({ onAuthed }) {
       await new Promise((r) => setTimeout(r, 550));
       setBusy(false);
       if (mode === "reset") { setSentMsg(`If an account exists for ${addr}, a reset link is on its way. Check spam if it does not arrive within a few minutes.`); setSent(true); return; }
-      if (mode === "signup") { setSentMsg(`Preview mode: enter any 6 digits to confirm ${addr}.`); setStep("code"); return; }
+      if (mode === "signup") { setSentMsg(`Preview mode: enter any 6 to 8 digits to confirm ${addr}.`); setStep("code"); return; }
       onAuthed({ email: addr, ...consent });
       return;
     }
@@ -8365,7 +8365,7 @@ function AuthScreen({ onAuthed }) {
     setErr("");
     const addr = email.trim().toLowerCase();
     const token = code.trim();
-    if (!/^\d{6}$/.test(token)) { setErr("Enter the 6-digit code from your email."); return; }
+    if (!/^\d{6,8}$/.test(token)) { setErr("Enter the code from your email (6 to 8 digits)."); return; }
     setBusy(true);
     if (!supabaseEnabled) { await new Promise((r) => setTimeout(r, 400)); setBusy(false); onAuthed({ email: addr, consentImprove: agreeImprove }); return; }
     try {
@@ -8380,7 +8380,7 @@ function AuthScreen({ onAuthed }) {
   const resendCode = async () => {
     setErr(""); setBusy(true);
     const addr = email.trim().toLowerCase();
-    if (!supabaseEnabled) { await new Promise((r) => setTimeout(r, 300)); setBusy(false); setSentMsg("Preview mode: enter any 6 digits."); return; }
+    if (!supabaseEnabled) { await new Promise((r) => setTimeout(r, 300)); setBusy(false); setSentMsg("Preview mode: enter any 6 to 8 digits."); return; }
     try {
       const { error } = await supabase.auth.resend({ type: "signup", email: addr });
       if (error) throw error;
@@ -8404,9 +8404,9 @@ function AuthScreen({ onAuthed }) {
           <>
             <div className="auth-sent">{sentMsg}</div>
             <label className="auth-f">Verification code
-              <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                onKeyDown={(e) => e.key === "Enter" && verify()} placeholder="6-digit code"
+              <input inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                onKeyDown={(e) => e.key === "Enter" && verify()} placeholder="Code from your email"
                 style={{ letterSpacing: "0.3em", textAlign: "center", fontSize: 18 }} />
             </label>
             {err && <p className="auth-err">{err}</p>}

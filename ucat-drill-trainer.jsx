@@ -8319,8 +8319,16 @@ function AuthScreen({ onAuthed }) {
        cleanly and the button is usable again. */
     const withTimeout = (p) => Promise.race([
       p,
-      new Promise((_, rej) => setTimeout(() => rej(new Error("The request timed out. Check your connection and try again.")), 20000)),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("The request timed out. Check your connection and try again.")), 15000)),
     ]);
+    /* Turn Supabase's raw errors into something a student can act on. */
+    const friendly = (msg) => {
+      const m = String(msg || "");
+      if (/rate limit|only request this after|too many/i.test(m)) return "Too many attempts just now (the email service is rate-limited). Wait a minute and try again.";
+      if (/invalid login|invalid credentials/i.test(m)) return "That email and password do not match an account.";
+      if (/failed to fetch|networkerror|load failed/i.test(m)) return "Could not reach the server. Check your connection and try again.";
+      return m || "Something went wrong. Please try again.";
+    };
     try {
       if (mode === "signup") {
         const { data, error } = await withTimeout(supabase.auth.signUp({ email: addr, password: pw }));
@@ -8346,7 +8354,8 @@ function AuthScreen({ onAuthed }) {
         setSent(true);
       }
     } catch (e) {
-      setErr(e && e.message ? e.message : "Something went wrong. Please try again.");
+      console.error("auth error", e);
+      setErr(friendly(e && e.message));
     } finally {
       setBusy(false);
     }
@@ -8441,7 +8450,10 @@ function AuthScreen({ onAuthed }) {
             {mode === "signup" && (
               <label className="auth-f">Confirm password
                 <input type={show ? "text" : "password"} autoComplete="new-password" value={pw2}
-                  onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="Type it again" />
+                  onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="Type it again"
+                  className={pw2.length > 0 && pw !== pw2 ? "mismatch" : ""} />
+                {pw2.length > 0 && pw !== pw2 && <span className="auth-mismatch">The passwords do not match yet.</span>}
+                {pw2.length > 0 && pw === pw2 && <span className="auth-match">Passwords match.</span>}
               </label>
             )}
 
@@ -8469,9 +8481,10 @@ function AuthScreen({ onAuthed }) {
             )}
 
             {err && <p className="auth-err">{err}</p>}
+            {!supabaseEnabled && <p className="auth-note">Accounts are in preview mode on this build (the Supabase keys are not loaded), so any email and code will work but nothing is saved to a real account.</p>}
 
             <button className="ud-btn full" onClick={submit} disabled={busy}>
-              {busy ? "Working..." : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
+              {busy ? "Working…" : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
             </button>
 
             {dup && (

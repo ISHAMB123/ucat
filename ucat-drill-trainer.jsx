@@ -8410,8 +8410,8 @@ function AuthScreen({ onAuthed }) {
         {step === "code" ? (
           <>
             <div className="auth-sent">{sentMsg}</div>
-            <label className="auth-f">Verification code
-              <input inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code}
+            <label className="auth-f" htmlFor="auth-code">Verification code
+              <input id="auth-code" name="one-time-code" inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
                 onKeyDown={(e) => e.key === "Enter" && verify()} placeholder="Code from your email"
                 style={{ letterSpacing: "0.3em", textAlign: "center", fontSize: 18 }} />
@@ -8430,14 +8430,14 @@ function AuthScreen({ onAuthed }) {
           </>
         ) : (
           <>
-            <label className="auth-f">Email
-              <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+            <label className="auth-f" htmlFor="auth-email">Email
+              <input id="auth-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </label>
 
             {mode !== "reset" && (
-              <label className="auth-f">Password
+              <label className="auth-f" htmlFor="auth-pw">Password
                 <span className="pwwrap">
-                  <input type={show ? "text" : "password"} autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  <input id="auth-pw" name="password" type={show ? "text" : "password"} autoComplete={mode === "signup" ? "new-password" : "current-password"}
                     value={pw} onChange={(e) => setPw(e.target.value)} placeholder={mode === "signup" ? "8+ chars, mixed case and a number" : "Your password"}
                     onKeyDown={(e) => e.key === "Enter" && submit()} />
                   <button type="button" className="pweye" onClick={() => setShow((o) => !o)} aria-label={show ? "Hide password" : "Show password"}>
@@ -8455,8 +8455,8 @@ function AuthScreen({ onAuthed }) {
             )}
 
             {mode === "signup" && (
-              <label className="auth-f">Confirm password
-                <input type={show ? "text" : "password"} autoComplete="new-password" value={pw2}
+              <label className="auth-f" htmlFor="auth-pw2">Confirm password
+                <input id="auth-pw2" name="confirm-password" type={show ? "text" : "password"} autoComplete="new-password" value={pw2}
                   onChange={(e) => setPw2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="Type it again"
                   className={pw2.length > 0 && pw !== pw2 ? "mismatch" : ""} />
                 {pw2.length > 0 && pw !== pw2 && <span className="auth-mismatch">The passwords do not match yet.</span>}

@@ -32,7 +32,7 @@ export async function getEntitlement() {
     if (!sess || !sess.session) return null;
     const { data, error } = await supabase
       .from("entitlements")
-      .select("active, product, expires_at")
+      .select("active, product, expires_at, credits")
       .maybeSingle();
     if (error || !data) return null;
     /* A time-limited trial stays active only until it expires. Full-access
@@ -67,6 +67,44 @@ async function deviceFingerprint() {
     return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
   } catch (e) {
     return "";
+  }
+}
+
+/* The signed-in user's Supabase access token, or "" when there is no backend
+   or no session. Sent to the serverless functions so they can verify the real
+   email server-side (it cannot be spoofed from the browser). */
+export async function authToken() {
+  if (!supabase) return "";
+  try {
+    const { data } = await supabase.auth.getSession();
+    return (data && data.session && data.session.access_token) || "";
+  } catch (e) {
+    return "";
+  }
+}
+
+/* Authorise one AI interview server-side. Asks /api/interview-start to charge
+   the interview cost against the server credit ledger and return a signed token
+   that /api/interview requires, so the interview cannot be run for free.
+   Returns the function's JSON:
+     { ok:true, token, credits, master }         charged (or master, uncharged)
+     { ok:false, reason:"insufficient" }          not enough credits
+     { ok:false, reason:"not_configured" | ... }  backend not deployed / other
+   On "not_configured" (or any non-insufficient failure) the caller should fall
+   back to its local credit charge, so the app keeps working before deploy. */
+export async function startInterview(meta) {
+  if (!supabase) return { ok: false, reason: "not_configured" };
+  try {
+    const token = await authToken();
+    if (!token) return { ok: false, reason: "not_signed_in" };
+    const r = await fetch("/api/interview-start", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify(meta || {}),
+    });
+    return await r.json().catch(() => ({ ok: false, reason: "bad_response" }));
+  } catch (e) {
+    return { ok: false, reason: "error" };
   }
 }
 

@@ -3,7 +3,7 @@ import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportL
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
 import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeError, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence, makeCalDoc, isCalibrationUsable, GAZE_CAL_KEY } from "./eyeread.js";
-import { supabase, supabaseEnabled, getEntitlement, startTrial } from "./supabaseClient.js";
+import { supabase, supabaseEnabled, getEntitlement, startTrial, startInterview, authToken } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
   MARKING_DISCLOSURE, fillLegal, legalPlaceholdersPending,
@@ -6303,6 +6303,11 @@ function LiveInterview({ track, prefs, setPrefs, isMaster }) {
   const confettiRef = useRef(null);
   const checkTimer = useRef(null);
   const advanceRef = useRef(null);
+  /* The signed session token from /api/interview-start, required by
+     /api/interview when the backend enforces credits server-side. Empty when
+     the backend is not deployed (the endpoint then runs in its fail-safe,
+     local-charge mode). */
+  const ivTokenRef = useRef("");
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -6653,7 +6658,7 @@ function LiveInterview({ track, prefs, setPrefs, isMaster }) {
     try {
       const r = await fetch("/api/interview", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(ivTokenRef.current ? { "x-iv-token": ivTokenRef.current } : {}) },
         body: JSON.stringify({ track, format, messages: msgs }),
       });
       const data = await r.json().catch(() => ({}));
@@ -6668,7 +6673,25 @@ function LiveInterview({ track, prefs, setPrefs, isMaster }) {
 
   const begin = async () => {
     if (!enough) { setBuyOpen(true); return; }
-    if (!isMaster) setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
+    setError("");
+    /* Authorise and charge the interview server-side when the backend is
+       deployed. The token it returns is required by /api/interview, so the
+       interview cannot be run for free. If the backend is not configured (or
+       the call fails for any reason other than "no credits"), fall back to the
+       local credit charge so the app keeps working before deployment. */
+    let localCharge = false;
+    const start = await startInterview({ track, format });
+    if (start && start.ok) {
+      ivTokenRef.current = start.token || "";
+      /* Sync the on-screen balance to the authoritative server balance. */
+      if (typeof start.credits === "number" && start.credits >= 0) setPrefs({ ...prefs, credits: start.credits });
+    } else if (start && start.reason === "insufficient") {
+      /* The server ledger is authoritative: it says there are no credits. */
+      setBuyOpen(true); return;
+    } else {
+      ivTokenRef.current = "";
+      if (!isMaster) { setPrefs({ ...prefs, credits: credits - INTERVIEW_COST }); localCharge = true; }
+    }
     eyeAccum.current = { total: 0, qSum: 0 };
     setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyeReady(false); setEyeErr("");
     /* MMI is a scenario you read and role-play, so the panel does not read it
@@ -6683,7 +6706,13 @@ function LiveInterview({ track, prefs, setPrefs, isMaster }) {
     const seed = { role: "user", content: "Please begin the interview with your first question." };
     const reply = await callInterviewer([seed]);
     if (reply) { setMessages([seed, { role: "assistant", content: reply }]); setQCount(1); startThink(); present(reply); if (useVoice) speak(reply); }
-    else { setPrefs({ ...prefs, credits }); setPhase("setup"); }
+    else {
+      /* Opening turn failed: refund the local charge so the balance is not lost
+         to a network blip. A server-side charge is not refunded here (rare), but
+         the token grants the full interview window so a retry costs nothing. */
+      if (localCharge) setPrefs({ ...prefs, credits });
+      setPhase("setup");
+    }
   };
 
   /* Wipe every trace of the session and keep only the anonymised summary. */
@@ -9731,17 +9760,26 @@ export default function UcatDrillTrainer() {
       if (IV_SESSION) {
         const done = Array.isArray(pf.paidSessions) ? pf.paidSessions : [];
         if (!done.includes(IV_SESSION)) {
-          fetch("/api/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ session_id: IV_SESSION }) })
-            .then((r) => r.json())
-            .then((d) => {
+          /* Send the login so /api/verify can also record the credits in the
+             server ledger for this buyer (the interview enforces credits
+             server-side). The local top-up below is the on-screen display. */
+          (async () => {
+            const tok = await authToken();
+            try {
+              const r = await fetch("/api/verify", {
+                method: "POST",
+                headers: { "content-type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}) },
+                body: JSON.stringify({ session_id: IV_SESSION }),
+              });
+              const d = await r.json();
               if (d && d.ok && d.credits > 0) {
                 const cur = typeof pf.credits === "number" ? pf.credits : 1;
                 const np = { ...pf, credits: cur + d.credits, paidSessions: [...done, IV_SESSION].slice(-20) };
                 setPrefsState(np); setJSON("ucat:prefs", np);
                 setView("interview");
               }
-            })
-            .catch(() => { /* leave balance unchanged on any error */ });
+            } catch (e) { /* leave balance unchanged on any error */ }
+          })();
         }
         try { window.history.replaceState({}, "", window.location.pathname); } catch (e) { /* ignore */ }
       }

@@ -61,6 +61,50 @@ app grants a **local** one-day trial so the code still works — but that path i
 farmable and applies none of the limits above. Deploy the backend to make the
 limits real.
 
+## 1b. Protect the AI interview (server-enforced credits)
+
+The AI interview costs real money per turn, so it must not be runnable for
+free by calling `/api/interview` directly. The protection is server-side and
+**fail-safe**: it does nothing until you set the secrets below, so the app
+keeps working exactly as before until you deploy it.
+
+How it works once deployed:
+
+1. `credits` is a real column on `entitlements` (added by `schema.sql`), plus
+   two service-role-only RPCs, `spend_credits` and `add_credits`. A signed-in
+   browser can neither read another user's balance nor change any balance.
+2. When you start an interview, the client calls
+   [`../api/interview-start.js`](../api/interview-start.js). It verifies your
+   Supabase login, charges the interview cost with `spend_credits`, and returns
+   a short-lived HMAC token. The master account (`ishambari1@gmail.com`) and
+   demo mode (no `ANTHROPIC_API_KEY`) are never charged.
+3. [`../api/interview.js`](../api/interview.js) requires that token on every
+   turn. With no valid token it returns `402` and never calls the paid model,
+   so the endpoint cannot be used for free.
+4. [`../api/verify.js`](../api/verify.js) tops up the server ledger with
+   `add_credits` when a credit purchase is confirmed, so paid credits are the
+   ones the interview actually spends.
+
+Set in **Vercel** (server only, never `VITE_`-prefixed):
+
+```
+INTERVIEW_SECRET=<a long random string>   # signs the interview session token
+SUPABASE_URL=https://YOURPROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...          # server only
+```
+
+Generate the secret with e.g. `openssl rand -hex 32`. Until `INTERVIEW_SECRET`
+is set, `/api/interview-start` reports `not_configured` and the client falls
+back to charging its local credit balance, and `/api/interview` skips the token
+check, so nothing breaks before you deploy. After deploying, re-run
+`schema.sql` (it is idempotent) so the `credits` column and the RPCs exist.
+
+Honest limit: a leaked token is valid for its 30-minute window, so it is worth
+at most a few extra turns of one interview, never free unlimited access.
+Tightening that to one-token-per-interview would need a shared store (Vercel
+KV / Upstash); the current design already stops the "call it for free" hole,
+which is the expensive one.
+
 ## 2. Deploy the Stripe webhook
 
 [`functions/stripe-webhook/index.ts`](./functions/stripe-webhook/index.ts)

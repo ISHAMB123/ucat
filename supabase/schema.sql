@@ -32,6 +32,12 @@ create table if not exists public.entitlements (
 -- If the table pre-dates the trial feature, add the expiry column in place.
 alter table public.entitlements add column if not exists expires_at timestamptz;
 
+-- The server-side credit balance for the paid AI interview. This is the real
+-- ledger: /api/interview-start spends from it and /api/verify tops it up, both
+-- with the service role. The browser can no longer mint credits, so the AI
+-- interview cannot be run for free. Trials grant 0 credits.
+alter table public.entitlements add column if not exists credits int not null default 0;
+
 alter table public.entitlements enable row level security;
 
 -- A signed-in user can read only the row for their own email.
@@ -44,6 +50,62 @@ create policy "read own entitlement" on public.entitlements
 -- No insert/update/delete policies exist, so anon and authenticated clients
 -- are denied all writes. Only the service role (the webhook and the trial
 -- function) can write.
+
+-- ---------------------------------------------------------------------------
+-- 1a. CREDIT LEDGER RPCs  --  the server-enforced spend / top-up for the AI
+--     interview. Both are called only by the serverless functions using the
+--     service role, never from the browser: execute is revoked from anon and
+--     authenticated below, so a signed-in client cannot grant itself credits.
+--
+--     spend_credits atomically deducts p_amount and returns the remaining
+--     balance, or -1 when the balance is insufficient (no row is changed).
+--     add_credits tops up (creating the row if needed) and returns the total.
+-- ---------------------------------------------------------------------------
+create or replace function public.spend_credits(p_email text, p_amount int)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  remaining int;
+begin
+  update public.entitlements
+     set credits = credits - p_amount, updated_at = now()
+   where lower(email) = lower(p_email) and credits >= p_amount
+   returning credits into remaining;
+  if not found then
+    return -1;
+  end if;
+  return remaining;
+end;
+$$;
+
+create or replace function public.add_credits(p_email text, p_amount int)
+returns int
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  total int;
+begin
+  insert into public.entitlements (email, credits, updated_at)
+       values (lower(p_email), greatest(p_amount, 0), now())
+  on conflict (email) do update
+       set credits = public.entitlements.credits + greatest(p_amount, 0),
+           updated_at = now()
+    returning credits into total;
+  return total;
+end;
+$$;
+
+-- Only the service role may run these; deny the public/anon/authenticated roles
+-- so credits can never be spent or granted from the browser.
+revoke all on function public.spend_credits(text, int) from public;
+revoke all on function public.add_credits(text, int) from public;
+revoke all on function public.spend_credits(text, int) from anon, authenticated;
+revoke all on function public.add_credits(text, int) from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 1b. TRIALS  --  one free trial per email and (softly) per network

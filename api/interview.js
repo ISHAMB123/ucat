@@ -13,7 +13,30 @@
  * Everything the interviewer says is generated fresh. It is told never to
  * reproduce any real university's questions, matching the rest of the app.
  */
+import crypto from "crypto";
+
 const MODEL = process.env.INTERVIEW_MODEL || "claude-haiku-4-5";
+
+/* Verify the HMAC session token minted by /api/interview-start. Returns the
+   token payload when valid and unexpired, or null. The token is the proof that
+   the interview cost was charged server-side; without it (when INTERVIEW_SECRET
+   is set) the real, billable model is never called. Constant-time comparison so
+   a forged token cannot be tuned byte by byte. */
+function verifyToken(token, secret) {
+  if (!token || typeof token !== "string") return null;
+  const dot = token.indexOf(".");
+  if (dot < 0) return null;
+  const body = token.slice(0, dot);
+  const mac = token.slice(dot + 1);
+  const expect = crypto.createHmac("sha256", secret).update(body).digest("base64url");
+  const a = Buffer.from(mac);
+  const b = Buffer.from(expect);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  let payload;
+  try { payload = JSON.parse(Buffer.from(body, "base64url").toString()); } catch (e) { return null; }
+  if (!payload || typeof payload.exp !== "number" || payload.exp < Date.now()) return null;
+  return payload;
+}
 
 function brief(track, format) {
   const field = track === "med" ? "medicine" : "dentistry";
@@ -169,6 +192,20 @@ export default async function handler(req, res) {
   if (!key) {
     res.status(200).json({ reply: demoReply(track, format, messages), demo: true });
     return;
+  }
+
+  /* Real, billable interview. When INTERVIEW_SECRET is set, require the signed
+     session token from /api/interview-start, which is issued only after the
+     cost has been charged server-side. This is what stops the endpoint being
+     called for free. Fail-safe: with no secret set the check is skipped, so the
+     app runs exactly as before until the owner deploys the protection. */
+  const secret = process.env.INTERVIEW_SECRET;
+  if (secret) {
+    const claims = verifyToken(req.headers["x-iv-token"], secret);
+    if (!claims) {
+      res.status(402).json({ error: "This interview needs to be started from your account. Please reopen it and try again." });
+      return;
+    }
   }
 
   /* Keep the turn fast and cheap. The interviewer does not need to reason,

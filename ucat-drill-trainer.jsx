@@ -6044,7 +6044,7 @@ function InterviewLauncher({ track }) {
   );
 }
 
-function InterviewView({ track, onSwitch, prefs, setPrefs }) {
+function InterviewView({ track, onSwitch, prefs, setPrefs, isMaster }) {
   const themes = IV_THEMES.filter((t) => t.tracks.includes(track));
   const [openQ, setOpenQ] = useState(null);
   const [warnHidden, setWarnHidden] = useState(false);
@@ -6065,7 +6065,7 @@ function InterviewView({ track, onSwitch, prefs, setPrefs }) {
       </div>
 
       {mode === "live" ? (
-        <LiveInterview track={track} prefs={prefs} setPrefs={setPrefs} />
+        <LiveInterview track={track} prefs={prefs} setPrefs={setPrefs} isMaster={isMaster} />
       ) : (<>
       {!warnHidden && (
         <div className="iv-warn">
@@ -6139,7 +6139,14 @@ function InterviewView({ track, onSwitch, prefs, setPrefs }) {
 /* Cost is in credits and deliberately not surfaced to the candidate, so the
    balance reads as a generous number rather than a small interview count. */
 const INTERVIEW_COST = 50;
-const FREE_CREDITS = 50;
+const FREE_CREDITS = 0; // free and trial users get no interview credits; the AI interview must be bought
+/* The single owner/test account. Master status is only ever granted to this
+   exact email AND only when it has been verified by Supabase sign-in, so no
+   one else can claim it (they cannot verify an inbox they do not control).
+   Client code can still be tampered with locally, so this is for testing
+   convenience, not a security boundary; real cost protection lives server-side
+   on /api/interview (see the note in the debrief). */
+const MASTER_EMAIL = "ishambari1@gmail.com";
 
 const CREDIT_PACKS = [
   { id: "single", credits: 50, gbp: "1.49" },
@@ -6261,7 +6268,7 @@ function BuyCreditsModal({ prefs, setPrefs, onClose }) {
   );
 }
 
-function LiveInterview({ track, prefs, setPrefs }) {
+function LiveInterview({ track, prefs, setPrefs, isMaster }) {
   const [format, setFormat] = useState("panel");
   const [phase, setPhase] = useState("setup");
   const [messages, setMessages] = useState([]);
@@ -6305,7 +6312,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
   const rafRef = useRef(null);
 
   const credits = creditsOf(prefs);
-  const enough = credits >= INTERVIEW_COST;
+  const enough = isMaster || credits >= INTERVIEW_COST; // the master/test account is never gated
   const maxQ = format === "mmi" ? 4 : 6;
   const speechOK = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
   const ttsOK = typeof window !== "undefined" && !!window.speechSynthesis;
@@ -6655,7 +6662,7 @@ function LiveInterview({ track, prefs, setPrefs }) {
 
   const begin = async () => {
     if (!enough) { setBuyOpen(true); return; }
-    setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
+    if (!isMaster) setPrefs({ ...prefs, credits: credits - INTERVIEW_COST });
     eyeAccum.current = { total: 0, qSum: 0 };
     setPhase("live"); setMessages([]); setQCount(0); setError(""); setResult(null); setEyeReady(false); setEyeErr("");
     /* MMI is a scenario you read and role-play, so the panel does not read it
@@ -9678,6 +9685,8 @@ export default function UcatDrillTrainer() {
   const [prefs, setPrefsState] = useState({ count: 10, exam: false, extra: 1, level: "hard", theme: "light" });
   const [ready, setReady] = useState(false);
   const [account, setAccount] = useState(null);
+  const [verifiedEmail, setVerifiedEmail] = useState(""); // set only from a real Supabase session
+  const isMaster = supabaseEnabled && !!verifiedEmail && verifiedEmail.toLowerCase() === MASTER_EMAIL;
   const [authDone, setAuthDone] = useState(false);
   const [showTour, setShowTour] = useState(false);
   const lastRun = useRef(null);
@@ -9751,16 +9760,23 @@ export default function UcatDrillTrainer() {
         if (ent && ent.active) { setUnlocked(true); setJSON("ucat:unlocked", true); }
       });
     };
+    /* The master (owner) account, identified only by its verified email, gets
+       full access for testing without touching anyone else's state. */
+    const onSession = (email) => {
+      setVerifiedEmail(email || "");
+      if (email && email.toLowerCase() === MASTER_EMAIL) { setUnlocked(true); }
+    };
     supabase.auth.getSession().then(({ data }) => {
       if (data && data.session) {
         setAccount({ email: data.session.user.email });
         setAuthDone(true);
+        onSession(data.session.user.email);
         syncEntitlement();
       }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) { setAccount({ email: session.user.email }); setAuthDone(true); syncEntitlement(); }
-      else setAccount(null);
+      if (session) { setAccount({ email: session.user.email }); setAuthDone(true); onSession(session.user.email); syncEntitlement(); }
+      else { setAccount(null); setVerifiedEmail(""); }
     });
     return () => { if (listener && listener.subscription) listener.subscription.unsubscribe(); };
   }, []);
@@ -10021,10 +10037,17 @@ export default function UcatDrillTrainer() {
     );
   }
 
-  const showPromo = authDone && !unlocked && view !== "run" && view !== "billing" && !promoDismissed;
+  const showMaster = isMaster && authDone && view !== "run";
+  const showPromo = authDone && !unlocked && !isMaster && view !== "run" && view !== "billing" && !promoDismissed;
   return (
-    <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}${showPromo ? " ud-promo" : ""}`}>
+    <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}${(showPromo || showMaster) ? " ud-promo" : ""}`}>
       <style>{CSS}</style>
+      {showMaster && (
+        <div className="master-banner" role="region" aria-label="Master account notice">
+          <span aria-hidden="true">🔑</span>
+          <span>You are signed in to the <b>master (owner) account</b> — {MASTER_EMAIL}. Full access and free interviews are on for testing only.</span>
+        </div>
+      )}
       {showPromo && (
         <div className="promo-banner" role="region" aria-label="Free trial offer">
           <span className="promo-gift" aria-hidden="true">🎁</span>
@@ -10059,7 +10082,7 @@ export default function UcatDrillTrainer() {
       </div></>)}
       {view === "learn" && (<><Header /><LearnView unlocked={unlocked} best={best} onStart={start} onUnlock={() => setView("billing")} /></>)}
       {view === "mock" && (<><Header /><MockCentre unlocked={unlocked} prefs={prefs} setPrefs={setPrefs} /></>)}
-      {view === "interview" && (<><Header />{unlocked ? <InterviewView track={prefs.track || "dent"} onSwitch={(t) => setPrefs({ ...prefs, track: t })} prefs={prefs} setPrefs={setPrefs} />
+      {view === "interview" && (<><Header />{unlocked ? <InterviewView track={prefs.track || "dent"} onSwitch={(t) => setPrefs({ ...prefs, track: t })} prefs={prefs} setPrefs={setPrefs} isMaster={isMaster} />
         : <div className="ud-wrap"><div className="ud-sec" style={{ paddingTop: 32 }}><h2>Interview preparation</h2><i /><span>locked</span></div>
           <Locked onUnlock={() => setView("billing")} label="Interview tools with access">
             <div className="ud-trend" style={{ padding: 20, minHeight: 220 }}><h3>Question banks, marked practice and university fact sheets</h3>

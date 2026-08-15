@@ -738,6 +738,17 @@ button.nav-row:hover { background:var(--signal)14; }
   background:linear-gradient(90deg,#7c2d12,#b91c1c,#7c2d12); color:#ffe9e0; font-family:'Inter',system-ui,sans-serif; font-size:12.5px; box-shadow:0 2px 12px rgba(80,0,0,0.3); }
 .master-banner b { color:#fff; font-weight:800; }
 @media (max-width:640px) { .promo-text { font-size:12px; } .promo-banner { gap:9px; padding:0 10px; } }
+/* free-trial countdown pill (bottom-right, out of the way) */
+.trial-timer { position:fixed; right:16px; bottom:16px; z-index:55; display:inline-flex; align-items:center; gap:8px;
+  padding:8px 14px; border-radius:999px; font-family:'Inter',system-ui,sans-serif; font-size:12.5px; font-weight:600; letter-spacing:0.01em;
+  color:#3a2900; background:linear-gradient(90deg,#FFE29A,#FFF3D2); border:1px solid rgba(180,130,0,0.35);
+  box-shadow:0 6px 20px rgba(120,80,0,0.22); }
+.trial-timer b { font-weight:800; }
+.trial-timer-dot { width:8px; height:8px; border-radius:50%; background:#E0A106; box-shadow:0 0 0 0 rgba(224,161,6,0.6); animation:trial-pulse 2s infinite; }
+@keyframes trial-pulse { 0% { box-shadow:0 0 0 0 rgba(224,161,6,0.55); } 70% { box-shadow:0 0 0 7px rgba(224,161,6,0); } 100% { box-shadow:0 0 0 0 rgba(224,161,6,0); } }
+.ud.light .trial-timer { color:#3a2900; }
+.no-motion .trial-timer-dot { animation:none; }
+@media (max-width:640px) { .trial-timer { right:10px; bottom:10px; font-size:11.5px; padding:7px 12px; } }
 .auth-sent { background:var(--ink); border:1px solid var(--go); border-radius:3px; padding:13px 15px; font-size:13px; color:var(--body); line-height:1.6; margin-bottom:14px; }
 .auth-alt { display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:14px; }
 .auth-alt button { background:transparent; color:var(--mute); font-size:12.5px; }

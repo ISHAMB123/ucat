@@ -19,6 +19,27 @@
  */
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/* Common disposable / temporary email providers. Someone determined can always
+   find a domain we do not list, so this is friction, not a wall: it stops the
+   easy "grab a throwaway inbox, claim another trial" path. Kept deliberately
+   short and focused on the well-known throwaway services. */
+const DISPOSABLE_DOMAINS = new Set([
+  "mailinator.com", "guerrillamail.com", "guerrillamail.info", "sharklasers.com",
+  "grr.la", "10minutemail.com", "10minutemail.net", "tempmail.com", "temp-mail.org",
+  "tempmailo.com", "tmpmail.org", "throwawaymail.com", "getnada.com", "nada.email",
+  "trashmail.com", "trashmail.de", "yopmail.com", "yopmail.fr", "dispostable.com",
+  "maildrop.cc", "fakeinbox.com", "mailnesia.com", "mohmal.com", "mytemp.email",
+  "emailondeck.com", "spam4.me", "moakt.com", "tempinbox.com", "burnermail.io",
+  "mail-temp.com", "temp-inbox.com", "discard.email", "mailcatch.com", "inboxbear.com",
+  "email-temp.com", "tempr.email", "tempmail.plus", "minuteinbox.com", "instantemail.es",
+]);
+
+function isDisposableEmail(email) {
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  return DISPOSABLE_DOMAINS.has(email.slice(at + 1).toLowerCase());
+}
+
 function clientIp(req) {
   const xff = req.headers["x-forwarded-for"];
   if (xff) return String(xff).split(",")[0].trim();
@@ -77,6 +98,13 @@ export default async function handler(req, res) {
     const user = await who.json().catch(() => null);
     const email = user && user.email ? String(user.email).toLowerCase() : "";
     if (!who.ok || !email) { res.status(401).json({ ok: false, reason: "not_signed_in" }); return; }
+
+    /* Refuse temporary / throwaway inboxes so the trial cannot be farmed with a
+       fresh disposable address each time. */
+    if (isDisposableEmail(email)) {
+      res.status(200).json({ ok: false, reason: "disposable" });
+      return;
+    }
 
     const ip = clientIp(req);
     let body = req.body;

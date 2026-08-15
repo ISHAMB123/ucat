@@ -8278,7 +8278,7 @@ const ACCESS_TRIAL_MS = 24 * 60 * 60 * 1000; // a redeemed code unlocks for one 
 /* Bumping this number wipes every device's stored unlock/trial once, on next
    load, putting everyone back on the free tier. Used for the clean-slate reset
    before launch (no one has paid yet). Increment again to repeat a reset. */
-const ACCESS_RESET = 1;
+const ACCESS_RESET = 2;
 const normCode = (s) => String(s || "").trim().toUpperCase().replace(/\s+/g, "");
 /* A short list of the passwords attackers try first. Not a full breach list
    (that belongs server side), just enough to stop the worst choices at sign
@@ -9695,6 +9695,28 @@ function LogsView({ history, onClear }) {
   );
 }
 
+/* A small, tidy countdown for the free trial. Shows the time remaining and
+   refreshes every 30 seconds. Purely cosmetic; the App re-locks when the trial
+   actually lapses. */
+function TrialTimer({ until }) {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+  const ms = until - Date.now();
+  if (ms <= 0) return null;
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const left = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return (
+    <div className="trial-timer" role="status" aria-label={`Free trial: ${left} left`}>
+      <span className="trial-timer-dot" aria-hidden="true" />
+      <span>Free trial · <b>{left}</b> left</span>
+    </div>
+  );
+}
+
 export default function UcatDrillTrainer() {
   const [view, setView] = useState("drills");
   const [drill, setDrill] = useState(null);
@@ -9726,6 +9748,25 @@ export default function UcatDrillTrainer() {
   const [showTour, setShowTour] = useState(false);
   const lastRun = useRef(null);
 
+  /* When the free trial lapses, re-lock the app unless there is a real
+     entitlement (a purchase) or this is the master account. Checked on a timer
+     so a session left open expires cleanly. */
+  useEffect(() => {
+    if (!trialUntil) return undefined;
+    const check = () => {
+      if (Date.now() < trialUntil) return;
+      setTrialUntil(0); setJSON("ucat:trialUntil", 0);
+      if (isMaster) return;
+      const relock = () => { setUnlocked(false); setJSON("ucat:unlocked", false); if (view !== "run") setView("billing"); };
+      if (supabaseEnabled) { getEntitlement().then((ent) => { if (!ent || !ent.active) relock(); }).catch(relock); }
+      else relock();
+    };
+    check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trialUntil, isMaster]);
+
   useEffect(() => {
     loadState().then((s) => {
       /* One-time clean slate: before launch nobody has paid, so wipe any stale
@@ -9738,7 +9779,11 @@ export default function UcatDrillTrainer() {
         storedUnlock = false; storedTrial = 0;
       }
       const trialActive = storedTrial > Date.now();
-      const paid = storedUnlock || CHECKOUT_RETURN || trialActive;
+      /* Access comes only from a server-confirmed unlock (persisted after
+         getEntitlement), the master account, or an active trial. The
+         ?checkout=success URL is NOT trusted on its own: anyone could type it,
+         so it never grants access by itself. */
+      const paid = storedUnlock || trialActive;
       setTrialUntil(storedTrial || 0);
       setUnlocked(paid); setBest(s.best); setHistory(s.history);
       setPlan(s.plan); setWeak(s.weak); setSeenBank(s.seenBank || {}); setMistakes(s.mistakes);
@@ -9747,12 +9792,25 @@ export default function UcatDrillTrainer() {
       setPrefsState(pf);
       if (pf.account) { setAccount(pf.account); setAuthDone(true); }
       if (pf.skippedAuth) setAuthDone(true);
-      /* Persist and confirm a fresh unlock arriving back from Stripe, then
-         tidy the query string so a refresh does not re-trigger it. */
+      /* Returning from the full-access checkout. We do NOT unlock from the URL
+         (that would be forgeable). Instead we tidy the query string, show the
+         billing page, and poll the server entitlement for a short while: the
+         Stripe webhook writes it, and as soon as it is active the app unlocks.
+         This closes the "?checkout=success unlocks for free" loophole. */
       if (CHECKOUT_RETURN && !storedUnlock) {
-        setJSON("ucat:unlocked", true);
         try { window.history.replaceState({}, "", window.location.pathname); } catch (e) { /* ignore */ }
         setView("billing");
+        if (supabaseEnabled) {
+          let tries = 0;
+          const poll = setInterval(async () => {
+            tries += 1;
+            const ent = await getEntitlement().catch(() => null);
+            if ((ent && ent.active) || tries >= 12) {
+              clearInterval(poll);
+              if (ent && ent.active) { setUnlocked(true); setJSON("ucat:unlocked", true); }
+            }
+          }, 2500);
+        }
       }
       /* Returning from a credit purchase: confirm it with Stripe, add the
          credits once, remember the session so a refresh cannot double-grant,
@@ -9975,38 +10033,50 @@ export default function UcatDrillTrainer() {
     setView("results");
   };
 
-  const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); setShowTour(true); };
+  /* The "Unlock" buttons on locked features must never grant access for free;
+     they take the user to the billing page to pay (or redeem a trial code).
+     Real access is granted only by the server: the Stripe webhook writes the
+     entitlement, getEntitlement() reads it, and the master account unlocks by
+     verified email. There is no client-side path to full access. */
+  const unlock = () => setView("billing");
   const closeTour = () => { setShowTour(false); setPrefs({ ...prefs, tourSeen: true }); };
 
   /* Turn on a one-day trial: unlocks the app (but grants no credits, so the
      paid AI features still need a purchase) for 24 hours, then it lapses. */
-  const activateTrial = () => {
-    const until = Date.now() + ACCESS_TRIAL_MS;
-    setTrialUntil(until); setUnlocked(true); setJSON("ucat:trialUntil", until);
+  const activateTrial = (until) => {
+    const end = until || (Date.now() + ACCESS_TRIAL_MS);
+    setTrialUntil(end); setUnlocked(true); setJSON("ucat:trialUntil", end);
     setTrialMsg(""); setPromoDismissed(true);
     setShowTour(true); setView("drills");
   };
 
-  /* Redeeming the free-trial code. If the Supabase trial backend is live it is
-     used (one trial per email/network); otherwise a local one-day trial is
-     granted so the code works regardless. A real "already used" block from the
-     server is respected rather than bypassed. */
+  /* Redeeming the free-trial code. The trial is granted only by the server
+     (one per verified email, per network, and per device; disposable emails
+     and VPNs refused), so it cannot be farmed. There is no local fallback: if
+     the backend is unreachable we show an error rather than granting a trial
+     the browser could mint for itself. */
   const [trialMsg, setTrialMsg] = useState("");
   const startFreeTrial = async () => {
+    if (!supabaseEnabled) { setTrialMsg("The free trial needs an account. Please sign in and try again."); return; }
     setTrialMsg("Starting your trial…");
     let r = null;
     try { r = await startTrial(); } catch (e) { r = null; }
-    if (r && r.ok) { activateTrial(); return; }
+    if (r && r.ok) {
+      const until = r.expires_at ? new Date(r.expires_at).getTime() : 0;
+      activateTrial(until);
+      return;
+    }
     const blocked = {
       email_used: "This email has already used its free trial.",
       network_used: "A free trial has already been used on this network.",
       device_used: "This device has already used its free trial.",
       vpn: "Please turn off any VPN or proxy to start the free trial.",
+      disposable: "Please use a permanent email address, not a temporary one, to start the free trial.",
       already_entitled: "You already have access on this account.",
+      not_signed_in: "Please sign in first, then start your free trial.",
+      not_configured: "The free trial is not available right now. Please try again later.",
     };
-    if (r && blocked[r.reason]) { setTrialMsg(blocked[r.reason]); return; }
-    /* Backend not configured or unreachable: fall back to a local trial. */
-    activateTrial();
+    setTrialMsg((r && blocked[r.reason]) || "Could not start the trial just now. Please try again.");
   };
 
   /* Self-service deletion: wipe every key on this device, sign out of
@@ -10083,6 +10153,7 @@ export default function UcatDrillTrainer() {
 
   const showMaster = isMaster && authDone && view !== "run";
   const showPromo = authDone && !unlocked && !isMaster && view !== "run" && view !== "billing" && !promoDismissed;
+  const showTrialTimer = authDone && !isMaster && unlocked && trialUntil > Date.now() && view !== "run";
   return (
     <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}${(showPromo || showMaster) ? " ud-promo" : ""}`}>
       <style>{CSS}</style>
@@ -10100,6 +10171,7 @@ export default function UcatDrillTrainer() {
           <button className="promo-x" onClick={() => setPromoDismissed(true)} aria-label="Dismiss offer">×</button>
         </div>
       )}
+      {showTrialTimer && <TrialTimer until={trialUntil} />}
       {!authDone && (
         <AuthScreen
           onAuthed={(a) => {

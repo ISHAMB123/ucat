@@ -105,26 +105,45 @@ Tightening that to one-token-per-interview would need a shared store (Vercel
 KV / Upstash); the current design already stops the "call it for free" hole,
 which is the expensive one.
 
-## 2. Deploy the Stripe webhook
+## 2. Deploy the Stripe webhook (no command line needed)
 
-[`functions/stripe-webhook/index.ts`](./functions/stripe-webhook/index.ts)
-verifies the Stripe signature and writes `active = true` into
-`entitlements`. It only grants full access for the £25 unlock: the grant is
-gated on `amount_total >= 2000` pence, so credit-pack purchases (£1.49 /
-£5.99 / £14.99) do not unlock the whole app. Those go through
-`/api/checkout` + `/api/verify` and top up credits instead.
+The webhook is now a Vercel serverless function,
+[`../api/stripe-webhook.js`](../api/stripe-webhook.js), so it **deploys
+automatically with the app** — there is nothing to run from a terminal. It
+verifies the Stripe signature and writes `active = true` into `entitlements`.
+It only grants full access for the £25 unlock: the grant is gated on
+`amount_total >= 2000` pence, so credit-pack purchases (£1.49 / £5.99 /
+£14.99) do not unlock the whole app. Those go through `/api/checkout` +
+`/api/verify` and top up credits instead.
 
-```bash
-supabase functions deploy stripe-webhook --no-verify-jwt
-supabase secrets set STRIPE_SECRET_KEY=sk_live_...
-supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
-supabase secrets set SUPABASE_URL=https://YOURPROJECT.supabase.co
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=eyJ...   # server only, never in the browser
-```
+Set-up is all point-and-click:
 
-Then in the Stripe dashboard add a webhook endpoint at
-`https://YOURPROJECT.functions.supabase.co/stripe-webhook` and subscribe to
-`checkout.session.completed`.
+1. In **Vercel**, you already have `STRIPE_SECRET_KEY`, `SUPABASE_URL` and
+   `SUPABASE_SERVICE_ROLE_KEY`. You only need to add one more after step 2:
+   `STRIPE_WEBHOOK_SECRET` (the signing secret Stripe gives you).
+2. In the **Stripe dashboard** → Developers → **Webhooks** → **Add endpoint**:
+   - Endpoint URL: `https://YOUR-DOMAIN/api/stripe-webhook`
+   - Events to send: **`checkout.session.completed`**
+   - After creating it, click **Reveal** under "Signing secret" and copy the
+     `whsec_...` value.
+3. Back in **Vercel**, add `STRIPE_WEBHOOK_SECRET` = that `whsec_...` value
+   (server only, never `VITE_`-prefixed), then **redeploy**.
+
+Send a test event from the Stripe webhook page (or make a real £25 purchase)
+and confirm the buyer's `entitlements` row flips to `active = true`.
+
+> The old Deno Edge Function under `functions/stripe-webhook/` is kept for
+> reference only; you do not need to deploy it. The Vercel function above is
+> the live one.
+
+### Closing the client-side unlock fallbacks
+
+With the webhook live, unlock is fully server-enforced. The app no longer
+trusts the `?checkout=success` URL, has no local "unlock" button that grants
+access, and the free trial is granted only by `/api/trial` (no local
+fallback). The only ways to get full access are: a real payment (webhook),
+the master account (`ishambari1@gmail.com`, by verified email), or an active
+server-granted trial (which carries no AI credits).
 
 ## 3. Wire the client (done)
 

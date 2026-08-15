@@ -8339,17 +8339,24 @@ function AuthScreen({ onAuthed }) {
     try {
       if (mode === "signup") {
         const { data, error } = await withTimeout(supabase.auth.signUp({ email: addr, password: pw }));
+        const isDuplicate = (err, d) => {
+          const s = `${(err && err.message) || ""} ${(err && err.code) || ""}`.toLowerCase();
+          if (/already registered|already exists|already been|user_already_exists|email_exists|email address is already/.test(s)) return true;
+          /* With email confirmation ON, Supabase does not error on a duplicate;
+             it returns a user with no session and no identities (its way of not
+             leaking who is registered). A genuinely new signup with
+             confirmation on returns identities with one entry, so an EMPTY
+             identities array plus no session is the reliable duplicate signal. */
+          if (d && d.user && !d.session && Array.isArray(d.user.identities) && d.user.identities.length === 0) return true;
+          return false;
+        };
         if (error) {
-          if (/already registered|already exists|already been/i.test(error.message)) { setDup(true); setErr("This email is already registered."); return; }
+          if (isDuplicate(error, data)) { setDup(true); setErr("This email is already registered. Sign in instead."); return; }
           throw error;
         }
-        /* Do NOT try to detect duplicates from an empty identities array: with
-           email confirmation on, Supabase returns identities: [] for brand new
-           signups too, so that check wrongly blocks real accounts. Just move on
-           to the code step; a genuine duplicate surfaces as an explicit error
-           above or at verification. */
+        if (isDuplicate(null, data)) { setDup(true); setErr("This email is already registered. Sign in instead."); return; }
         if (data.session) { onAuthed({ email: data.user.email || addr, id: data.user.id, ...consent }); }
-        else { setSentMsg(`Enter the 6-digit code we emailed to ${addr}. It expires shortly.`); setStep("code"); }
+        else { setSentMsg(`Enter the code we emailed to ${addr}. It expires shortly.`); setStep("code"); }
       } else if (mode === "login") {
         const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email: addr, password: pw }));
         if (error) throw error;

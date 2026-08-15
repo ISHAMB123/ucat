@@ -1319,16 +1319,16 @@ function dedupeWeak(pairs) {
 /* as the shared backend for a real global leaderboard.               */
 
 async function loadState() {
-  const [unlocked, best, history, plan, weak, level, mistakes, prefs, seenBank, trialUntil] = await Promise.all([
+  const [unlocked, best, history, plan, weak, level, mistakes, prefs, seenBank, trialUntil, accessReset] = await Promise.all([
     getJSON("ucat:unlocked", false), getJSON("ucat:best", {}), getJSON("ucat:history", []),
     getJSON("ucat:plan", {}), getJSON("ucat:weak", {}), getJSON("ucat:level", "hard"),
     getJSON("ucat:mistakes", []), getJSON("ucat:prefs", {}), getJSON("ucat:seenbank", {}),
-    getJSON("ucat:trialUntil", 0),
+    getJSON("ucat:trialUntil", 0), getJSON("ucat:accessReset", 0),
   ]);
   /* Medium was removed. Anyone still on it is moved to Hard, the new
      default, so no saved preference points at a level that no longer exists. */
   const safeLevel = LEVELS[level] ? level : "hard";
-  return { unlocked: unlocked === true, best, history, plan, weak, level: safeLevel, mistakes, prefs, seenBank, trialUntil: Number(trialUntil) || 0 };
+  return { unlocked: unlocked === true, best, history, plan, weak, level: safeLevel, mistakes, prefs, seenBank, trialUntil: Number(trialUntil) || 0, accessReset: Number(accessReset) || 0 };
 }
 
 /* Styles live in ./styles.js and are imported as CSS at the top. */
@@ -8233,6 +8233,10 @@ const ACCESS_CODE = "UCAT18";
    email/network). Matched case- and space-insensitively, so "Free ucat" works. */
 const TRIAL_CODE = "FREEUCAT";
 const ACCESS_TRIAL_MS = 24 * 60 * 60 * 1000; // a redeemed code unlocks for one day, not forever
+/* Bumping this number wipes every device's stored unlock/trial once, on next
+   load, putting everyone back on the free tier. Used for the clean-slate reset
+   before launch (no one has paid yet). Increment again to repeat a reset. */
+const ACCESS_RESET = 1;
 const normCode = (s) => String(s || "").trim().toUpperCase().replace(/\s+/g, "");
 /* A short list of the passwords attackers try first. Not a full breach list
    (that belongs server side), just enough to stop the worst choices at sign
@@ -9671,9 +9675,18 @@ export default function UcatDrillTrainer() {
 
   useEffect(() => {
     loadState().then((s) => {
-      const trialActive = s.trialUntil > Date.now();
-      const paid = s.unlocked || CHECKOUT_RETURN || trialActive;
-      setTrialUntil(s.trialUntil || 0);
+      /* One-time clean slate: before launch nobody has paid, so wipe any stale
+         unlock or trial this device is holding and put everyone on free. Runs
+         once per ACCESS_RESET bump; genuine future unlocks persist normally. */
+      let storedUnlock = s.unlocked, storedTrial = s.trialUntil;
+      if (s.accessReset !== ACCESS_RESET) {
+        removeKey("ucat:unlocked"); removeKey("ucat:trialUntil");
+        setJSON("ucat:accessReset", ACCESS_RESET);
+        storedUnlock = false; storedTrial = 0;
+      }
+      const trialActive = storedTrial > Date.now();
+      const paid = storedUnlock || CHECKOUT_RETURN || trialActive;
+      setTrialUntil(storedTrial || 0);
       setUnlocked(paid); setBest(s.best); setHistory(s.history);
       setPlan(s.plan); setWeak(s.weak); setSeenBank(s.seenBank || {}); setMistakes(s.mistakes);
       const pf = { count: 10, exam: false, extra: 1, level: s.level || "hard", theme: "light", ...(s.prefs || {}) };
@@ -9683,7 +9696,7 @@ export default function UcatDrillTrainer() {
       if (pf.skippedAuth) setAuthDone(true);
       /* Persist and confirm a fresh unlock arriving back from Stripe, then
          tidy the query string so a refresh does not re-trigger it. */
-      if (CHECKOUT_RETURN && !s.unlocked) {
+      if (CHECKOUT_RETURN && !storedUnlock) {
         setJSON("ucat:unlocked", true);
         try { window.history.replaceState({}, "", window.location.pathname); } catch (e) { /* ignore */ }
         setView("billing");

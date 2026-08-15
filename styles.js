@@ -706,6 +706,7 @@ button.nav-row:hover { background:var(--signal)14; }
 .auth-match { display:block; color:var(--go); font-size:12px; margin-top:6px; font-weight:600; }
 .auth-f input.mismatch { border-color:var(--stop); }
 .auth-note { font-size:11.5px; color:var(--signal); background:color-mix(in srgb, var(--signal) 12%, transparent); border-radius:6px; padding:8px 11px; margin:0 0 12px; line-height:1.5; }
+.auth-hint-tick { font-size:11.5px; color:var(--mute); margin:8px 0 0; text-align:center; }
 .auth-sent { background:var(--ink); border:1px solid var(--go); border-radius:3px; padding:13px 15px; font-size:13px; color:var(--body); line-height:1.6; margin-bottom:14px; }
 .auth-alt { display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:14px; }
 .auth-alt button { background:transparent; color:var(--mute); font-size:12.5px; }

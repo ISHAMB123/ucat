@@ -8497,9 +8497,10 @@ function AuthScreen({ onAuthed }) {
             {err && <p className="auth-err">{err}</p>}
             {!supabaseEnabled && <p className="auth-note">Accounts are in preview mode on this build (the Supabase keys are not loaded), so any email and code will work but nothing is saved to a real account.</p>}
 
-            <button className="ud-btn full" onClick={submit} disabled={busy}>
+            <button className="ud-btn full" onClick={submit} disabled={busy || (mode === "signup" && !agreeTerms)}>
               {busy ? "Working…" : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
             </button>
+            {mode === "signup" && !agreeTerms && <p className="auth-hint-tick">Tick the box above to agree to the Terms before creating your account.</p>}
 
             {dup && (
               <div className="auth-dup">

@@ -698,6 +698,9 @@ button.nav-row:hover { background:var(--signal)14; }
 .pwbar i.s3 { background:var(--signal); } .pwbar i.s4 { background:var(--go); }
 .pwbar span { font-family:'Inter',sans-serif; font-size:10px; color:var(--mute); }
 .ud-btn.full { width:100%; text-align:center; }
+.auth-tabs { display:flex; gap:4px; background:var(--slate); border:1px solid var(--line); border-radius:10px; padding:4px; margin:0 0 18px; }
+.auth-tabs button { flex:1; background:transparent; border:none; border-radius:7px; padding:9px 8px; font-family:'Inter',system-ui,sans-serif; font-size:13.5px; font-weight:600; color:var(--mute); cursor:pointer; transition:background .15s, color .15s; }
+.auth-tabs button.on { background:var(--card); color:var(--ink); box-shadow:0 1px 3px rgba(16,24,32,0.12); }
 .auth-err { color:var(--stop); font-size:12.5px; margin:0 0 12px; }
 .auth-dup { display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:12px; }
 .auth-dup .auth-link { background:transparent; border:none; color:var(--mute); font-size:12.5px; cursor:pointer; }

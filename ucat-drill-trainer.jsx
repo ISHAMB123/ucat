@@ -8279,6 +8279,11 @@ function AuthScreen({ onAuthed }) {
   const [showLegal, setShowLegal] = useState(false);
   const [dup, setDup] = useState(false); // email already registered
 
+  /* One place to switch between sign up / sign in / reset, always clearing the
+     transient error and duplicate state so stale prompts (like a second
+     "Forgotten your password?") cannot linger from the previous mode. */
+  const switchMode = (m) => { setMode(m); setErr(""); setDup(false); };
+
   const strength = (() => {
     let n = 0;
     if (pw.length >= 8) n++;
@@ -8443,6 +8448,12 @@ function AuthScreen({ onAuthed }) {
           </>
         ) : (
           <>
+            {mode !== "reset" && (
+              <div className="auth-tabs" role="tablist">
+                <button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "on" : ""} onClick={() => switchMode("signup")}>Create account</button>
+                <button role="tab" aria-selected={mode === "login"} className={mode === "login" ? "on" : ""} onClick={() => switchMode("login")}>Sign in</button>
+              </div>
+            )}
             <label className="auth-f" htmlFor="auth-email">Email
               <input id="auth-email" name="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
             </label>
@@ -8508,18 +8519,16 @@ function AuthScreen({ onAuthed }) {
             </button>
             {mode === "signup" && !agreeTerms && <p className="auth-hint-tick">Please tick the box above to accept our policies before creating your account.</p>}
 
-            {dup && (
+            {dup && mode === "signup" && (
               <div className="auth-dup">
-                <button className="auth-link" onClick={() => { setMode("login"); setErr(""); setDup(false); }}>Sign in to this account instead</button>
-                <button className="auth-link" onClick={() => { setMode("reset"); setErr(""); setDup(false); }}>Forgotten your password?</button>
+                <button className="auth-link" onClick={() => switchMode("login")}>Sign in to this account instead</button>
+                <button className="auth-link" onClick={() => switchMode("reset")}>Forgotten your password?</button>
               </div>
             )}
 
             <div className="auth-alt">
-              {mode === "login" && <button onClick={() => { setMode("reset"); setErr(""); }}>Forgotten your password?</button>}
-              {mode === "signup"
-                ? <button onClick={() => { setMode("login"); setErr(""); }}>Already have an account? Sign in</button>
-                : <button onClick={() => { setMode("signup"); setErr(""); }}>New here? Create an account</button>}
+              {mode === "login" && <button onClick={() => switchMode("reset")}>Forgotten your password?</button>}
+              {mode === "reset" && <button onClick={() => switchMode("login")}>Back to sign in</button>}
             </div>
           </>
         )}

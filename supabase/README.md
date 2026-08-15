@@ -105,6 +105,27 @@ Tightening that to one-token-per-interview would need a shared store (Vercel
 KV / Upstash); the current design already stops the "call it for free" hole,
 which is the expensive one.
 
+## 1d. Optional authenticator (two-factor) login
+
+Email verification stays required for everyone. On top of it, a signed-in user
+can turn on an authenticator app (TOTP) from the account panel, with one-time
+backup codes for recovery. It is strictly additive: accounts without it log in
+exactly as before.
+
+- The authenticator itself uses **Supabase's built-in MFA** — enable it under
+  **Authentication → Multi-Factor** (TOTP) in the dashboard if it is not already
+  on. The app calls `supabase.auth.mfa.*` for enrolment and the login step-up.
+- **Backup codes** are custom: `schema.sql` adds a `mfa_backup_codes` table
+  (service-role only; codes stored as SHA-256 hashes). Two Vercel functions
+  handle them, using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (already set):
+  - [`../api/mfa-backup.js`](../api/mfa-backup.js) issues/regenerates the ten
+    codes (shown to the user once) and reports how many remain.
+  - [`../api/mfa-recover.js`](../api/mfa-recover.js) verifies a backup code when
+    a phone is lost, then removes the authenticator factor (admin API) so the
+    password alone gets the user back in to set it up again.
+
+Re-run `schema.sql` (idempotent) so the `mfa_backup_codes` table exists.
+
 ## 2. Deploy the Stripe webhook (no command line needed)
 
 The webhook is now a Vercel serverless function,

@@ -3,7 +3,7 @@ import { getJSON, setJSON, getSharedJSON, setSharedJSON, sharedIsGlobal, exportL
 import { secureSave, secureLoad } from "./secure.js";
 import { loadTracker, analyse as analyseGaze } from "./eyetrack.js";
 import { fitCalibration, mapGaze, fitGaze, mapGazeFeat, gazeError, calibrationError, makeSmoother, makeReadLog, analyseReading, readingTips, resamplePath, blendPath, idealPath, idealTechnique, seedFromText, pathKey, locateEvidence, makeCalDoc, isCalibrationUsable, GAZE_CAL_KEY } from "./eyeread.js";
-import { supabase, supabaseEnabled, getEntitlement, startTrial, startInterview, authToken } from "./supabaseClient.js";
+import { supabase, supabaseEnabled, getEntitlement, startTrial, startInterview, authToken, generateBackupCodes, backupCodesStatus, recoverWithBackupCode } from "./supabaseClient.js";
 import {
   PRIVACY, TERMS, DISCLAIMER, STORAGE_NOTICE, CONSENT,
   MARKING_DISCLOSURE, fillLegal, legalPlaceholdersPending,
@@ -8314,8 +8314,10 @@ function AuthScreen({ onAuthed }) {
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
   const [sentMsg, setSentMsg] = useState("");
-  const [step, setStep] = useState("form"); // form | code
+  const [step, setStep] = useState("form"); // form | code | mfa
   const [code, setCode] = useState("");
+  const [pendingUser, setPendingUser] = useState(null); // set when a login needs the 2FA step
+  const [mfaMode, setMfaMode] = useState("app"); // app | backup
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreeImprove, setAgreeImprove] = useState(false);
   const [showLegal, setShowLegal] = useState(false);
@@ -8413,6 +8415,16 @@ function AuthScreen({ onAuthed }) {
       } else if (mode === "login") {
         const { data, error } = await withTimeout(supabase.auth.signInWithPassword({ email: addr, password: pw }));
         if (error) throw error;
+        /* If this account has an authenticator turned on, the password only
+           gets them to "aal1"; ask for the 6-digit code (or a backup code) to
+           finish. Accounts without 2FA report the same level for both and skip
+           this entirely, so ordinary logins are unchanged. */
+        let needsMfa = false;
+        try {
+          const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+          needsMfa = !!(aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2");
+        } catch (e) { needsMfa = false; }
+        if (needsMfa) { setPendingUser({ email: data.user.email || addr, id: data.user.id }); setCode(""); setMfaMode("app"); setStep("mfa"); return; }
         onAuthed({ email: data.user.email || addr, id: data.user.id });
       } else {
         const { error } = await withTimeout(supabase.auth.resetPasswordForEmail(addr));
@@ -8441,6 +8453,46 @@ function AuthScreen({ onAuthed }) {
       onAuthed({ email: (data.user && data.user.email) || addr, id: data.user && data.user.id, consentImprove: agreeImprove });
     } catch (e) {
       setErr(e && e.message ? e.message : "That code did not work. Check it, or resend a new one.");
+    } finally { setBusy(false); }
+  };
+
+  /* Finish a login that needs the authenticator: challenge the verified TOTP
+     factor and check the 6-digit code. On success the session steps up to aal2
+     and we continue into the app. */
+  const mfaVerify = async () => {
+    setErr("");
+    const token = code.trim();
+    if (!/^\d{6}$/.test(token)) { setErr("Enter the 6-digit code from your authenticator app."); return; }
+    setBusy(true);
+    try {
+      const { data: factors, error: lErr } = await supabase.auth.mfa.listFactors();
+      if (lErr) throw lErr;
+      const totp = factors && factors.totp && factors.totp[0];
+      if (!totp) { onAuthed(pendingUser); return; }
+      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId: totp.id });
+      if (cErr) throw cErr;
+      const { error: vErr } = await supabase.auth.mfa.verify({ factorId: totp.id, challengeId: ch.id, code: token });
+      if (vErr) throw vErr;
+      onAuthed(pendingUser);
+    } catch (e) {
+      setErr(e && e.message ? e.message : "That code did not work. Check your app and try again.");
+    } finally { setBusy(false); }
+  };
+
+  /* Lost-your-phone path: verify a saved backup code server-side, which removes
+     the authenticator so the password alone gets them in. They are prompted to
+     set 2FA up again once inside. */
+  const mfaUseBackup = async () => {
+    setErr("");
+    if (!code.trim()) { setErr("Enter one of your backup codes."); return; }
+    setBusy(true);
+    try {
+      const r = await recoverWithBackupCode(code.trim());
+      if (r && r.ok) { onAuthed({ ...(pendingUser || {}), twoFactorReset: true }); return; }
+      if (r && r.reason === "invalid_code") setErr("That backup code is not valid or has already been used.");
+      else setErr("Could not verify that backup code. Please try again.");
+    } catch (e) {
+      setErr("Could not verify that backup code. Please try again.");
     } finally { setBusy(false); }
   };
 
@@ -8482,6 +8534,39 @@ function AuthScreen({ onAuthed }) {
               <button onClick={resendCode} disabled={busy}>Resend the code</button>
               <button onClick={() => { setStep("form"); setCode(""); setErr(""); }}>Use a different email</button>
             </div>
+          </>
+        ) : step === "mfa" ? (
+          <>
+            {mfaMode === "app" ? (
+              <>
+                <div className="auth-sent">Two-factor is on for this account. Open your authenticator app and enter the current 6-digit code.</div>
+                <label className="auth-f" htmlFor="auth-mfa">Authenticator code
+                  <input id="auth-mfa" name="one-time-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && mfaVerify()} placeholder="6-digit code"
+                    style={{ letterSpacing: "0.3em", textAlign: "center", fontSize: 18 }} />
+                </label>
+                {err && <p className="auth-err">{err}</p>}
+                <button className="ud-btn full" onClick={mfaVerify} disabled={busy}>{busy ? "Working..." : "Verify and continue"}</button>
+                <div className="auth-alt">
+                  <button onClick={() => { setMfaMode("backup"); setCode(""); setErr(""); }}>Lost your phone? Use a backup code</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="auth-sent">Enter one of the backup codes you saved when you set up two-factor. It can be used once, and will turn two-factor off so you can set it up again.</div>
+                <label className="auth-f" htmlFor="auth-backup">Backup code
+                  <input id="auth-backup" name="backup-code" autoComplete="one-time-code" value={code}
+                    onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && mfaUseBackup()}
+                    placeholder="XXXX-XXXX" style={{ letterSpacing: "0.15em", textAlign: "center", fontSize: 16 }} />
+                </label>
+                {err && <p className="auth-err">{err}</p>}
+                <button className="ud-btn full" onClick={mfaUseBackup} disabled={busy}>{busy ? "Working..." : "Use backup code"}</button>
+                <div className="auth-alt">
+                  <button onClick={() => { setMfaMode("app"); setCode(""); setErr(""); }}>Back to authenticator code</button>
+                </div>
+              </>
+            )}
           </>
         ) : sent ? (
           <>
@@ -8585,6 +8670,149 @@ function AuthScreen({ onAuthed }) {
   );
 }
 
+/* Optional authenticator-app (TOTP) two-factor, managed from the account area.
+   Email verification is unchanged and required for everyone; this is an extra
+   lock a user can choose to turn on, with one-time backup codes for recovery.
+   Self-contained: it talks to supabase.auth.mfa.* and the backup-code endpoints
+   directly, so it can be dropped into the account panel without extra wiring. */
+function TwoFactorPanel() {
+  const [state, setState] = useState("loading"); // loading | off | enrolling | codes | on
+  const [qr, setQr] = useState("");
+  const [secret, setSecret] = useState("");
+  const [factorId, setFactorId] = useState("");
+  const [code, setCode] = useState("");
+  const [codes, setCodes] = useState([]);
+  const [remaining, setRemaining] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const refresh = async () => {
+    try {
+      const { data } = await supabase.auth.mfa.listFactors();
+      const verified = data && (data.totp || []).find((f) => f.status === "verified");
+      if (verified) {
+        setFactorId(verified.id); setState("on");
+        const s = await backupCodesStatus();
+        if (s && s.ok) setRemaining(s.remaining);
+      } else {
+        setState("off");
+      }
+    } catch (e) { setState("off"); }
+  };
+  useEffect(() => { refresh(); }, []);
+
+  /* Remove any half-finished (unverified) factors so a fresh setup never trips
+     over a leftover from an abandoned attempt. */
+  const cleanupUnverified = async () => {
+    try {
+      const { data } = await supabase.auth.mfa.listFactors();
+      const all = (data && data.all) || [];
+      for (const f of all) { if (f && f.status !== "verified") { try { await supabase.auth.mfa.unenroll({ factorId: f.id }); } catch (e) { /* ignore */ } } }
+    } catch (e) { /* ignore */ }
+  };
+
+  const begin = async () => {
+    setErr(""); setBusy(true);
+    try {
+      await cleanupUnverified();
+      const { data, error } = await supabase.auth.mfa.enroll({ factorType: "totp", friendlyName: "Tempo " + Date.now() });
+      if (error) throw error;
+      setQr((data.totp && data.totp.qr_code) || ""); setSecret((data.totp && data.totp.secret) || ""); setFactorId(data.id); setState("enrolling");
+    } catch (e) { setErr(e && e.message ? e.message : "Could not start setup. Please try again."); }
+    finally { setBusy(false); }
+  };
+
+  const confirm = async () => {
+    setErr(""); const t = code.trim();
+    if (!/^\d{6}$/.test(t)) { setErr("Enter the 6-digit code from your app."); return; }
+    setBusy(true);
+    try {
+      const { data: ch, error: cErr } = await supabase.auth.mfa.challenge({ factorId });
+      if (cErr) throw cErr;
+      const { error: vErr } = await supabase.auth.mfa.verify({ factorId, challengeId: ch.id, code: t });
+      if (vErr) throw vErr;
+      setCode("");
+      const bc = await generateBackupCodes();
+      if (bc && bc.ok) { setCodes(bc.codes); setState("codes"); }
+      else { await refresh(); }
+    } catch (e) { setErr(e && e.message ? e.message : "That code did not work. Try again."); }
+    finally { setBusy(false); }
+  };
+
+  const regen = async () => {
+    setErr(""); setBusy(true);
+    const bc = await generateBackupCodes();
+    setBusy(false);
+    if (bc && bc.ok) { setCodes(bc.codes); setState("codes"); } else setErr("Could not generate new codes.");
+  };
+
+  const turnOff = async () => {
+    setErr(""); setBusy(true);
+    try { await supabase.auth.mfa.unenroll({ factorId }); setRemaining(null); setState("off"); }
+    catch (e) { setErr(e && e.message ? e.message : "Could not turn off two-factor. Try signing out and in again first."); }
+    finally { setBusy(false); }
+  };
+
+  const doneCodes = async () => { setCodes([]); await refresh(); };
+  const copyCodes = () => { try { navigator.clipboard.writeText(codes.join("\n")); } catch (e) { /* ignore */ } };
+
+  if (state === "loading") return null;
+
+  return (
+    <div className="tfa">
+      <div className="tfa-head">
+        <div>
+          <h4>Two-factor authentication <span className={`tfa-pill ${state === "on" ? "on" : "off"}`}>{state === "on" ? "On" : "Off"}</span></h4>
+          <p>An optional extra lock: after your password, sign-in also asks for a code from an authenticator app (Google Authenticator, Authy, and similar).</p>
+        </div>
+      </div>
+
+      {state === "off" && (
+        <button className="ud-btn" onClick={begin} disabled={busy}>{busy ? "Starting..." : "Set up authenticator app"}</button>
+      )}
+
+      {state === "enrolling" && (
+        <div className="tfa-enroll">
+          <p>1. Scan this with your authenticator app (or type the key below into it).</p>
+          {qr && <img className="tfa-qr" src={qr} alt="Authenticator QR code" />}
+          {secret && <code className="tfa-secret">{secret}</code>}
+          <p>2. Enter the 6-digit code it shows:</p>
+          <input className="tfa-input" inputMode="numeric" maxLength={6} value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            onKeyDown={(e) => e.key === "Enter" && confirm()} placeholder="6-digit code" />
+          {err && <p className="auth-err">{err}</p>}
+          <div className="tfa-row">
+            <button className="ud-btn" onClick={confirm} disabled={busy}>{busy ? "Checking..." : "Turn on two-factor"}</button>
+            <button className="ud-btn ghost" onClick={() => { setState("off"); setCode(""); setErr(""); cleanupUnverified(); }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {state === "codes" && (
+        <div className="tfa-codes">
+          <p><b>Save these backup codes now.</b> Each works once if you lose your phone. This is the only time they are shown.</p>
+          <div className="tfa-codegrid">{codes.map((c) => <span key={c}>{c}</span>)}</div>
+          <div className="tfa-row">
+            <button className="ud-btn ghost" onClick={copyCodes}>Copy codes</button>
+            <button className="ud-btn" onClick={doneCodes}>I have saved them</button>
+          </div>
+        </div>
+      )}
+
+      {state === "on" && (
+        <div className="tfa-on">
+          <p className="tfa-ok">✓ Two-factor is on.{remaining != null ? ` ${remaining} backup code${remaining === 1 ? "" : "s"} left.` : ""}</p>
+          {err && <p className="auth-err">{err}</p>}
+          <div className="tfa-row">
+            <button className="ud-btn ghost" onClick={regen} disabled={busy}>Regenerate backup codes</button>
+            <button className="ud-btn ghost danger" onClick={turnOff} disabled={busy}>Turn off</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }) {
   const [code, setCode] = useState("");
   const [err, setErr] = useState("");
@@ -8652,6 +8880,8 @@ function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }
         <div><b>Is this a replacement for a question bank?</b><p>No, and it is not sold as one. Banks give you volume. This builds the underlying speed, technique and judgement, and tells you why each answer was wrong.</p></div>
         <div><b>Refunds</b><p>If it is not useful, say so and get your money back. A study tool that has to trap people to keep them is not worth building.</p></div>
       </div>
+
+      {email && supabaseEnabled && <TwoFactorPanel />}
 
       {email && (
         <div className="bill-acct">

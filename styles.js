@@ -1422,6 +1422,24 @@ button.nav-row:hover { background:var(--signal)14; }
 .ud { overflow-x:clip; }
 .bill-acct { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-top:22px; padding:16px 18px; border:1px solid var(--line); border-radius:4px; background:var(--slate); font-size:13.5px; color:var(--body); }
 .bill-acct b { color:var(--paper); }
+/* optional two-factor (authenticator) panel */
+.tfa { margin-top:22px; padding:18px 20px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--card-ink); }
+.tfa-head h4 { margin:0 0 4px; font-size:15px; font-weight:800; color:var(--card-ink); display:flex; align-items:center; gap:10px; }
+.tfa-head p { margin:0 0 12px; font-size:13px; line-height:1.55; color:#4a5563; }
+.tfa-pill { font-size:11px; font-weight:800; letter-spacing:0.03em; padding:2px 9px; border-radius:999px; text-transform:uppercase; }
+.tfa-pill.on { background:#DCFCE7; color:#166534; }
+.tfa-pill.off { background:#F1F3F5; color:#6b7480; }
+.tfa-enroll p, .tfa-codes p, .tfa-on p { font-size:13px; line-height:1.55; color:var(--card-ink); margin:10px 0 8px; }
+.tfa-qr { width:180px; height:180px; display:block; border:1px solid var(--line); border-radius:8px; background:#fff; padding:8px; }
+.tfa-secret { display:inline-block; margin:4px 0 6px; padding:7px 12px; background:#F1F3F5; border-radius:6px; font-family:ui-monospace,Menlo,Consolas,monospace; font-size:14px; letter-spacing:0.12em; color:#1f2733; word-break:break-all; }
+.tfa-input { width:100%; max-width:220px; padding:11px 14px; border:1px solid var(--line); border-radius:6px; font-size:18px; letter-spacing:0.3em; text-align:center; background:#fff; color:#1f2733; }
+.tfa-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+.tfa-ok { color:#166534; font-weight:700; }
+.tfa-codegrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 16px; margin:12px 0; padding:14px 16px; background:#0f1720; border-radius:8px; }
+.tfa-codegrid span { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:15px; letter-spacing:0.12em; color:#e8eef5; text-align:center; }
+.ud-btn.ghost.danger { color:#b42318; border-color:#f3c2bd; }
+.ud-btn.ghost.danger:hover { background:#fdecea; }
+@media (max-width:520px) { .tfa-codegrid { grid-template-columns:1fr; } }
 @media (max-width:820px) {
   .ud-hasside { padding-left:60px; }
   .ud-side { width:60px; padding:14px 8px; align-items:center; }

@@ -132,6 +132,27 @@ alter table public.trials enable row level security;
 -- No policies: only the service role can touch this table.
 
 -- ---------------------------------------------------------------------------
+-- 1c. MFA BACKUP CODES  --  one-time recovery codes for the optional
+--     authenticator-app (TOTP) two-factor login. The authenticator itself is
+--     handled by Supabase's built-in MFA; these codes are the "lost my phone"
+--     fallback. Only the service role touches this table (the /api/mfa-backup
+--     and /api/mfa-recover functions): codes are stored as SHA-256 hashes, never
+--     in plain text, and are never readable by the browser.
+-- ---------------------------------------------------------------------------
+create table if not exists public.mfa_backup_codes (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  code_hash   text not null,
+  used        boolean not null default false,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists mfa_backup_user_idx on public.mfa_backup_codes (user_id);
+
+alter table public.mfa_backup_codes enable row level security;
+-- No policies: only the service role can read or write these.
+
+-- ---------------------------------------------------------------------------
 -- 2. KV  --  the key/value store the app uses today for weekly leaderboards
 --
 --    Keeps the current app working, but locks writes down: readable by all,

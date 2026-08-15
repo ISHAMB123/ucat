@@ -108,6 +108,58 @@ export async function startInterview(meta) {
   }
 }
 
+/* Two-factor backup codes. The authenticator (TOTP) itself is handled by
+   supabase.auth.mfa.* directly in the UI; these helpers cover the one-time
+   backup codes, which are minted and verified server-side (hashed, service
+   role) so the browser never stores or checks a usable code. */
+export async function generateBackupCodes() {
+  if (!supabase) return { ok: false, reason: "not_configured" };
+  try {
+    const token = await authToken();
+    if (!token) return { ok: false, reason: "not_signed_in" };
+    const r = await fetch("/api/mfa-backup", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "generate" }),
+    });
+    return await r.json().catch(() => ({ ok: false, reason: "bad_response" }));
+  } catch (e) {
+    return { ok: false, reason: "error" };
+  }
+}
+
+export async function backupCodesStatus() {
+  if (!supabase) return { ok: false, reason: "not_configured" };
+  try {
+    const token = await authToken();
+    if (!token) return { ok: false, reason: "not_signed_in" };
+    const r = await fetch("/api/mfa-backup", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "status" }),
+    });
+    return await r.json().catch(() => ({ ok: false, reason: "bad_response" }));
+  } catch (e) {
+    return { ok: false, reason: "error" };
+  }
+}
+
+export async function recoverWithBackupCode(code) {
+  if (!supabase) return { ok: false, reason: "not_configured" };
+  try {
+    const token = await authToken();
+    if (!token) return { ok: false, reason: "not_signed_in" };
+    const r = await fetch("/api/mfa-recover", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+    return await r.json().catch(() => ({ ok: false, reason: "bad_response" }));
+  } catch (e) {
+    return { ok: false, reason: "error" };
+  }
+}
+
 export async function startTrial() {
   if (!supabase) return { ok: false, reason: "not_configured" };
   try {

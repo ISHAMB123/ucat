@@ -1535,12 +1535,13 @@ function snapAnswered(q, snap) {
    regression pin down how eye position, head pose and distance combine, so the
    mapping stays accurate across the whole passage and does not drift when the
    reader shifts a little. */
+/* A nine-point (3x3) calibration: enough to fit the head-pose model, but with
+   a short dwell and an animated, self-advancing dot it stays quick and far
+   less tedious than a slow thirteen-point grid. */
 const CAL_DOTS = [
-  { x: 0.1, y: 0.12 }, { x: 0.5, y: 0.12 }, { x: 0.9, y: 0.12 },
-  { x: 0.3, y: 0.3 }, { x: 0.7, y: 0.3 },
-  { x: 0.1, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.9, y: 0.5 },
-  { x: 0.3, y: 0.7 }, { x: 0.7, y: 0.7 },
-  { x: 0.1, y: 0.88 }, { x: 0.5, y: 0.88 }, { x: 0.9, y: 0.88 },
+  { x: 0.12, y: 0.14 }, { x: 0.5, y: 0.14 }, { x: 0.88, y: 0.14 },
+  { x: 0.12, y: 0.5 }, { x: 0.5, y: 0.5 }, { x: 0.88, y: 0.5 },
+  { x: 0.12, y: 0.86 }, { x: 0.5, y: 0.86 }, { x: 0.88, y: 0.86 },
 ];
 
 /* Green to red heat gradient, matching a classic density heat map. */
@@ -2075,7 +2076,7 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       calRunningRef.current = false;
       setCalIdx(-1);
       setStage(outcome === "ready" && calRef.current ? "ready" : "failed");
-    }, 1000);
+    }, 750);
     step();
   };
 
@@ -2108,14 +2109,19 @@ function ReadingGaze({ passageRef, calRef, drill, phase, qKey, passageText, ques
       {(stage === "intro" || stage === "calibrating" || stage === "failed") && (
         <div className="rg-cal">
           {stage === "calibrating" ? (
-            calIdx >= 0 && <span className="rg-dot" style={{ left: `${CAL_DOTS[calIdx].x * 100}%`, top: `${CAL_DOTS[calIdx].y * 100}%` }} />
+            calIdx >= 0 && (
+              <>
+                <span key={calIdx} className="rg-dot" style={{ left: `${CAL_DOTS[calIdx].x * 100}%`, top: `${CAL_DOTS[calIdx].y * 100}%` }}><i /></span>
+                <span className="rg-cal-progress">Look at the dot · {calIdx + 1} of {CAL_DOTS.length}</span>
+              </>
+            )
           ) : (
             <div className="rg-cal-card">
               <h4>Reading eye tracking</h4>
               {stage === "failed"
                 ? <p>That calibration was not accurate enough to trust. Sit square to the camera, keep your whole face in the frame and your head still, and try again.</p>
-                : <p>A quick calibration maps your gaze to the screen. Look at each dot as it appears and keep your head as still as you can. Everything stays on your device.</p>}
-              <button className="ud-btn" onClick={runCalibration}>{stage === "failed" ? "Try calibration again" : "Calibrate (13 dots)"}</button>
+                : <p>Quick setup: just follow the dot with your eyes as it hops around, keeping your head still. Nine dots, a few seconds. Everything stays on your device.</p>}
+              <button className="ud-btn" onClick={runCalibration}>{stage === "failed" ? "Try again" : "Start calibration"}</button>
               <button className="ud-quit" onClick={() => { calRef.current = calRef.current || null; setStage("ready"); }}>Skip</button>
               <label className="rg-check"><input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} /> Show tracking marker (test)</label>
               <button className="rg-wipe" onClick={deleteEyeData}>{wiped ? "Eye-tracking data deleted" : "Delete my eye-tracking data"}</button>
@@ -10121,14 +10127,23 @@ export default function UcatDrillTrainer() {
       {pendingStart && (
         <div className="eye-choice-wrap" role="dialog" aria-modal="true" aria-label="Eye tracking choice">
           <div className="eye-choice">
-            <h3>Reading with eye tracking?</h3>
-            <p>Turn on the webcam reading tracker for this session to see where your eyes go, or read normally. Nothing leaves your device, and you can delete the data any time.</p>
+            <div className="eye-choice-brand"><b>Tempo</b><span>Reading practice</span></div>
+            <h3>How do you want to read?</h3>
+            <p>Eye tracking uses your webcam to show where your eyes went and coach your technique. It runs entirely on your device, nothing is uploaded, and you can delete it any time.</p>
             <div className="eye-choice-btns">
-              <button className="ud-btn" onClick={() => { const p = pendingStart; setPendingStart(null); launch(p.d, p.isExam, p.count, p.key, p.sub, p.theme, true); }}>
-                <b>Eye tracking</b><span>webcam, on-device</span>
+              <button className="eye-opt on" onClick={() => { const p = pendingStart; setPendingStart(null); launch(p.d, p.isExam, p.count, p.key, p.sub, p.theme, true); }}>
+                <span className="eye-opt-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                </span>
+                <b>Eye tracking</b>
+                <em>Webcam, on-device. See your gaze and get technique tips.</em>
               </button>
-              <button className="ud-btn ghost" onClick={() => { const p = pendingStart; setPendingStart(null); launch(p.d, p.isExam, p.count, p.key, p.sub, p.theme, false); }}>
-                <b>No eye tracking</b><span>just read</span>
+              <button className="eye-opt" onClick={() => { const p = pendingStart; setPendingStart(null); launch(p.d, p.isExam, p.count, p.key, p.sub, p.theme, false); }}>
+                <span className="eye-opt-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5z"/></svg>
+                </span>
+                <b>No eye tracking</b>
+                <em>Just read the passage. No camera used.</em>
               </button>
             </div>
             <button className="ud-quit" onClick={() => setPendingStart(null)}>Cancel</button>

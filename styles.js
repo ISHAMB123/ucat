@@ -247,13 +247,20 @@ export const CSS = `
 @media (max-width:900px) { .rd-split { grid-template-columns:1fr; min-height:0; } .rd-col-q { border-left:none; border-top:1px solid var(--line); } .rd-col-p, .rd-col-q { max-height:none; overflow:visible; } }
 /* eye-tracking choice shown when a reading drill starts */
 .eye-choice-wrap { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(8,12,18,0.55); padding:20px; }
-.eye-choice { background:var(--card); border:1px solid var(--line); border-top:4px solid var(--sea); border-radius:16px; padding:28px; max-width:440px; width:100%; box-shadow:0 20px 60px #0a0f1666; text-align:center; }
-.eye-choice h3 { margin:0 0 8px; font-size:19px; color:var(--card-ink); }
-.eye-choice p { margin:0 0 18px; font-size:13.5px; line-height:1.6; color:var(--body); }
-.eye-choice-btns { display:flex; gap:12px; margin-bottom:12px; }
-.eye-choice-btns .ud-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:16px 10px; }
-.eye-choice-btns .ud-btn b { font-size:14px; } .eye-choice-btns .ud-btn span { font-size:11px; opacity:0.8; font-weight:400; }
-.eye-choice-btns .ud-btn.ghost { background:var(--slate); color:var(--body); border:1px solid var(--line); }
+.eye-choice { background:var(--card); border:1px solid var(--line); border-top:5px solid var(--sea); border-radius:18px; padding:26px 26px 22px; max-width:480px; width:100%; box-shadow:0 24px 70px #0a0f1677; text-align:center; }
+.eye-choice-brand { display:flex; align-items:baseline; justify-content:center; gap:8px; margin-bottom:14px; }
+.eye-choice-brand b { font-family:'Inter',system-ui,sans-serif; font-weight:800; font-size:18px; letter-spacing:-0.02em; color:var(--sea); }
+.eye-choice-brand span { font-size:10px; letter-spacing:0.16em; text-transform:uppercase; color:var(--mute); }
+.eye-choice h3 { margin:0 0 8px; font-size:21px; color:var(--card-ink); letter-spacing:-0.01em; }
+.eye-choice p { margin:0 0 20px; font-size:13px; line-height:1.6; color:var(--body); }
+.eye-choice-btns { display:flex; gap:14px; margin-bottom:6px; }
+.eye-opt { flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; padding:20px 14px; background:var(--slate); border:2px solid var(--line); border-radius:14px; cursor:pointer; text-align:center; transition:border-color .14s, transform .08s, box-shadow .14s; }
+.eye-opt:hover { transform:translateY(-2px); border-color:var(--sea); box-shadow:0 10px 26px -12px color-mix(in srgb, var(--sea) 70%, transparent); }
+.eye-opt-ic { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:color-mix(in srgb, var(--sea) 12%, transparent); color:var(--sea); }
+.eye-opt-ic svg { width:24px; height:24px; }
+.eye-opt.on .eye-opt-ic { background:var(--sea); color:#fff; }
+.eye-opt b { font-size:15px; color:var(--card-ink); }
+.eye-opt em { font-style:normal; font-size:11.5px; line-height:1.45; color:var(--mute); }
 .rg-wipe { display:block; margin:12px auto 0; background:none; border:none; color:var(--stop); font-size:11.5px; cursor:pointer; text-decoration:underline; }
 .rg-wipe:hover { opacity:0.8; }
 /* ---- Session log view ------------------------------------------------ */
@@ -1954,8 +1961,14 @@ button.nav-row:hover { background:var(--signal)14; }
 .rg-cal-card p { font-size:13px; line-height:1.55; color:var(--body); margin:0 0 16px; }
 .rg-cal-card .ud-btn { width:100%; }
 .rg-cal-card .ud-quit { display:block; margin:12px auto 0; font-size:12px; }
-.rg-dot { position:absolute; width:22px; height:22px; margin:-11px 0 0 -11px; border-radius:50%; background:var(--signal); box-shadow:0 0 0 6px color-mix(in srgb, var(--signal) 26%, transparent); animation:rg-pulse 1.2s ease-in-out infinite; }
-@keyframes rg-pulse { 0%,100% { transform:scale(0.8); } 50% { transform:scale(1.25); } }
+.rg-dot { position:absolute; width:20px; height:20px; margin:-10px 0 0 -10px; border-radius:50%; background:var(--signal); box-shadow:0 0 0 5px color-mix(in srgb, var(--signal) 26%, transparent), 0 0 14px color-mix(in srgb, var(--signal) 55%, transparent); animation:rg-pulse 1.2s ease-in-out infinite; }
+/* a ring that converges onto the dot over one dwell, guiding the eye and
+   showing how long to hold each dot so it feels quick, not tedious */
+.rg-dot i { position:absolute; inset:-4px; border-radius:50%; border:2.5px solid var(--signal); animation:rg-converge 0.75s linear forwards; }
+@keyframes rg-pulse { 0%,100% { transform:scale(0.85); } 50% { transform:scale(1.15); } }
+@keyframes rg-converge { from { transform:scale(3.4); opacity:0; } 25% { opacity:0.9; } to { transform:scale(1); opacity:0.15; } }
+.no-motion .rg-dot, .no-motion .rg-dot i { animation:none !important; }
+.rg-cal-progress { position:absolute; left:50%; bottom:9%; transform:translateX(-50%); font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--paper); background:color-mix(in srgb, var(--ink) 75%, transparent); border:1px solid var(--line); border-radius:999px; padding:8px 16px; letter-spacing:0.01em; }
 .rg-review { margin-top:16px; border:1px solid var(--line); border-radius:12px; background:var(--slate); padding:16px 18px; }
 .rg-head { display:flex; justify-content:space-between; align-items:baseline; font-family:'Inter',sans-serif; font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--mute); margin-bottom:12px; }
 .rg-head b { color:var(--go); font-family:'JetBrains Mono',monospace; font-size:13px; letter-spacing:0; }

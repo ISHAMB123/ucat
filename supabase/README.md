@@ -37,13 +37,29 @@ SUPABASE_URL=https://YOURPROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...      # server only
 ```
 
-Anti-abuse is deliberately a *soft* block: one trial per verified email, plus
-one per IP within a week. Shared networks (a school, a family) share an IP, so
-a blocked repeat may be a different person — this is the documented trade-off,
-and it is lawful. The IP is stored only to rate-limit trials and **must be
-disclosed in the privacy policy**. Covert device/Wi-Fi fingerprinting was
-deliberately not built: it needs consent under UK GDPR/PECR (especially for
-under-18s), is trivially bypassed, and blocks innocent users.
+Anti-abuse controls, strongest first:
+- **One trial per verified email** (always on).
+- **One trial per IP, ever** (not a rolling window).
+- **One trial per device fingerprint** — a hash of coarse browser/screen
+  traits, sent by the client, so clearing storage or using a new email on the
+  same machine does not mint another trial.
+- **VPN / proxy / Tor block** — OFF unless you set an `IPQS_KEY`
+  (an IPQualityScore API key) in Vercel. Reliable VPN detection needs a paid
+  provider, and a blunt block also refuses legitimate users on privacy or
+  shared networks, so it is opt-in and fails open on any provider error.
+
+Legal note (important, since many users are under 18): storing the IP and a
+device fingerprint, and sending the IP to IPQualityScore, are all uses of
+personal data that **must be disclosed in the privacy policy**, with
+IPQualityScore named as a processor. Fingerprinting under UK PECR/GDPR and the
+Age Appropriate Design Code needs a lawful basis; keep it strictly to trial
+abuse prevention. None of these stops a determined abuser (new device + new
+email + no VPN), so treat them as friction, not a wall.
+
+Local fallback: if the trial backend is not deployed (no service-role key), the
+app grants a **local** one-day trial so the code still works — but that path is
+farmable and applies none of the limits above. Deploy the backend to make the
+limits real.
 
 ## 2. Deploy the Stripe webhook
 

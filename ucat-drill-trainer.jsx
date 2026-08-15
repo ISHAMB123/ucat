@@ -9906,7 +9906,7 @@ export default function UcatDrillTrainer() {
     setView("results");
   };
 
-  const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); if (!prefs.tourSeen) setShowTour(true); };
+  const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); setShowTour(true); };
   const closeTour = () => { setShowTour(false); setPrefs({ ...prefs, tourSeen: true }); };
 
   /* Turn on a one-day trial: unlocks the app (but grants no credits, so the
@@ -9915,7 +9915,7 @@ export default function UcatDrillTrainer() {
     const until = Date.now() + ACCESS_TRIAL_MS;
     setTrialUntil(until); setUnlocked(true); setJSON("ucat:trialUntil", until);
     setTrialMsg(""); setPromoDismissed(true);
-    if (!prefs.tourSeen) setShowTour(true);
+    setShowTour(true); setView("drills");
   };
 
   /* Redeeming the free-trial code. If the Supabase trial backend is live it is
@@ -9930,7 +9930,9 @@ export default function UcatDrillTrainer() {
     if (r && r.ok) { activateTrial(); return; }
     const blocked = {
       email_used: "This email has already used its free trial.",
-      network_used: "A free trial has already been started on this network.",
+      network_used: "A free trial has already been used on this network.",
+      device_used: "This device has already used its free trial.",
+      vpn: "Please turn off any VPN or proxy to start the free trial.",
       already_entitled: "You already have access on this account.",
     };
     if (r && blocked[r.reason]) { setTrialMsg(blocked[r.reason]); return; }

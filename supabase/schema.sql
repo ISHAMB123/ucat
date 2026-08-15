@@ -56,10 +56,15 @@ create policy "read own entitlement" on public.entitlements
 create table if not exists public.trials (
   email       text primary key,
   ip          text,
+  fingerprint text,
   started_at  timestamptz not null default now()
 );
 
-create index if not exists trials_ip_idx on public.trials (ip, started_at desc);
+-- If the table pre-dates device fingerprinting, add the column in place.
+alter table public.trials add column if not exists fingerprint text;
+
+create index if not exists trials_ip_idx on public.trials (ip);
+create index if not exists trials_fingerprint_idx on public.trials (fingerprint);
 
 alter table public.trials enable row level security;
 -- No policies: only the service role can touch this table.

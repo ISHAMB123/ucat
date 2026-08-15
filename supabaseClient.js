@@ -51,13 +51,37 @@ export async function getEntitlement() {
    trial, and (if clear) writes a time-limited entitlement. Returns
    { ok, expires_at } or { ok:false, reason }. The trial unlocks the app but
    grants no credits, so the paid AI features still need a purchase. */
+/* A coarse, stable device signal (not personally identifying on its own):
+   a hash of browser and screen characteristics. Sent with the trial request
+   so one machine cannot farm trials by clearing storage or using new emails.
+   Best-effort; returns "" if anything is unavailable. */
+async function deviceFingerprint() {
+  try {
+    const s = window.screen || {};
+    const parts = [
+      navigator.userAgent, navigator.language, navigator.platform || "",
+      `${s.width}x${s.height}x${s.colorDepth}`,
+      new Date().getTimezoneOffset(), navigator.hardwareConcurrency || 0, navigator.deviceMemory || 0,
+    ].join("|");
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(parts));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
+  } catch (e) {
+    return "";
+  }
+}
+
 export async function startTrial() {
   if (!supabase) return { ok: false, reason: "not_configured" };
   try {
     const { data: sess } = await supabase.auth.getSession();
     const token = sess && sess.session && sess.session.access_token;
     if (!token) return { ok: false, reason: "not_signed_in" };
-    const r = await fetch("/api/trial", { method: "POST", headers: { Authorization: "Bearer " + token } });
+    const fingerprint = await deviceFingerprint();
+    const r = await fetch("/api/trial", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ fingerprint }),
+    });
     return await r.json().catch(() => ({ ok: false, reason: "bad_response" }));
   } catch (e) {
     return { ok: false, reason: "error" };

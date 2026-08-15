@@ -18,12 +18,28 @@
  * school, a family) share an IP, so a blocked repeat may be a different person.
  */
 const DAY_MS = 24 * 60 * 60 * 1000;
-const IP_WINDOW_MS = 7 * DAY_MS; // ignore an IP's older trials after a week
 
 function clientIp(req) {
   const xff = req.headers["x-forwarded-for"];
   if (xff) return String(xff).split(",")[0].trim();
   return (req.socket && req.socket.remoteAddress) || "";
+}
+
+/* Optional VPN / proxy / Tor block. Only runs when IPQS_KEY (an
+   IPQualityScore API key) is set; otherwise skipped, because reliable VPN
+   detection needs a paid data provider and a blunt block would also lock out
+   legitimate users on shared or privacy networks. Fails open on any error so a
+   provider outage never blocks real students. Returns true if the IP looks
+   like a VPN/proxy and should be refused. */
+async function looksLikeVpn(ip) {
+  const k = process.env.IPQS_KEY;
+  if (!k || !ip) return false;
+  try {
+    const r = await fetch(`https://ipqualityscore.com/api/json/ip/${k}/${encodeURIComponent(ip)}?strictness=1&allow_public_access_points=true`);
+    const d = await r.json().catch(() => null);
+    if (!d || d.success === false) return false;
+    return !!(d.vpn || d.proxy || d.tor || d.active_vpn || d.active_tor);
+  } catch (e) { return false; }
 }
 
 async function sb(path, key, url, opts = {}) {
@@ -63,11 +79,20 @@ export default async function handler(req, res) {
     if (!who.ok || !email) { res.status(401).json({ ok: false, reason: "not_signed_in" }); return; }
 
     const ip = clientIp(req);
+    let body = req.body;
+    if (typeof body === "string") { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+    const fingerprint = String((body && body.fingerprint) || "").slice(0, 128);
 
     /* Already have any entitlement? Then no trial needed / allowed. */
     const ent = await sb(`entitlements?email=eq.${encodeURIComponent(email)}&select=product,expires_at`, key, url, { method: "GET" });
     if (ent.ok && Array.isArray(ent.body) && ent.body.length) {
       res.status(200).json({ ok: false, reason: "already_entitled" });
+      return;
+    }
+
+    /* Refuse VPNs / proxies when a detection provider is configured. */
+    if (await looksLikeVpn(ip)) {
+      res.status(200).json({ ok: false, reason: "vpn" });
       return;
     }
 
@@ -78,12 +103,21 @@ export default async function handler(req, res) {
       return;
     }
 
-    /* Soft one-per-network within the window. */
+    /* One trial per IP, ever (not a rolling window). */
     if (ip) {
-      const since = new Date(Date.now() - IP_WINDOW_MS).toISOString();
-      const byIp = await sb(`trials?ip=eq.${encodeURIComponent(ip)}&started_at=gte.${encodeURIComponent(since)}&select=ip`, key, url, { method: "GET" });
+      const byIp = await sb(`trials?ip=eq.${encodeURIComponent(ip)}&select=ip`, key, url, { method: "GET" });
       if (byIp.ok && Array.isArray(byIp.body) && byIp.body.length) {
         res.status(200).json({ ok: false, reason: "network_used" });
+        return;
+      }
+    }
+
+    /* One trial per device fingerprint (defeats clearing storage / new email
+       on the same machine). */
+    if (fingerprint) {
+      const byFp = await sb(`trials?fingerprint=eq.${encodeURIComponent(fingerprint)}&select=fingerprint`, key, url, { method: "GET" });
+      if (byFp.ok && Array.isArray(byFp.body) && byFp.body.length) {
+        res.status(200).json({ ok: false, reason: "device_used" });
         return;
       }
     }
@@ -92,7 +126,7 @@ export default async function handler(req, res) {
     const expires = new Date(now.getTime() + DAY_MS).toISOString();
 
     /* Record the trial, then the entitlement. */
-    await sb("trials", key, url, { method: "POST", prefer: "return=minimal", body: JSON.stringify({ email, ip, started_at: now.toISOString() }) });
+    await sb("trials", key, url, { method: "POST", prefer: "return=minimal", body: JSON.stringify({ email, ip, fingerprint: fingerprint || null, started_at: now.toISOString() }) });
     const grant = await sb("entitlements", key, url, {
       method: "POST",
       prefer: "resolution=merge-duplicates,return=minimal",

@@ -8500,7 +8500,7 @@ function AuthScreen({ onAuthed }) {
             <button className="ud-btn full" onClick={submit} disabled={busy || (mode === "signup" && !agreeTerms)}>
               {busy ? "Working…" : mode === "signup" ? "Create account" : mode === "login" ? "Sign in" : "Send reset link"}
             </button>
-            {mode === "signup" && !agreeTerms && <p className="auth-hint-tick">Tick the box above to agree to the Terms before creating your account.</p>}
+            {mode === "signup" && !agreeTerms && <p className="auth-hint-tick">Please tick the box above to accept our policies before creating your account.</p>}
 
             {dup && (
               <div className="auth-dup">

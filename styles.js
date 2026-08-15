@@ -707,6 +707,19 @@ button.nav-row:hover { background:var(--signal)14; }
 .auth-f input.mismatch { border-color:var(--stop); }
 .auth-note { font-size:11.5px; color:var(--signal); background:color-mix(in srgb, var(--signal) 12%, transparent); border-radius:6px; padding:8px 11px; margin:0 0 12px; line-height:1.5; }
 .auth-hint-tick { font-size:11.5px; color:var(--mute); margin:8px 0 0; text-align:center; }
+/* ---- Free-trial promo banner across the very top --------------------- */
+.promo-banner { position:fixed; top:0; left:0; right:0; z-index:60; height:46px; display:flex; align-items:center; justify-content:center; gap:14px; padding:0 16px;
+  background:linear-gradient(90deg,#F5A524,#FFCE5C,#F5A524); color:#3a2900; font-family:'Inter',system-ui,sans-serif; font-size:13.5px; box-shadow:0 2px 12px rgba(120,80,0,0.25); }
+.promo-gift { font-size:17px; }
+.promo-text { font-weight:500; letter-spacing:0.01em; }
+.promo-text b { font-weight:800; }
+.promo-cta { background:#241a00; color:#FFD35C; border:none; border-radius:999px; padding:6px 16px; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.promo-cta:hover { background:#000; }
+.promo-x { position:absolute; right:12px; background:transparent; border:none; color:#5a4300; font-size:22px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px; }
+.promo-x:hover { background:rgba(0,0,0,0.1); }
+.ud-promo { padding-top:46px; }
+.ud-promo .ud-side { top:46px; }
+@media (max-width:640px) { .promo-text { font-size:12px; } .promo-banner { gap:9px; padding:0 10px; } }
 .auth-sent { background:var(--ink); border:1px solid var(--go); border-radius:3px; padding:13px 15px; font-size:13px; color:var(--body); line-height:1.6; margin-bottom:14px; }
 .auth-alt { display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:14px; }
 .auth-alt button { background:transparent; color:var(--mute); font-size:12.5px; }

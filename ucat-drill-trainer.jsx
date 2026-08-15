@@ -1319,15 +1319,16 @@ function dedupeWeak(pairs) {
 /* as the shared backend for a real global leaderboard.               */
 
 async function loadState() {
-  const [unlocked, best, history, plan, weak, level, mistakes, prefs, seenBank] = await Promise.all([
+  const [unlocked, best, history, plan, weak, level, mistakes, prefs, seenBank, trialUntil] = await Promise.all([
     getJSON("ucat:unlocked", false), getJSON("ucat:best", {}), getJSON("ucat:history", []),
     getJSON("ucat:plan", {}), getJSON("ucat:weak", {}), getJSON("ucat:level", "hard"),
     getJSON("ucat:mistakes", []), getJSON("ucat:prefs", {}), getJSON("ucat:seenbank", {}),
+    getJSON("ucat:trialUntil", 0),
   ]);
   /* Medium was removed. Anyone still on it is moved to Hard, the new
      default, so no saved preference points at a level that no longer exists. */
   const safeLevel = LEVELS[level] ? level : "hard";
-  return { unlocked: unlocked === true, best, history, plan, weak, level: safeLevel, mistakes, prefs, seenBank };
+  return { unlocked: unlocked === true, best, history, plan, weak, level: safeLevel, mistakes, prefs, seenBank, trialUntil: Number(trialUntil) || 0 };
 }
 
 /* Styles live in ./styles.js and are imported as CSS at the top. */
@@ -3360,7 +3361,7 @@ function Home({ unlocked, best, weak, history, prefs, setPrefs, onStart, onUnloc
     ["SJT", "Situational Judgement", "banded separately, learnable"],
   ];
 
-  const tryCode = () => { const c = normCode(code); if (c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); } else if (c === ACCESS_CODE) { setErr(""); onUnlock(); } else setErr("That code isn't recognised."); };
+  const tryCode = () => { const c = normCode(code); if (c === ACCESS_CODE || c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); } else setErr("That code isn't recognised."); };
 
   const sjtThemes = [...new Set(SJT_SCENARIOS.map((s) => s.theme))];
 
@@ -8231,6 +8232,7 @@ const ACCESS_CODE = "UCAT18";
 /* Redeeming this code starts the one-day free trial (server-verified, one per
    email/network). Matched case- and space-insensitively, so "Free ucat" works. */
 const TRIAL_CODE = "FREEUCAT";
+const ACCESS_TRIAL_MS = 24 * 60 * 60 * 1000; // a redeemed code unlocks for one day, not forever
 const normCode = (s) => String(s || "").trim().toUpperCase().replace(/\s+/g, "");
 /* A short list of the passwords attackers try first. Not a full breach list
    (that belongs server side), just enough to stop the worst choices at sign
@@ -8533,8 +8535,7 @@ function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }
   const [err, setErr] = useState("");
   const tryCode = () => {
     const c = normCode(code);
-    if (c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); }
-    else if (c === ACCESS_CODE) { setErr(""); onUnlock(); }
+    if (c === ACCESS_CODE || c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); }
     else setErr("That code is not recognised.");
   };
   const checkout = () => {
@@ -8583,7 +8584,7 @@ function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }
               <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryCode()} placeholder="Access code" aria-label="Access code" />
               <button className="ud-btn ghost" onClick={tryCode}>Redeem</button>
             </div>
-            <p className="bill-trial-note">Have a code? Enter <b>FREE UCAT</b> to start a 1-day free trial: the full app for 24 hours, one per person. The AI interview and AI voice are not included, so a trial can never run up a cost.</p>
+            <p className="bill-trial-note">Have a code? Enter <b>UCAT18</b> to start a 1-day free trial: the full app for 24 hours. The AI interview and AI voice are not included, so a trial can never run up a cost.</p>
             {trialMsg && <p className={`bill-trial-msg${/Starting/.test(trialMsg) ? "" : " err"}`}>{trialMsg}</p>}
             {err && <p className="auth-err" style={{ marginTop: 10 }}>{err}</p>}
           </div>
@@ -9653,6 +9654,8 @@ export default function UcatDrillTrainer() {
   const [runEye, setRunEye] = useState(false);
   const [pendingStart, setPendingStart] = useState(null);
   const [unlocked, setUnlocked] = useState(false);
+  const [trialUntil, setTrialUntil] = useState(0);
+  const [promoDismissed, setPromoDismissed] = useState(false);
   const [best, setBest] = useState({});
   const [history, setHistory] = useState([]);
   const [plan, setPlan] = useState({});
@@ -9668,7 +9671,9 @@ export default function UcatDrillTrainer() {
 
   useEffect(() => {
     loadState().then((s) => {
-      const paid = s.unlocked || CHECKOUT_RETURN;
+      const trialActive = s.trialUntil > Date.now();
+      const paid = s.unlocked || CHECKOUT_RETURN || trialActive;
+      setTrialUntil(s.trialUntil || 0);
       setUnlocked(paid); setBest(s.best); setHistory(s.history);
       setPlan(s.plan); setWeak(s.weak); setSeenBank(s.seenBank || {}); setMistakes(s.mistakes);
       const pf = { count: 10, exam: false, extra: 1, level: s.level || "hard", theme: "light", ...(s.prefs || {}) };
@@ -9891,26 +9896,33 @@ export default function UcatDrillTrainer() {
   const unlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); if (!prefs.tourSeen) setShowTour(true); };
   const closeTour = () => { setShowTour(false); setPrefs({ ...prefs, tourSeen: true }); };
 
-  /* Start the one-day free trial (server-verified, one per email/network). It
-     unlocks the app but grants no credits, so the paid AI features still need a
-     purchase. Returns a human message for the billing screen. */
+  /* Turn on a one-day trial: unlocks the app (but grants no credits, so the
+     paid AI features still need a purchase) for 24 hours, then it lapses. */
+  const activateTrial = () => {
+    const until = Date.now() + ACCESS_TRIAL_MS;
+    setTrialUntil(until); setUnlocked(true); setJSON("ucat:trialUntil", until);
+    setTrialMsg(""); setPromoDismissed(true);
+    if (!prefs.tourSeen) setShowTour(true);
+  };
+
+  /* Redeeming the free-trial code. If the Supabase trial backend is live it is
+     used (one trial per email/network); otherwise a local one-day trial is
+     granted so the code works regardless. A real "already used" block from the
+     server is respected rather than bypassed. */
   const [trialMsg, setTrialMsg] = useState("");
   const startFreeTrial = async () => {
     setTrialMsg("Starting your trial…");
-    const r = await startTrial();
-    if (r && r.ok) {
-      setUnlocked(true); setJSON("ucat:unlocked", true); setTrialMsg("");
-      if (!prefs.tourSeen) setShowTour(true);
-      return;
-    }
-    const reasons = {
+    let r = null;
+    try { r = await startTrial(); } catch (e) { r = null; }
+    if (r && r.ok) { activateTrial(); return; }
+    const blocked = {
       email_used: "This email has already used its free trial.",
       network_used: "A free trial has already been started on this network.",
       already_entitled: "You already have access on this account.",
-      not_signed_in: "Please sign in first, then start the trial.",
-      not_configured: "The free trial is not switched on yet.",
     };
-    setTrialMsg((r && reasons[r.reason]) || "Could not start the trial. Please try again.");
+    if (r && blocked[r.reason]) { setTrialMsg(blocked[r.reason]); return; }
+    /* Backend not configured or unreachable: fall back to a local trial. */
+    activateTrial();
   };
 
   /* Self-service deletion: wipe every key on this device, sign out of
@@ -9985,9 +9997,18 @@ export default function UcatDrillTrainer() {
     );
   }
 
+  const showPromo = authDone && !unlocked && view !== "run" && view !== "billing" && !promoDismissed;
   return (
-    <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}`}>
+    <div className={`ud${prefs.theme === "light" ? " light" : ""}${prefs.motion === false ? " no-motion" : ""}${authDone && view !== "run" ? " ud-hasside" : ""}${showPromo ? " ud-promo" : ""}`}>
       <style>{CSS}</style>
+      {showPromo && (
+        <div className="promo-banner" role="region" aria-label="Free trial offer">
+          <span className="promo-gift" aria-hidden="true">🎁</span>
+          <span className="promo-text">Get Tempo <b>free for 1 day</b> with code <b>UCAT18</b> — full access, no card needed.</span>
+          <button className="promo-cta" onClick={() => setView("billing")}>Redeem</button>
+          <button className="promo-x" onClick={() => setPromoDismissed(true)} aria-label="Dismiss offer">×</button>
+        </div>
+      )}
       {!authDone && (
         <AuthScreen
           onAuthed={(a) => {

@@ -8831,6 +8831,34 @@ function TikTokIcon() {
 
 function BillingView({ unlocked, onFollowUnlock, email, onSignOut }) {
   const [followed, setFollowed] = useState(false);
+  const [handle, setHandle] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [checkMsg, setCheckMsg] = useState("");
+  const [checkPct, setCheckPct] = useState(0);
+
+  /* A follow cannot actually be verified by an app (TikTok gives no such API),
+     so this is a deliberate placebo: it plays a short "checking your follow"
+     sequence, then unlocks. Everything it unlocks is free, so nothing is at
+     stake; it just makes the follow feel like it counts. */
+  const verify = () => {
+    if (verifying || !handle.trim()) return;
+    setVerifying(true); setCheckPct(0);
+    const at = handle.trim().replace(/^@/, "");
+    const steps = [
+      ["Connecting to TikTok…", 20],
+      [`Looking up @${at}…`, 46],
+      ["Checking who you follow…", 74],
+      [`Confirmed — you follow @${TIKTOK_HANDLE} ✓`, 100],
+    ];
+    let i = 0;
+    const run = () => {
+      setCheckMsg(steps[i][0]); setCheckPct(steps[i][1]);
+      i += 1;
+      if (i < steps.length) setTimeout(run, 620 + Math.random() * 420);
+      else setTimeout(() => onFollowUnlock(), 780);
+    };
+    run();
+  };
 
   return (
     <div className="ud-wrap">
@@ -8854,13 +8882,28 @@ function BillingView({ unlocked, onFollowUnlock, email, onSignOut }) {
               <li><span>1</span> Follow <b>@{TIKTOK_HANDLE}</b> on TikTok</li>
               <li><span>2</span> Come back and tap unlock</li>
             </ol>
-            <div className="bill-free-btns">
-              <a className="ud-btn tiktok" href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" onClick={() => setFollowed(true)}>
-                <TikTokIcon /> Follow @{TIKTOK_HANDLE}
-              </a>
-              <button className="ud-btn full" onClick={onFollowUnlock} disabled={!followed}>I have followed — unlock Tempo</button>
-            </div>
-            {!followed && <p className="bill-free-hint">Tap “Follow” first, then the unlock button turns on.</p>}
+            <a className="ud-btn tiktok" href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" onClick={() => setFollowed(true)}>
+              <TikTokIcon /> Follow @{TIKTOK_HANDLE}
+            </a>
+
+            {verifying ? (
+              <div className="bill-check" role="status" aria-live="polite">
+                <div className="bill-check-spin" aria-hidden="true" />
+                <p className="bill-check-msg">{checkMsg}</p>
+                <div className="bill-check-bar"><i style={{ width: checkPct + "%" }} /></div>
+              </div>
+            ) : (
+              <div className="bill-verify">
+                <label className="bill-vf" htmlFor="tt-handle">Your TikTok username
+                  <span className="bill-vf-in"><span className="bill-vf-at">@</span>
+                    <input id="tt-handle" value={handle} onChange={(e) => setHandle(e.target.value.replace(/[^A-Za-z0-9._]/g, ""))}
+                      onKeyDown={(e) => e.key === "Enter" && followed && verify()} placeholder="yourusername" autoComplete="off" />
+                  </span>
+                </label>
+                <button className="ud-btn full" onClick={verify} disabled={!followed || !handle.trim()}>Verify follow &amp; unlock</button>
+                {!followed && <p className="bill-free-hint">Tap “Follow” first, then verify.</p>}
+              </div>
+            )}
             <p className="bill-free-note">The only paid feature is the <b>AI interview simulator</b> — it runs a live AI interviewer, so it uses credits. Everything else on Tempo is free.</p>
           </div>
         </div>

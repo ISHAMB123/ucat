@@ -784,6 +784,18 @@ button.nav-row:hover { background:var(--signal)14; }
 .bill-free-hint { font-size:12.5px; color:#6b7480; margin:10px 0 0; }
 .bill-free-note { font-size:13px; line-height:1.6; color:#42505e; margin:18px 0 0; padding-top:16px; border-top:1px solid var(--line); }
 .bill-free-note b { color:var(--card-ink); }
+.bill-verify { margin-top:18px; }
+.bill-vf { display:block; font-size:12.5px; font-weight:700; color:var(--card-ink); margin-bottom:12px; }
+.bill-vf-in { display:flex; align-items:center; margin-top:6px; border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden; max-width:320px; }
+.bill-vf-at { padding:0 4px 0 12px; color:#6b7480; font-size:15px; font-weight:700; }
+.bill-vf-in input { flex:1; border:none; outline:none; padding:11px 12px 11px 2px; font-size:15px; background:transparent; color:#1f2733; }
+.bill-check { margin-top:18px; display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px; border:1px solid var(--line); border-radius:12px; background:#0f1720; }
+.bill-check-spin { width:34px; height:34px; border-radius:50%; border:3px solid rgba(255,255,255,0.18); border-top-color:#25F4EE; animation:bill-spin .8s linear infinite; }
+@keyframes bill-spin { to { transform:rotate(360deg); } }
+.bill-check-msg { font-size:14px; font-weight:600; color:#e8eef5; text-align:center; margin:0; min-height:20px; }
+.bill-check-bar { width:100%; max-width:300px; height:6px; border-radius:999px; background:rgba(255,255,255,0.14); overflow:hidden; }
+.bill-check-bar i { display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#25F4EE,#FE2C55); transition:width .5s ease; }
+.no-motion .bill-check-spin { animation:none; }
 .bill-live { display:flex; gap:14px; align-items:flex-start; border:1px solid var(--go); border-radius:4px; background:var(--slate); padding:20px; margin-top:16px; animation:udrise .4s ease; }
 .bill-live .tick { width:30px; height:30px; border-radius:50%; background:var(--go); color:#0E1319; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
 .bill-live h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:19px; margin:2px 0 6px; }

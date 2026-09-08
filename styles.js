@@ -769,6 +769,21 @@ button.nav-row:hover { background:var(--signal)14; }
 .bill-card li:before { content:"✓"; position:absolute; left:0; color:var(--go); font-size:12px; }
 .bill-code { display:flex; gap:8px; margin-top:12px; }
 .bill-code input { flex:1; background:var(--ink); border:1px solid var(--line); color:var(--paper); padding:10px; border-radius:3px; font-family:'Inter',sans-serif; font-size:13px; min-width:0; }
+/* free unlock via TikTok follow */
+.bill-free { margin-top:16px; }
+.bill-free-card { border:1px solid var(--line); border-radius:14px; background:var(--card); color:var(--card-ink); padding:28px 26px; max-width:620px; box-shadow:0 10px 30px rgba(15,23,32,0.08); }
+.bill-free-tag { display:inline-block; font-size:11px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; color:#166534; background:#DCFCE7; padding:4px 11px; border-radius:999px; }
+.bill-free-card h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:26px; margin:12px 0 8px; color:var(--card-ink); }
+.bill-free-card > p { font-size:14px; line-height:1.65; color:#42505e; margin:0 0 16px; }
+.bill-steps { list-style:none; margin:0 0 18px; padding:0; display:flex; flex-direction:column; gap:10px; }
+.bill-steps li { display:flex; align-items:center; gap:12px; font-size:14.5px; color:var(--card-ink); }
+.bill-steps li span { width:26px; height:26px; flex-shrink:0; border-radius:50%; background:#0f1720; color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; }
+.bill-free-btns { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+.ud-btn.tiktok { display:inline-flex; align-items:center; gap:9px; background:#0f1015; color:#fff; border:none; font-weight:700; }
+.ud-btn.tiktok:hover { background:#25F4EE; color:#0f1015; }
+.bill-free-hint { font-size:12.5px; color:#6b7480; margin:10px 0 0; }
+.bill-free-note { font-size:13px; line-height:1.6; color:#42505e; margin:18px 0 0; padding-top:16px; border-top:1px solid var(--line); }
+.bill-free-note b { color:var(--card-ink); }
 .bill-live { display:flex; gap:14px; align-items:flex-start; border:1px solid var(--go); border-radius:4px; background:var(--slate); padding:20px; margin-top:16px; animation:udrise .4s ease; }
 .bill-live .tick { width:30px; height:30px; border-radius:50%; background:var(--go); color:#0E1319; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
 .bill-live h3 { font-family:'Bricolage Grotesque',sans-serif; font-size:19px; margin:2px 0 6px; }

@@ -8245,6 +8245,14 @@ const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/9B628q5Np7ah8iL3emes005"; /*
 
 const STRIPE_LINK = import.meta.env.VITE_STRIPE_LINK || STRIPE_PAYMENT_LINK;
 
+/* Tempo is free: the whole app unlocks when you follow the creator on TikTok.
+   This is an honour-based growth gate (a TikTok follow cannot be verified by an
+   app), which is fine because everything it unlocks is free anyway. The only
+   genuinely paid feature is the AI interview, and that stays enforced with
+   server-side credits, so nothing here can run up a real cost. */
+const TIKTOK_HANDLE = "ishamdoesdentistry";
+const TIKTOK_URL = "https://www.tiktok.com/@" + TIKTOK_HANDLE;
+
 /* True when Stripe redirects back with ?checkout=success after a completed
    Payment Link, which unlocks the app on return. This trusts the client
    as a launch-time interim; the real control is a Stripe webhook writing a
@@ -8813,72 +8821,56 @@ function TwoFactorPanel() {
   );
 }
 
-function BillingView({ unlocked, onUnlock, onTrial, trialMsg, email, onSignOut }) {
-  const [code, setCode] = useState("");
-  const [err, setErr] = useState("");
-  const tryCode = () => {
-    const c = normCode(code);
-    if (c === ACCESS_CODE || c === TRIAL_CODE) { setErr(""); if (onTrial) onTrial(); }
-    else setErr("That code is not recognised.");
-  };
-  const checkout = () => {
-    /* Navigate in the same tab so Stripe's after-payment redirect lands
-       back on the app (…/app/?checkout=success) and unlocks it. */
-    if (STRIPE_LINK) window.location.assign(STRIPE_LINK);
-    else setErr(`Checkout is not connected yet. Use the access code ${ACCESS_CODE} to unlock everything for now.`);
-  };
+function TikTokIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <path d="M16.5 3c.3 2.1 1.6 3.8 3.9 4.1v2.6c-1.4.1-2.7-.3-3.9-1v5.9c0 3.6-2.7 5.9-5.9 5.4-2.7-.4-4.5-2.6-4.4-5.2.1-2.7 2.4-4.7 5.1-4.5.3 0 .6.1.9.1v2.7c-.3-.1-.6-.2-.9-.2-1.2-.1-2.3.8-2.4 2-.1 1.2.8 2.3 2 2.4 1.3.1 2.4-.8 2.4-2.2V3z" />
+    </svg>
+  );
+}
+
+function BillingView({ unlocked, onFollowUnlock, email, onSignOut }) {
+  const [followed, setFollowed] = useState(false);
 
   return (
     <div className="ud-wrap">
-      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>{unlocked ? "Your access" : "Full access"}</h2><i /><span>{unlocked ? "active" : PRICE_NOTE}</span></div>
+      <div className="ud-sec" style={{ paddingTop: 32 }}><h2>{unlocked ? "Your access" : "Unlock Tempo free"}</h2><i /><span>{unlocked ? "active" : "free — just follow on TikTok"}</span></div>
 
       {unlocked ? (
         <div className="bill-live">
           <span className="tick">✓</span>
           <div>
             <h3>Everything is unlocked</h3>
-            <p>{email ? `Tied to ${email}. ` : ""}One payment, no renewal date, no card stored by this app. Every future drill and passage added to the season is included.</p>
+            <p>{email ? `Tied to ${email}. ` : ""}Thanks for the follow. Every drill, mock, plan and tool is yours, free, with no card stored. The AI interview is the only paid extra, and it runs on credits so it can never surprise you with a charge.</p>
           </div>
         </div>
       ) : (
-        <div className="bill-grid">
-          <div className="bill-card">
-            <span className="tag">Free forever</span>
-            <p className="price"><b>£0</b></p>
-            <p className="sub">No account needed</p>
-            <ul>
-              <li>Times tables to 15, timed or untimed</li>
-              <li>All three difficulty levels</li>
-              <li>Your speed history for that drill</li>
-            </ul>
-            <button className="ud-btn ghost full" disabled>Already yours</button>
-          </div>
-
-          <div className="bill-card feature">
-            <span className="tag on">Full season</span>
-            <p className="price">
-              <b>{saleLive() ? SALE_PRICE : FULL_PRICE}</b><em>once</em>
-              {saleLive() && <s className="was">{FULL_PRICE}</s>}
-            </p>
-            <p className="sub">{saleLive() ? `Launch price until ${SALE_ENDS_LABEL}, then ${FULL_PRICE}` : PRICE_NOTE}</p>
-            <ul>{PLAN_INCLUDES.map((x) => <li key={x}>{x}</li>)}</ul>
-            <button className="ud-btn full" onClick={checkout}>Unlock everything</button>
-            <div className="bill-code">
-              <input value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tryCode()} placeholder="Access code" aria-label="Access code" />
-              <button className="ud-btn ghost" onClick={tryCode}>Redeem</button>
+        <div className="bill-free">
+          <div className="bill-free-card">
+            <span className="bill-free-tag">100% free</span>
+            <h3>Tempo is completely free</h3>
+            <p>Every drill, the Learn pages, the weekly VR and QR mocks with leaderboards, the six week plan, the spaced mistake bank, the university selector and the personal statement tools. All of it, free — I just ask that you follow along on TikTok.</p>
+            <ol className="bill-steps">
+              <li><span>1</span> Follow <b>@{TIKTOK_HANDLE}</b> on TikTok</li>
+              <li><span>2</span> Come back and tap unlock</li>
+            </ol>
+            <div className="bill-free-btns">
+              <a className="ud-btn tiktok" href={TIKTOK_URL} target="_blank" rel="noopener noreferrer" onClick={() => setFollowed(true)}>
+                <TikTokIcon /> Follow @{TIKTOK_HANDLE}
+              </a>
+              <button className="ud-btn full" onClick={onFollowUnlock} disabled={!followed}>I have followed — unlock Tempo</button>
             </div>
-            <p className="bill-trial-note">Have a code? Enter <b>UCAT18</b> to start a 1-day free trial: the full app for 24 hours. The AI interview and AI voice are not included, so a trial can never run up a cost.</p>
-            {trialMsg && <p className={`bill-trial-msg${/Starting/.test(trialMsg) ? "" : " err"}`}>{trialMsg}</p>}
-            {err && <p className="auth-err" style={{ marginTop: 10 }}>{err}</p>}
+            {!followed && <p className="bill-free-hint">Tap “Follow” first, then the unlock button turns on.</p>}
+            <p className="bill-free-note">The only paid feature is the <b>AI interview simulator</b> — it runs a live AI interviewer, so it uses credits. Everything else on Tempo is free.</p>
           </div>
         </div>
       )}
 
       <div className="bill-faq">
-        <div><b>Why one payment instead of a subscription?</b><p>Because you sit the UCAT once. Monthly billing quietly charges people who have already finished, and nobody should need to remember to cancel a study tool the week of their exam.</p></div>
-        <div><b>What happens on test day?</b><p>Nothing changes. Access does not expire, so the interview tools and university selector stay available for the part of the application that comes after the exam.</p></div>
+        <div><b>Why is it free?</b><p>Because the best way to grow this is for it to actually help people, and for them to tell others. Following on TikTok is how you say thanks and how new students find it.</p></div>
+        <div><b>What is the one paid part?</b><p>The AI interview simulator. It talks to a live AI model that costs real money per session, so it runs on credits. Nothing else on Tempo ever charges you.</p></div>
         <div><b>Is this a replacement for a question bank?</b><p>No, and it is not sold as one. Banks give you volume. This builds the underlying speed, technique and judgement, and tells you why each answer was wrong.</p></div>
-        <div><b>Refunds</b><p>If it is not useful, say so and get your money back. A study tool that has to trap people to keep them is not worth building.</p></div>
+        <div><b>Do I have to keep following?</b><p>No. Once it is unlocked it stays unlocked on this account. The follow is just the one-time thank you.</p></div>
       </div>
 
       {email && supabaseEnabled && <TwoFactorPanel />}
@@ -10263,12 +10255,13 @@ export default function UcatDrillTrainer() {
     setView("results");
   };
 
-  /* The "Unlock" buttons on locked features must never grant access for free;
-     they take the user to the billing page to pay (or redeem a trial code).
-     Real access is granted only by the server: the Stripe webhook writes the
-     entitlement, getEntitlement() reads it, and the master account unlocks by
-     verified email. There is no client-side path to full access. */
+  /* The "Unlock" buttons on locked features take the user to the access page,
+     where the free TikTok-follow unlock lives. */
   const unlock = () => setView("billing");
+  /* Grant free full access after the TikTok follow. Tempo is free, so this is
+     deliberately a client-side grant; the only paid feature (the AI interview)
+     stays enforced by server-side credits, so no cost can be run up this way. */
+  const followUnlock = () => { setUnlocked(true); setJSON("ucat:unlocked", true); setJSON("ucat:followed", true); setShowTour(true); };
   const closeTour = () => { setShowTour(false); setPrefs({ ...prefs, tourSeen: true }); };
 
   /* Turn on a one-day trial: unlocks the app (but grants no credits, so the
@@ -10394,10 +10387,10 @@ export default function UcatDrillTrainer() {
         </div>
       )}
       {showPromo && (
-        <div className="promo-banner" role="region" aria-label="Free trial offer">
+        <div className="promo-banner" role="region" aria-label="Free access offer">
           <span className="promo-gift" aria-hidden="true">🎁</span>
-          <span className="promo-text">Get Tempo <b>free for 1 day</b> with code <b>UCAT18</b> — full access, no card needed.</span>
-          <button className="promo-cta" onClick={() => setView("billing")}>Redeem</button>
+          <span className="promo-text">Tempo is <b>100% free</b> — just follow <b>@{TIKTOK_HANDLE}</b> on TikTok to unlock everything.</span>
+          <button className="promo-cta" onClick={() => setView("billing")}>Unlock free</button>
           <button className="promo-x" onClick={() => setPromoDismissed(true)} aria-label="Dismiss offer">×</button>
         </div>
       )}
@@ -10440,7 +10433,7 @@ export default function UcatDrillTrainer() {
             <div className="ud-trend" style={{ padding: 20, minHeight: 220 }}><h3>Map your grades against every school</h3>
             <p style={{ color: "var(--body)", fontSize: 13.5, lineHeight: 1.65 }}>Enter your GCSEs, UCAT and predictions and see where you are strong, in range or aspirational, with contextual weighting, course detail and living costs.</p></div>
           </Locked></div>}</>)}
-      {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onUnlock={unlock} onTrial={startFreeTrial} trialMsg={trialMsg} email={account ? account.email : ""} onSignOut={signOut} /></>)}
+      {view === "billing" && (<><Header /><BillingView unlocked={unlocked} onFollowUnlock={followUnlock} email={account ? account.email : ""} onSignOut={signOut} /></>)}
       {view === "legal" && (<><Header /><LegalView account={account} prefs={prefs} setPrefs={setPrefs} onDeleteAccount={deleteAccount} /></>)}
       {view === "ps" && (<><Header /><PsBuilder unlocked={unlocked} onUnlock={() => setView("billing")} /></>)}
       {view === "plan" && (<><Header /><PlanView unlocked={unlocked} plan={plan} onStart={start} prefs={prefs} setPrefs={setPrefs} setPlanDone={setPlanDone} weak={weak} best={best} history={history} /></>)}
